@@ -1,0 +1,4 @@
+/node_modules
+/elm-stuff
+/src/elm-stuff
+.DS_Store
