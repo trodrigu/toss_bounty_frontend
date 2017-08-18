@@ -7,8 +7,7 @@ import Data.User as User exposing (User, Username)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Lazy exposing (lazy2)
-import Routing.Router as Router
-import Routing.Helpers exposing (Route(..), parseLocation, reverseRoute, modifyUrl, href)
+import Routing.Router as Router exposing (Route(..))
 import Util exposing ((=>))
 
 
@@ -43,7 +42,7 @@ viewHeader : ActivePage -> Maybe User -> Html msg
 viewHeader page user =
     nav [ class "navbar navbar-light" ]
         [ div [ class "container" ]
-            [ a [ class "navbar-brand", Routing.Helpers.href Routing.Helpers.HomeRoute ]
+            [ a [ class "navbar-brand", href "/" ]
                 [ text "conduit" ]
             ]
         ]
@@ -51,14 +50,14 @@ viewHeader page user =
 
 viewSignIn : ActivePage -> Maybe User -> List (Html msg)
 viewSignIn page user =
-            [ navbarLink (page == Home) Routing.Helpers.HomeRoute [ text "Sign in" ]
+            [ navbarLink (page == Home) HomeRoute [ text "Sign in" ]
             ]
 
 viewFooter : Html msg
 viewFooter =
     footer []
         [ div [ class "container" ]
-            [ a [ class "logo-font", Routing.Helpers.href Routing.Helpers.HomeRoute ] [ text "conduit" ]
+            [ a [ class "logo-font", href "/" ] [ text "conduit" ]
             , span [ class "attribution" ]
                 [ text "An interactive learning project from "
                 , text ". Code & design licensed under MIT."
@@ -70,4 +69,4 @@ viewFooter =
 navbarLink : Bool -> Route -> List (Html msg) -> Html msg
 navbarLink isActive route linkContent =
     li [ classList [ ( "nav-item", True ), ( "active", isActive ) ] ]
-        [ a [ class "nav-link", Routing.Helpers.href route ] linkContent ]
+        [ a [ class "nav-link", Router.href route ] linkContent ]

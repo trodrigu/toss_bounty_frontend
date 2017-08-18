@@ -6,34 +6,85 @@ import Html.Attributes exposing (class, style)
 import Html.Events exposing (..)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
-import Routing.Router as Router
+import Routing.Router as Router exposing (Route(..), fromLocation)
 import Ports
 import Data.Session as Session exposing (Session)
 import Pages.Home as Home
 import Pages.TosserSignUp as TosserSignUp
+import Pages.Login as Login
+import Pages.Logout as Logout
+import Pages.NotFound as NotFound
 import Views.Page as Page exposing (frame)
 import Data.User as User exposing (User, Username)
 import Json.Decode as Decode exposing (Value)
-
-type Page
-    = Blank
-    | NotFound
-    | Home Home.Model
-    | TosserSignup TosserSignUp.Model
+import Util exposing ((=>))
 
 type alias Model =
-    { location : Location
-    , session : Session
+    { session : Session
+    , routerModel : Router.Model
+    , location : Location
     }
 
 type Msg
     = NoOp
     | UrlChange Location
     | RouterMsg Router.Msg
+    | HomeMsg Home.Msg
+    | TosserSignUpMsg TosserSignUp.Msg
+    | LoginMsg Login.Msg
 
-init : Location -> ( Model, Cmd Msg )
-init location =
-    ( { location = location } )
+decodeUserFromJson : Value -> Maybe User
+decodeUserFromJson json =
+    json
+        |> Decode.decodeValue Decode.string
+        |> Result.toMaybe
+        |> Maybe.andThen (Decode.decodeString User.decoder >> Result.toMaybe)
+
+init : Value -> Location -> ( Model, Cmd Msg )
+init val location =
+    setRoute (Router.fromLocation location)
+        { session = { user = decodeUserFromJson val }
+        , routerModel = routerModel
+        , location = location
+        }
+
+routerModel : Router.Model
+routerModel =
+    { route = HomeRoute
+    , homeModel = Home.init
+    , tosserSignUpModel = TosserSignUp.init
+    , loginModel = Login.init
+    , logoutModel = Logout.init
+    , notFoundModel = NotFound.init
+    }
+
+setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
+setRoute maybeRoute model =
+    case maybeRoute of
+
+        Just Router.HomeRoute ->
+            model => Cmd.none
+
+        Just Router.LoginRoute ->
+            model => Cmd.none
+
+        Just Router.LogoutRoute ->
+            let
+                session =
+                    model.session
+            in
+            { model | session = { session | user = Nothing } }
+                => Cmd.batch
+                    [ Ports.storeSession Nothing
+                    , Router.modifyUrl Router.HomeRoute
+                    ]
+
+        Just Router.TosserSignUpRoute ->
+            model => Cmd.none
+
+        Just Router.NotFoundRoute -> model => Cmd.none
+
+        Nothing -> model => Cmd.none
 
 sessionChange : Sub (Maybe User)
 sessionChange =
@@ -46,16 +97,33 @@ update msg model =
             ( model, Cmd.none )
 
         RouterMsg routerMsg ->
-            updatePage model routerMsg
+            updateRouter routerMsg model
 
-updatePage : Msg -> Model -> ( Model, Cmd Msg )
-updatePage msg model  =
+        UrlChange location ->
+            updateRouter (Router.UrlChange location) { model | location = location }
+
+        HomeMsg _ ->
+            model => Cmd.none
+
+        TosserSignUpMsg _ ->
+            model => Cmd.none
+
+        LoginMsg _ ->
+            model => Cmd.none
+
+updateRouter :  Router.Msg -> Model -> ( Model, Cmd Msg )
+updateRouter msg model  =
     let
         session =
             model.session
 
+        routerModel =
+            model.routerModel
+
+        (updatedRouterModel, _) =
+          Router.update session msg routerModel
     in
-        Router.update session msg model
+        { model | routerModel = updatedRouterModel } => Cmd.none
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -97,26 +165,10 @@ footerArea =
 
 view : Model -> Html Msg
 view model =
-    viewPage model.session
+    Router.view model.routerModel
+        |> Html.map RouterMsg
 
-viewPage : Session -> Page -> Html Msg
-viewPage session page =
-    let
-        frame =
-            Page.frame session.user
-    in
-    case page of
-
-        Home subModel ->
-            Home.view session subModel
-                |> frame Home
-                |> Html.map Router.HomeMsg
-
-        Home subModel ->
-            Home.view session subModel
-                |> frame Home
-                |> Html.map Router.HomeMsg
-main : Program Never Model Msg
+main : Program Value Model Msg
 main =
     Navigation.programWithFlags UrlChange
         { init = init

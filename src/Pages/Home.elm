@@ -8,6 +8,10 @@ type alias Model = {}
 type Msg
     = NoOp
 
+init : Model
+init =
+    {}
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     (model, Cmd.none)

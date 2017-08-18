@@ -2,142 +2,163 @@ module Routing.Router exposing (..)
 
 import Navigation exposing (Location)
 import Html exposing (..)
-import Html.Attributes exposing (class, style)
+import Html.Attributes as Attributes exposing (class, style)
 import Html.Events exposing (..)
-import Routing.Helpers exposing (Route(..), parseLocation, reverseRoute, modifyUrl)
 import Pages.Home as Home
 import Pages.TosserSignUp as TosserSignUp
+import Pages.Login as Login
+import Pages.Logout as Logout
+import Pages.NotFound as NotFound
 import Data.Session as Session exposing (Session)
+import UrlParser
+import Data.User as User exposing (User, Username)
+import Ports
+import Util exposing ((=>))
+import Json.Decode as Decode exposing (Value)
+
+type Route
+    = HomeRoute
+    | TosserSignUpRoute
+    | LoginRoute
+    | LogoutRoute
+    | NotFoundRoute
 
 
 type alias Model =
     { route : Route
+    , notFoundModel : NotFound.Model
     , homeModel : Home.Model
     , tosserSignUpModel : TosserSignUp.Model
+    , loginModel : Login.Model
+    , logoutModel : Logout.Model
     }
 
 type Msg
-    = UrlChange Location
-    | NavigateTo Route
+    = SetRoute (Maybe Route)
     | HomeMsg Home.Msg
     | TosserSignUpMsg TosserSignUp.Msg
+    | LoginMsg Login.Msg
+    | LogoutMsg Logout.Msg
+    | NotFoundMsg NotFound.Msg
+    | NavigateTo Route
+    | UrlChange Location
 
 update : Session -> Msg -> Model -> ( Model, Cmd Msg )
-update sessin msg model =
-    -- let
-    --     session =
-    --         model.session
-
+update session msg model =
     case msg of
         UrlChange location ->
             ( { model | route = parseLocation location }
-            , Cmd.none
-            )
+            , Cmd.none )
+
+        SetRoute route ->
+            setRoute route model
 
         NavigateTo route ->
             ( model
             , Navigation.newUrl (reverseRoute route)
             )
+    -- let
+    --     session =
+    --         model.session
+
+    -- case msg of
+    --     UrlChange location ->
+    --         ( { model | route = parseLocation location }
+    --         , Cmd.none
+    --         )
+
+    --     NavigateTo route ->
+    --         ( model
+    --         , Navigation.newUrl (reverseRoute route)
+    --         )
+
+        NotFoundMsg notFoundMsg ->
+            let
+                ( newNotFoundModel, _ ) =
+                    NotFound.update notFoundMsg model.notFoundModel
+
+            in
+                { model | notFoundModel = newNotFoundModel } => Cmd.none
 
         TosserSignUpMsg tosserSignUpMsg ->
-            updateTosserSignUp model tosserSignUpMsg
+            let
+                ( newTosserSignUpModel, _ ) =
+                    TosserSignUp.update tosserSignUpMsg model.tosserSignUpModel
+
+            in
+                { model | tosserSignUpModel = newTosserSignUpModel } => Cmd.none
+
+        LoginMsg loginMsg ->
+            let
+                ( newLoginModel, _ ) =
+                    Login.update loginMsg model.loginModel
+
+            in
+                { model | loginModel = newLoginModel } => Cmd.none
+
+        LogoutMsg logoutMsg ->
+            let
+                ( newLogoutModel, _ ) =
+                    Logout.update logoutMsg model.logoutModel
+
+            in
+                { model | homeModel = newLogoutModel } => Cmd.none
 
         HomeMsg homeMsg ->
-            updateHome model homeMsg
-    -- case ( msg, page ) of
-    --     ( SetRoute route, _ ) ->
-    --         setRoute route model
 
-    --     ( SetUser user, _ ) ->
-    --         let
-    --             session =
-    --                 model.session
+            let
+                ( newHomeModel, _ ) =
+                    Home.update homeMsg model.homeModel
 
-    --             cmd =
-    --                 -- If we just signed out, then redirect to Home.
-    --                 if session.user /= Nothing && user == Nothing then
-    --                     Route.modifyUrl Route.Home
-    --                 else
-    --                     Cmd.none
-    --         in
-    --             { model | session = { session | user = user } }
-    --                 => cmd
+            in
+                { model | homeModel = newHomeModel } => Cmd.none
 
-        -- ( LoginMsg subMsg, Login subModel ) ->
-        --     let
-        --         ( ( pageModel, cmd ), msgFromPage ) =
-        --             Login.update subMsg subModel
+-- updateSubModel : Model Msg -> ( Model, Cmd Msg )
+-- updateSubModel model msg =
+--   let
+--       ( newSubModel, _ ) =
+--           Sub.update subMsg model.subModel
 
-        --         newModel =
-        --             case msgFromPage of
-        --                 Login.NoOp ->
-        --                     model
+--   in
+--       { model | subModel = newSubModel } => Cmd.none
 
-        --                 Login.SetUser user ->
-        --                     let
-        --                         session =
-        --                             model.session
-        --                     in
-        --                     { model | session = { user = Just user } }
-        --     in
-        --     { newModel | pageState = Loaded (Login pageModel) }
-        --         => Cmd.map LoginMsg cmd
+setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
+setRoute maybeRoute model =
+    case maybeRoute of
+        Nothing ->
+            model => Cmd.none
 
-        -- ( RegisterMsg subMsg, Register subModel ) ->
-        --     let
-        --         ( ( pageModel, cmd ), msgFromPage ) =
-        --             Register.update subMsg subModel
+        Just HomeRoute ->
+            model => Cmd.none
 
-        --         newModel =
-        --             case msgFromPage of
-        --                 Register.NoOp ->
-        --                     model
+        Just TosserSignUpRoute ->
+            model => Cmd.none
 
-        --                 Register.SetUser user ->
-        --                     let
-        --                         session =
-        --                             model.session
-        --                     in
-        --                     { model | session = { user = Just user } }
-        --     in
-        --     { newModel | pageState = Loaded (Register pageModel) }
-        --         => Cmd.map RegisterMsg cmd
+        Just LoginRoute ->
+            model => Cmd.none
 
-        -- ( _, NotFound ) ->
-        --     -- Disregard incoming messages when we're on the
-        --     -- NotFound page.
-        --     model => Cmd.none
+        Just NotFoundRoute ->
+            model => Cmd.none
 
-        -- ( _, _ ) ->
-        --     -- Disregard incoming messages that arrived for the wrong page
-        --     model => Cmd.none
+        Just LogoutRoute ->
+            model => Cmd.none
+            -- let
+            --     session =
+            --         model.session
+            -- in
+            -- { model | session = { session | user = Nothing } }
+            --     => Cmd.batch
+            --         [ Ports.storeSession Nothing
+            --         , Route.modifyUrl Route.Home
+            --         ]
 
-updateTosserSignUp : Model -> TosserSignUp.Msg -> ( Model, Cmd Msg )
-updateTosserSignUp model tosserSignUpMsg =
-    let
-        ( nextTosserSignUpModel, tosserSignUpCmd ) =
-            TosserSignUp.update tosserSignUpMsg model.tosserSignUpModel
-    in
-        ( { model | tosserSignUpModel = nextTosserSignUpModel }
-        , Cmd.map TosserSignUpMsg tosserSignUpCmd
-        )
-
-updateHome : Model -> Home.Msg -> ( Model, Cmd Msg )
-updateHome model homeMsg =
-    let
-        ( nextHomeModel, homeCmd ) =
-            Home.update homeMsg model.homeModel
-    in
-        ( { model | homeModel = nextHomeModel }
-        , Cmd.map HomeMsg homeCmd
-        )
 
 renderNav : Html Msg
 renderNav =
     div [ class "container" ]
         [ nav [ class "nav" ]
               [ div [ class "nav-left" ]
-                    [ a [ class "nav-item", onClick (NavigateTo HomeRoute) ]
+                    [ a [ class "nav-item", href HomeRoute ]
                         [ text "Toss Bounty"
                         ]
                     ]
@@ -153,7 +174,7 @@ renderNav =
                     , span [] []
                     ]
               , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item", onClick (NavigateTo TosserSignUpRoute ) ]
+                    [ a [ class "nav-item", href TosserSignUpRoute ]
                         [ text "Sign up as a tosser"
                         ]
                     ]
@@ -178,25 +199,100 @@ footerArea =
                  ]
            ]
 
-view : Model -> Html Msg
-view model =
-  div []
-      [ pageView model
-      ]
+sessionChange : Sub (Maybe User)
+sessionChange =
+    Ports.onSessionChange (Decode.decodeValue User.decoder >> Result.toMaybe)
+
+reverseRoute : Route -> String
+reverseRoute route =
+    case route of
+        TosserSignUpRoute ->
+            "#/tosser-sign-up"
+
+        _ ->
+            "#/"
+
+routeToString : Route -> String
+routeToString page =
+    let
+        pieces =
+            case page of
+                HomeRoute ->
+                    []
+
+                TosserSignUpRoute ->
+                    [ "tosser-sign-up" ]
+
+                LoginRoute ->
+                    [ "login" ]
+
+                LogoutRoute ->
+                    [ "logout" ]
+
+                NotFoundRoute ->
+                    []
+
+    in
+        "#/" ++ String.join "/" pieces
+
+routeParser : UrlParser.Parser (Route -> a) a
+routeParser =
+    UrlParser.oneOf
+        [ UrlParser.map HomeRoute UrlParser.top
+        , UrlParser.map TosserSignUpRoute ( UrlParser.s "tosser-sign-up" )
+        ]
+
+
+parseLocation : Location -> Route
+parseLocation location =
+    location
+        |> UrlParser.parseHash routeParser
+        |> Maybe.withDefault NotFoundRoute
+
+modifyUrl : Route -> Cmd msg
+modifyUrl =
+    routeToString >> Navigation.modifyUrl
+
+href : Route -> Attribute msg
+href route =
+    Attributes.href (routeToString route)
+
+fromLocation : Location -> Maybe Route
+fromLocation location =
+    if String.isEmpty location.hash then
+        Just HomeRoute
+    else
+        UrlParser.parseHash routeParser location
 
 pageView : Model -> Html Msg
 pageView model =
     div []
         [ (case model.route of
             HomeRoute ->
-                Home.view model.homeModel
-                    |> Html.map HomeMsg
+               Home.view model.homeModel
+                   |> Html.map HomeMsg
 
             TosserSignUpRoute ->
-                TosserSignUp.view model.tosserSignUpModel
-                    |> Html.map TosserSignUpMsg
+               TosserSignUp.view model.tosserSignUpModel
+                   |> Html.map TosserSignUpMsg
+
+            LoginRoute ->
+               Login.view model.loginModel
+                   |> Html.map LoginMsg
+
+            LogoutRoute ->
+               Logout.view model.logoutModel
+                   |> Html.map LogoutMsg
 
             NotFoundRoute ->
-                h1 [] [ text "404 :(" ]
-          )
+               NotFound.view
+                   |> Html.map NotFoundMsg
+
+               )]
+
+view : Model -> Html Msg
+view model =
+    div []
+        [ renderNav
+        , pageView model
         ]

@@ -4,12 +4,16 @@ import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (onInput, onClick)
 import Navigation
-import Routing.Helpers exposing (Route(HomeRoute))
 import Json.Encode exposing (encode, Value, object, string)
 import RemoteData.Http
 import RemoteData exposing (RemoteData(..), WebData)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Json.Decode exposing (string, Decoder)
+import Debug
+
+init : Model
+init =
+    emptyTosserSignUpForm
 
 encodeTosserSignUpFormAsValues : Model -> Json.Encode.Value
 encodeTosserSignUpFormAsValues tosserSignUpForm =
