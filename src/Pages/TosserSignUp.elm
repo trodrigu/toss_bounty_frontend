@@ -20,50 +20,40 @@ encodeTosserSignUpFormAsValues tosserSignUpForm =
   Json.Encode.object
       [ ("name", Json.Encode.string tosserSignUpForm.name)
       , ("email", Json.Encode.string tosserSignUpForm.email)
-      , ("company", Json.Encode.string tosserSignUpForm.company)
-      , ("password", Json.Encode.string tosserSignUpForm.password)
-      , ("passwordConfirmation", Json.Encode.string tosserSignUpForm.passwordConfirmation) ]
+      , ("password", Json.Encode.string tosserSignUpForm.password) ]
 
 
 postTosserSignUpForm : Model -> Cmd Msg
-postTosserSignUpForm tosserSignUpForm =
-    RemoteData.Http.post "/users" HandlePostTosserSignUpForm tosserDecoder (encodeTosserSignUpFormAsValues tosserSignUpForm)
+postTosserSignUpForm tosserSignUpModel =
+    RemoteData.Http.post "http://localhost:4000/users" HandlePostTosserSignUpForm tosserDecoder (encodeTosserSignUpFormAsValues tosserSignUpModel)
 
 type alias Model =
     { name : String
     , email : String
-    , company : String
     , password : String
-    , tosser : WebData Tosser
-    , passwordConfirmation : String }
+    , tosser : WebData Tosser }
 
 type alias Tosser =
     { name : String
-    , email : String
-    , company : String }
+    , email : String }
 
 emptyTosserSignUpForm : Model
 emptyTosserSignUpForm =
     { name = ""
     , email = ""
-    , company = ""
     , password = ""
-    , tosser = NotAsked
-    , passwordConfirmation = "" }
+    , tosser = NotAsked }
 
 emptyTosser : Tosser
 emptyTosser =
     { name = ""
-    , email = ""
-    , company = "" }
+    , email = "" }
 
 type Msg
     = SaveTosserForm
     | UpdateNameField String
     | UpdateEmailField String
-    | UpdateCompanyField String
     | UpdatePasswordField String
-    | UpdatePasswordConfirmationField String
     | HandlePostTosserSignUpForm (WebData Tosser)
 
 tosserDecoder : Decoder Tosser
@@ -71,7 +61,6 @@ tosserDecoder =
   decode Tosser
       |> required "name" Json.Decode.string
       |> required "email" Json.Decode.string
-      |> required "company" Json.Decode.string
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -80,28 +69,45 @@ update msg model =
 
         UpdateEmailField str -> ( { model | email = str }, Cmd.none )
 
-        UpdateCompanyField str -> ( { model | company = str }, Cmd.none )
-
         UpdatePasswordField str -> ( { model | password = str }, Cmd.none )
 
-        UpdatePasswordConfirmationField str -> ( { model | passwordConfirmation = str }, Cmd.none )
-
         HandlePostTosserSignUpForm data ->
-            ({ model | tosser = data }, Cmd.none)
+            case data of
+                Success tosser ->
+                    ({ model | tosser = data }, Cmd.none)
+
+                _ ->
+                    ( model, Cmd.none )
 
         SaveTosserForm ->
-            ( model, postTosserSignUpForm model )
+            let
+                newModel =
+                    { model | tosser = Loading }
+
+            in
+            ( newModel, postTosserSignUpForm model )
 
 view : Model -> Html Msg
 view model =
-    tosserSignUpForm
+    case model.tosser of
+        NotAsked ->
+            tosserSignUpForm
+
+        RemoteData.Loading ->
+            div [][ text "Loading..." ]
+
+        RemoteData.Success tosser ->
+            div [][]
+
+        RemoteData.Failure error ->
+            text ("Oh noes, cat loading failed with error: " ++ toString error)
 
 tosserSignUpForm : Html Msg
 tosserSignUpForm =
     section [ class "hero" ]
             [ div [ class "hero-body", style[ ( "padding", "7rem 1.5rem" ) ] ]
                   [ div [ class "columns" ]
-                        [ div [ class "column is-one-third is-offset-one-third"]
+                        [ Html.form [ Html.Events.onSubmit SaveTosserForm, class "column is-one-third is-offset-one-third"]
                               [ h1 [ class "title" ] [ text "Start Writing Stories" ]
                               , div [ class "field" ]
                                     [ label [ class "label" ]
@@ -125,16 +131,6 @@ tosserSignUpForm =
                                     ]
                               , div [ class "field" ]
                                     [ label [ class "label" ]
-                                            [ text "Company" ]
-                                    , p [ class "control" ]
-                                        [ input [ class "input"
-                                                , onInput UpdateCompanyField
-                                                ]
-                                                []
-                                        ]
-                                    ]
-                              , div [ class "field" ]
-                                    [ label [ class "label" ]
                                             [ text "Password" ]
                                     , p [ class "control" ]
                                         [ input [ class "input"
@@ -143,19 +139,9 @@ tosserSignUpForm =
                                                 []
                                         ]
                                     ]
-                              , div [ class "field" ]
-                                    [ label [ class "label" ]
-                                            [ text "Password Confirmation" ]
-                                    , p [ class "control" ]
-                                        [ input [ class "input"
-                                                , onInput UpdatePasswordConfirmationField
-                                                ]
-                                                []
-                                        ]
-                                    ]
                               , div [ class "field is-grouped" ]
                                     [ p [ class "control" ]
-                                          [ button [ class "button is-primary", onClick SaveTosserForm ]
+                                          [ button [ class "button is-primary" ]
                                                 [ text "Save" ]
                                         ]
                                     ]
