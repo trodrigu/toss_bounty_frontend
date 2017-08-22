@@ -11,7 +11,7 @@ import Pages.Logout as Logout
 import Pages.NotFound as NotFound
 import Data.Session as Session exposing (Session)
 import UrlParser
-import Data.User as User exposing (User, Username)
+import Data.User as User exposing (User)
 import Ports
 import Util exposing ((=>))
 import Json.Decode as Decode exposing (Value)

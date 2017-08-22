@@ -15,14 +15,23 @@ import Pages.Login as Login
 import Pages.Logout as Logout
 import Pages.NotFound as NotFound
 import Views.Page as Page exposing (frame)
-import Data.User as User exposing (User, Username)
+import Data.User as User exposing (User)
 import Json.Decode as Decode exposing (Value)
 import Util exposing ((=>))
+
+type Page
+    = Home Home.Model
+    | TosserSignUp TosserSignUp.Model
+    | Login Login.Model
+    | Logout Logout.Model
+    | NotFound NotFound.Model
+    | Blank
 
 type alias Model =
     { session : Session
     , routerModel : Router.Model
     , location : Location
+    , page : Page
     }
 
 type Msg
@@ -32,6 +41,7 @@ type Msg
     | HomeMsg Home.Msg
     | TosserSignUpMsg TosserSignUp.Msg
     | LoginMsg Login.Msg
+    | SetUser (Maybe User)
 
 decodeUserFromJson : Value -> Maybe User
 decodeUserFromJson json =
@@ -46,6 +56,7 @@ init val location =
         { session = { user = decodeUserFromJson val }
         , routerModel = routerModel
         , location = location
+        , init = Home
         }
 
 routerModel : Router.Model
@@ -105,8 +116,10 @@ update msg model =
         HomeMsg _ ->
             model => Cmd.none
 
-        TosserSignUpMsg _ ->
-            model => Cmd.none
+        TosserSignUpMsg subMsg ->
+            let
+                newTosserSignUpModel =
+                    TosserSignUp.update subMsg subModel
 
         LoginMsg _ ->
             model => Cmd.none
@@ -127,7 +140,9 @@ updateRouter msg model  =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Sub.batch
+        [ Sub.map SetUser sessionChange
+        ]
 
 developerHeroArea : Html Msg
 developerHeroArea =

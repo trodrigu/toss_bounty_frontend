@@ -3,7 +3,7 @@ module Views.Page exposing (ActivePage(..), frame)
 {-| The frame around a typical page - that is, the header and footer.
 -}
 
-import Data.User as User exposing (User, Username)
+import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Lazy exposing (lazy2)

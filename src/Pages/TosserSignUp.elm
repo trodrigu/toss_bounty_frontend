@@ -10,6 +10,8 @@ import RemoteData exposing (RemoteData(..), WebData)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Json.Decode exposing (string, Decoder)
 import Debug
+import Data.User as User exposing (User)
+import Util exposing ((=>))
 
 init : Model
 init =
@@ -24,8 +26,8 @@ encodeTosserSignUpFormAsValues tosserSignUpForm =
 
 
 postTosserSignUpForm : Model -> Cmd Msg
-postTosserSignUpForm tosserSignUpModel =
-    RemoteData.Http.post "http://localhost:4000/users" HandlePostTosserSignUpForm tosserDecoder (encodeTosserSignUpFormAsValues tosserSignUpModel)
+postTosserSignUpForm model =
+    RemoteData.Http.post "http://localhost:4000/users" HandlePostTosserSignUpForm tosserDecoder (encodeTosserSignUpFormAsValues model)
 
 type alias Model =
     { name : String
@@ -55,6 +57,10 @@ type Msg
     | UpdateEmailField String
     | UpdatePasswordField String
     | HandlePostTosserSignUpForm (WebData Tosser)
+
+type ExternalMsg
+    = NoOp
+    | SetUser User
 
 tosserDecoder : Decoder Tosser
 tosserDecoder =
