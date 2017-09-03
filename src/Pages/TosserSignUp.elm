@@ -11,7 +11,10 @@ import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Json.Decode exposing (string, Decoder)
 import Debug
 import Data.User as User exposing (User)
+import Request.User as User exposing (storeSession)
 import Util exposing ((=>))
+import Routing.Router as Router
+import Http exposing (Header)
 
 init : Model
 init =
@@ -24,89 +27,68 @@ encodeTosserSignUpFormAsValues tosserSignUpForm =
       , ("email", Json.Encode.string tosserSignUpForm.email)
       , ("password", Json.Encode.string tosserSignUpForm.password) ]
 
-
 postTosserSignUpForm : Model -> Cmd Msg
 postTosserSignUpForm model =
-    RemoteData.Http.post "http://localhost:4000/users" HandlePostTosserSignUpForm tosserDecoder (encodeTosserSignUpFormAsValues model)
+    let
+        data =
+            { name = model.name
+            , email = model.email
+            , password = model.password }
+
+    in
+        RemoteData.Http.post "http://api.tossbounty.com/api/users" HandlePostTosserSignUpForm User.decoder (User.encode data)
 
 type alias Model =
     { name : String
     , email : String
-    , password : String
-    , tosser : WebData Tosser }
-
-type alias Tosser =
-    { name : String
-    , email : String }
+    , password : String }
 
 emptyTosserSignUpForm : Model
 emptyTosserSignUpForm =
     { name = ""
     , email = ""
-    , password = ""
-    , tosser = NotAsked }
-
-emptyTosser : Tosser
-emptyTosser =
-    { name = ""
-    , email = "" }
+    , password = "" }
 
 type Msg
     = SaveTosserForm
     | UpdateNameField String
     | UpdateEmailField String
     | UpdatePasswordField String
-    | HandlePostTosserSignUpForm (WebData Tosser)
+    | HandlePostTosserSignUpForm (WebData User)
 
 type ExternalMsg
     = NoOp
     | SetUser User
 
-tosserDecoder : Decoder Tosser
-tosserDecoder =
-  decode Tosser
-      |> required "name" Json.Decode.string
-      |> required "email" Json.Decode.string
-
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
-        UpdateNameField str -> ( { model | name = str }, Cmd.none )
+        UpdateNameField str ->
+            ( { model | name = str }, Cmd.none ) => NoOp
 
-        UpdateEmailField str -> ( { model | email = str }, Cmd.none )
+        UpdateEmailField str ->
+            ( { model | email = str }, Cmd.none ) => NoOp
 
-        UpdatePasswordField str -> ( { model | password = str }, Cmd.none )
+        UpdatePasswordField str ->
+            ( { model | password = str }, Cmd.none ) => NoOp
 
         HandlePostTosserSignUpForm data ->
             case data of
-                Success tosser ->
-                    ({ model | tosser = data }, Cmd.none)
+                Success user ->
+                    model
+                      => Cmd.batch [ storeSession user, Router.modifyUrl Router.HomeRoute ]
+                      => SetUser user
 
                 _ ->
                     ( model, Cmd.none )
+                        => NoOp
 
         SaveTosserForm ->
-            let
-                newModel =
-                    { model | tosser = Loading }
-
-            in
-            ( newModel, postTosserSignUpForm model )
+            ( model, postTosserSignUpForm model ) => NoOp
 
 view : Model -> Html Msg
 view model =
-    case model.tosser of
-        NotAsked ->
-            tosserSignUpForm
-
-        RemoteData.Loading ->
-            div [][ text "Loading..." ]
-
-        RemoteData.Success tosser ->
-            div [][]
-
-        RemoteData.Failure error ->
-            text ("Oh noes, cat loading failed with error: " ++ toString error)
+    tosserSignUpForm
 
 tosserSignUpForm : Html Msg
 tosserSignUpForm =

@@ -32,8 +32,9 @@ decoder =
       |> required "updatedAt" Decode.string
 
 
-encode : User -> Encode.Value
-encode tosserSignUpForm =
+encode : { r | name : String, email : String, password : String } -> Encode.Value
+encode user =
   Encode.object
-      [ ("name", Encode.string tosserSignUpForm.name)
-      , ("email", Encode.string tosserSignUpForm.email) ]
+      [ ("name", Encode.string user.name)
+      , ("email", Encode.string user.email)
+      , ("password", Encode.string user.password) ]

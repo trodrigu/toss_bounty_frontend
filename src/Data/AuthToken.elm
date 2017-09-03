@@ -1,6 +1,6 @@
-module Data.AuthToken exposing (AuthToken, decoder, encode, withAuthorization)
+module Data.AuthToken exposing (AuthToken, decoder, encode)
 
-import HttpBuilder exposing (RequestBuilder, withHeader)
+-- import HttpBuilder exposing (RequestBuilder, withHeader)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 
@@ -20,12 +20,12 @@ decoder =
         |> Decode.map AuthToken
 
 
-withAuthorization : Maybe AuthToken -> RequestBuilder a -> RequestBuilder a
-withAuthorization maybeToken builder =
-    case maybeToken of
-        Just (AuthToken token) ->
-            builder
-                |> withHeader "authorization" ("Token " ++ token)
+-- withAuthorization : Maybe AuthToken -> RequestBuilder a -> RequestBuilder a
+-- withAuthorization maybeToken builder =
+--     case maybeToken of
+--         Just (AuthToken token) ->
+--             builder
+--                 |> withHeader "authorization" ("Token " ++ token)
 
-        Nothing ->
-            builder
+--         Nothing ->
+--             builder

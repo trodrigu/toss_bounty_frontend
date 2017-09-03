@@ -1,18 +1,25 @@
--- module Request.User exposing (register, storeSession)
+module Request.User exposing (storeSession)
 
--- import Data.User as User exposing (User)
+import Data.User as User exposing (User)
 -- import Json.Decode as Decode
--- import Json.Encode as Encode
+import Json.Encode as Encode
 -- import Json.Encode.Extra as EncodeExtra
--- import Ports
+import Ports
 -- import Util exposing ((=>))
 
--- storeSession : User -> Cmd msg
--- storeSession user =
---     User.encode user
---         |> Encode.encode 0
---         |> Just
---         |> Ports.storeSession
+storeSession : { r | name : String, email : String } -> Cmd msg
+storeSession { name, email } =
+    let
+        encodedUser =
+            Encode.object
+                [ ("name", Encode.string name)
+                , ("email", Encode.string email) ]
+
+    in
+        encodedUser
+        |> Encode.encode 0
+        |> Just
+        |> Ports.storeSession
 
 -- register : { r | username : String, email : String, password : String } -> Http.Request User
 -- register { name, email, password } =

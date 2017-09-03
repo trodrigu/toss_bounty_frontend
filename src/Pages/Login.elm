@@ -9,6 +9,8 @@ import RemoteData.Http
 import RemoteData exposing (RemoteData(..), WebData)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Json.Decode exposing (string, Decoder)
+import Data.User as User exposing (User)
+import Util exposing ((=>))
 
 init : Model
 init =
@@ -23,6 +25,10 @@ type Msg
     = SaveLoginForm
     | UpdateEmailField String
     | UpdatePasswordField String
+
+type ExternalMsg
+    = NoOp
+    | SetUser User
 
 view : Model -> Html Msg
 view model =
@@ -66,6 +72,6 @@ loginForm =
                   ]
             ]
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
-    (model, Cmd.none)
+    (model, Cmd.none) => NoOp
