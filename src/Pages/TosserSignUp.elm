@@ -36,7 +36,7 @@ postTosserSignUpForm model =
             , password = model.password }
 
     in
-        RemoteData.Http.post "http://api.tossbounty.com/api/users" HandlePostTosserSignUpForm User.decoder (User.encode data)
+        RemoteData.Http.post "http://api.tossbounty.com/users" HandlePostTosserSignUpForm User.decoder (User.encode data)
 
 type alias Model =
     { name : String

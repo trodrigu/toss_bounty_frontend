@@ -34,7 +34,17 @@ decoder =
 
 encode : { r | name : String, email : String, password : String } -> Encode.Value
 encode user =
-  Encode.object
-      [ ("name", Encode.string user.name)
-      , ("email", Encode.string user.email)
-      , ("password", Encode.string user.password) ]
+
+    let
+
+        user_attributes =
+            Encode.object
+                [ ("name", Encode.string user.name)
+                , ("email", Encode.string user.email)
+                , ("password", Encode.string user.password) ]
+
+        data_attributes =
+            Encode.object [ ( "attributes", user_attributes)]
+
+    in
+        Encode.object [ ("data", data_attributes) ]
