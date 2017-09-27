@@ -21,6 +21,8 @@ under Other.
 type ActivePage
     = Other
     | Home
+    | Dash
+    | TosserSignUp
 
 
 {-| Take a page's Html and frame it with a header and footer.
@@ -32,38 +34,67 @@ The caller provides the current user, so we can display in either
 frame : Maybe User -> ActivePage -> Html msg -> Html msg
 frame user page content =
     div [ class "page-frame" ]
-        [ viewHeader page user
+        [ renderNav page user
         , content
-        , viewFooter
+        , footerArea
         ]
 
-
-viewHeader : ActivePage -> Maybe User -> Html msg
-viewHeader page user =
-    nav [ class "navbar navbar-light" ]
-        [ div [ class "container" ]
-            [ a [ class "navbar-brand", href "/" ]
-                [ text "conduit" ]
-            ]
+renderNav : ActivePage -> Maybe User -> Html msg
+renderNav page user =
+    div [ class "container" ]
+        [ nav [ class "nav" ]
+              [ div [ class "nav-left" ]
+                    [ a [ class "nav-item", Router.href HomeRoute ]
+                        [ text "Toss Bounty"
+                        ]
+                    ]
+              , div [ class "nav-center" ]
+                    [ a [ class "nav-item" ]
+                        [ span [ class "icon" ]
+                              [ i [ class "fa fa-twitter" ] [] ]
+                        ]
+                    ]
+              , span [ class "nav-toggle" ]
+                    [ span [] []
+                    , span [] []
+                    , span [] []
+                    ]
+              , div [ class "nav-right nav-menu" ]
+                    [ a [ class "nav-item", Router.href DashRoute ]
+                        [ text "Dash"
+                        ]
+                    ]
+              , div [ class "nav-right nav-menu" ]
+                    [ a [ class "nav-item", Router.href TosserSignUpRoute ]
+                        [ text "Sign up as a tosser"
+                        ]
+                    ]
+              , div [ class "nav-right nav-menu" ]
+                    [ a [ class "nav-item" ]
+                        [ text "Sign up as a bounty hunter"
+                        ]
+                    ]
+              ]
         ]
-
 
 viewSignIn : ActivePage -> Maybe User -> List (Html msg)
 viewSignIn page user =
             [ navbarLink (page == Home) HomeRoute [ text "Sign in" ]
             ]
 
-viewFooter : Html msg
-viewFooter =
-    footer []
-        [ div [ class "container" ]
-            [ a [ class "logo-font", href "/" ] [ text "conduit" ]
-            , span [ class "attribution" ]
-                [ text "An interactive learning project from "
-                , text ". Code & design licensed under MIT."
-                ]
-            ]
-        ]
+footerArea : Html msg
+footerArea =
+    footer [ style [("padding", "3rem 1.5rem 6rem"), ("background-color", "whitesmoke")]]
+           [ div [ class "container" ]
+                 [ div [ class "content has-text-centered" ]
+                       [ p []
+                           [ strong []
+                                    [ text "Toss Bounty" ]
+                           ]
+                       ]
+                 ]
+           ]
+
 
 
 navbarLink : Bool -> Route -> List (Html msg) -> Html msg

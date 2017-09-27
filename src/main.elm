@@ -258,94 +258,49 @@ developerHeroArea =
                      ]
                ]
 
-footerArea : Html Msg
-footerArea =
-    footer [ style [("padding", "3rem 1.5rem 6rem"), ("background-color", "whitesmoke")]]
-           [ div [ class "container" ]
-                 [ div [ class "content has-text-centered" ]
-                       [ p []
-                           [ strong []
-                                    [ text "Toss Bounty" ]
-                           ]
-                       ]
-                 ]
-           ]
+pageView : Session -> Page -> Html Msg
+pageView session page =
+    let
+        frame =
+            Page.frame session.user
 
-pageView : Page -> Html Msg
-pageView page =
-        div []
-            [ (case page of
-                Home subModel ->
-                  Home.view subModel
-                      |> Html.map HomeMsg
+    in
+    div []
+        [ (case page of
+            Home subModel ->
+              Home.view subModel
+                  |> frame Page.Home
+                  |> Html.map HomeMsg
 
-                TosserSignUp subModel ->
-                  TosserSignUp.view subModel
-                      |> Html.map TosserSignUpMsg
+            TosserSignUp subModel ->
+              TosserSignUp.view subModel
+                  |> frame Page.TosserSignUp
+                  |> Html.map TosserSignUpMsg
 
-                Dash subModel ->
-                  Dash.view subModel
-                      |> Html.map DashMsg
+            Dash subModel ->
+              Dash.view session subModel
+                  |> frame Page.Dash
+                  |> Html.map DashMsg
 
-                Login subModel ->
-                  Login.view subModel
-                      |> Html.map LoginMsg
+            Login subModel ->
+              Login.view subModel
+                  |> Html.map LoginMsg
 
-                Logout subModel ->
-                  Logout.view subModel
-                      |> Html.map LogoutMsg
+            Logout subModel ->
+              Logout.view subModel
+                  |> Html.map LogoutMsg
 
-                NotFound subModel ->
-                  NotFound.view
-                      |> Html.map NotFoundMsg
+            NotFound subModel ->
+              NotFound.view
+                  |> Html.map NotFoundMsg
 
-                  )]
-
-renderNav : Html Msg
-renderNav =
-    div [ class "container" ]
-        [ nav [ class "nav" ]
-              [ div [ class "nav-left" ]
-                    [ a [ class "nav-item", Router.href HomeRoute ]
-                        [ text "Toss Bounty"
-                        ]
-                    ]
-              , div [ class "nav-center" ]
-                    [ a [ class "nav-item" ]
-                        [ span [ class "icon" ]
-                              [ i [ class "fa fa-twitter" ] [] ]
-                        ]
-                    ]
-              , span [ class "nav-toggle" ]
-                    [ span [] []
-                    , span [] []
-                    , span [] []
-                    ]
-              , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item", Router.href DashRoute ]
-                        [ text "Dash"
-                        ]
-                    ]
-              , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item", Router.href TosserSignUpRoute ]
-                        [ text "Sign up as a tosser"
-                        ]
-                    ]
-              , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item" ]
-                        [ text "Sign up as a bounty hunter"
-                        ]
-                    ]
-              ]
-        ]
+              )]
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ renderNav
-        , pageView model.page
-        ]
+        [ pageView model.session model.page ]
 main : Program Value Model Msg
 main =
     Navigation.programWithFlags (Router.fromLocation >> SetRoute)
