@@ -11,8 +11,8 @@ import Util exposing ((=>))
 
 
 type alias User =
-    { email : String
-    , name : String
+    { name : String
+    , email : String
     , token : AuthToken
     }
 

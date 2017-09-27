@@ -7,13 +7,13 @@ import Json.Encode as Encode
 import Ports
 -- import Util exposing ((=>))
 
-storeSession : { r | name : String, email : String } -> Cmd msg
-storeSession { name, email } =
+storeSession : { r | email : String, name : String } -> Cmd msg
+storeSession { email, name } =
     let
         encodedUser =
             Encode.object
-                [ ("name", Encode.string name)
-                , ("email", Encode.string email) ]
+                [ ("email", Encode.string email)
+                , ("name", Encode.string name) ]
 
     in
         encodedUser
