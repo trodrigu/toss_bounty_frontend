@@ -54,12 +54,50 @@ update msg model =
 
 view : Session -> Model -> Html Msg
 view session model =
+    div
+        []
+        [ highlyDesiredBounties
+        , yourBounties
+        ]
+
+yourBounties : Html Msg
+yourBounties =
     section
         [ class "section" ]
         [
          div
              [ class "container" ]
-             [ dashView ]
+             [ h1
+                   []
+                   [ text "Your Bounties" ]
+             , div
+                   [ class "columns" ]
+                   [ div
+                         [ class "column" ][ dashView ]
+                   , div
+                         [ class "column" ][ dashView ]
+                   ]
+             ]
+        ]
+
+highlyDesiredBounties : Html Msg
+highlyDesiredBounties =
+    section
+        [ class "section" ]
+        [
+         div
+             [ class "container" ]
+             [ h1
+                   []
+                   [ text "Highly Desired Bounties" ]
+             , div
+                   [ class "columns" ]
+                   [ div
+                         [ class "column" ][ dashView ]
+                   , div
+                         [ class "column" ][ dashView ]
+                   ]
+             ]
         ]
 
 dashView : Html Msg
@@ -74,40 +112,49 @@ dashView =
                     [
                     figure
                         [ class "image"]
-                        [
-                            img
-                                [ src "http://placekitten.com.s3.amazonaws.com/homepage-samples/96/139.jpg" ]
-                                []
+                        [ img
+                          [ src "http://placekitten.com.s3.amazonaws.com/homepage-samples/96/139.jpg" ]
+                          []
                         ]
                     ]
               , div
                   [ class "media-content" ]
-                  [
-                       div
-                           [ class "content" ]
-                           [
-                                p
-                                    []
-                                    [ text "Vestibulum convallis, lorem a tempus semper, dui dui euismod elit, vitae placerat urna tortor vitae lacus." ]
-                           ]
-                  ]
-              , nav
-                  [ class "level is-mobile" ]
-                  [
-                   div
-                       [ class "level-left" ]
-                       [
-                            a
-                                [ class "level-item" ]
-                                [
-                                     span
-                                         [ class "icon is-small" ]
-                                         [
-                                              i
-                                                  [ class "fa fa-reply" ][]
-                                         ]
-                                ]
-                       ]
+                  [ div
+                      [ class "content" ]
+                      [ p
+                        []
+                        [ h1
+                          []
+                          [ text "Elixir Lang"]
+                        , strong
+                          []
+                          [ text "Infinite loop when compiling eex template"]
+                        , small
+                          []
+                          [ text " #6607"]
+                        , br [][]
+                        , strong
+                          []
+                          [ text "$225"]
+                        ]
+                      ]
+                  , nav
+                      [ class "level is-mobile" ]
+                      [
+                      div
+                          [ class "level-left" ]
+                          [
+                                a
+                                    [ class "level-item" ]
+                                    [
+                                        span
+                                            [ class "icon is-medium" ]
+                                            [ i
+                                              [ class "fa fa-gift" ][]
+                                            ]
+                                    ]
+                          ]
+                      ]
                   ]
               ]
         ]
