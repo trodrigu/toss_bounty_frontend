@@ -1,9 +1,9 @@
 module Data.User exposing (User, decoder, encode)
 
-import Data.AuthToken as AuthToken exposing (AuthToken)
+import Data.AuthToken as AuthToken exposing (AuthToken, fallback)
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, required)
+import Json.Decode as Decode exposing (Decoder, dict)
+import Json.Decode.Pipeline as Pipeline exposing (decode, requiredAt, optionalAt)
 import Json.Encode as Encode exposing (Value)
 import Json.Encode.Extra as EncodeExtra
 import UrlParser
@@ -14,22 +14,16 @@ type alias User =
     { email : String
     , name : String
     , token : AuthToken
-    , createdAt : String
-    , updatedAt : String
     }
-
-
 
 -- SERIALIZATION --
 
 decoder : Decoder User
 decoder =
     decode User
-      |> required "name" Decode.string
-      |> required "email" Decode.string
-      |> required "token" AuthToken.decoder
-      |> required "createdAt" Decode.string
-      |> required "updatedAt" Decode.string
+      |> requiredAt [ "data", "attributes", "name" ] Decode.string
+      |> requiredAt [ "data", "attributes", "email" ] Decode.string
+      |> optionalAt [ "data", "attributes", "token" ] AuthToken.decoder AuthToken.fallback
 
 
 encode : { r | name : String, email : String, password : String } -> Encode.Value
