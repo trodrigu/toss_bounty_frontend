@@ -43,43 +43,38 @@ renderNav : ActivePage -> Maybe User -> Html msg
 renderNav page user =
     div [ class "container" ]
         [ nav [ class "nav" ]
-              [ div [ class "nav-left" ]
-                    [ a [ class "nav-item", Router.href HomeRoute ]
-                        [ text "Toss Bounty"
-                        ]
-                    ]
-              , div [ class "nav-center" ]
-                    [ a [ class "nav-item" ]
-                        [ span [ class "icon" ]
-                              [ i [ class "fa fa-twitter" ] [] ]
-                        ]
-                    ]
-              , span [ class "nav-toggle" ]
-                    [ span [] []
-                    , span [] []
-                    , span [] []
-                    ]
-              , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item", Router.href DashRoute ]
-                        [ text "Dash"
-                        ]
-                    ]
-              , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item", Router.href TosserSignUpRoute ]
-                        [ text "Sign up as a tosser"
-                        ]
-                    ]
-              , div [ class "nav-right nav-menu" ]
-                    [ a [ class "nav-item" ]
-                        [ text "Sign up as a bounty hunter"
-                        ]
-                    ]
-              ]
+              -- [ div [ class "nav-left" ]
+              --       [ a [ class "nav-item", Router.href HomeRoute ]
+              --           [ text "Toss Bounty"
+              --           ]
+              --       ]
+              -- , div [ class "nav-center" ]
+              --       [ a [ class "nav-item" ]
+              --           [ span [ class "icon" ]
+              --                 [ i [ class "fa fa-twitter" ] [] ]
+              --           ]
+              --       ]
+              -- , span [ class "nav-toggle" ]
+              --       [ span [] []
+              --       , span [] []
+              --       , span [] []
+              --       ]
+              -- ] <| (viewSignIn page user)
+              ( viewSignIn page user )
         ]
 
 viewSignIn : ActivePage -> Maybe User -> List (Html msg)
 viewSignIn page user =
-            [ navbarLink (page == Home) HomeRoute [ text "Sign in" ]
+    case user of
+        Nothing ->
+            [ navbarHomeLink [ text "Toss Bounty" ]
+            , navbarRightLink (page == Home) TosserSignUpRoute [ text "Sign up as a tosser" ]
+            , navbarRightLink (page == Home) TosserSignUpRoute [ text "Sign up as a bounty hunter" ]
+            ]
+
+        Just user ->
+            [ navbarHomeLink [ text "Toss Bounty" ]
+            , navbarRightLink (page == Dash) DashRoute [ text "Dash" ]
             ]
 
 footerArea : Html msg
@@ -97,7 +92,16 @@ footerArea =
 
 
 
-navbarLink : Bool -> Route -> List (Html msg) -> Html msg
-navbarLink isActive route linkContent =
-    li [ classList [ ( "nav-item", True ), ( "active", isActive ) ] ]
-        [ a [ class "nav-link", Router.href route ] linkContent ]
+navbarRightLink : Bool -> Route -> List (Html msg) -> Html msg
+navbarRightLink isActive route linkContent =
+    div [ classList [ ( "nav-right", True ), ( "active", isActive ), ( "nav-menu", True ) ] ]
+          [ a [ class "nav-item", Router.href route ]
+              linkContent
+          ]
+
+navbarHomeLink : List (Html msg) -> Html msg
+navbarHomeLink linkContent =
+    div [ classList [ ( "nav-left", True ) ] ]
+          [ a [ class "nav-item", Router.href HomeRoute ]
+              linkContent
+          ]
