@@ -11,6 +11,7 @@ import Ports
 import Data.Session as Session exposing (Session)
 import Pages.Home as Home
 import Pages.TosserSignUp as TosserSignUp
+import Pages.Dash as Dash
 import Pages.Login as Login
 import Pages.Logout as Logout
 import Pages.NotFound as NotFound
@@ -18,11 +19,11 @@ import Views.Page as Page exposing (frame)
 import Data.User as User exposing (User)
 import Json.Decode as Decode exposing (Value)
 import Util exposing ((=>))
-import Debug
 
 type Page
     = Home Home.Model
     | TosserSignUp TosserSignUp.Model
+    | Dash Dash.Model
     | Login Login.Model
     | Logout Logout.Model
     | NotFound NotFound.Model
@@ -36,6 +37,7 @@ type alias Model =
 type Msg
     = HomeMsg Home.Msg
     | TosserSignUpMsg TosserSignUp.Msg
+    | DashMsg Dash.Msg
     | LoginMsg Login.Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
@@ -85,6 +87,13 @@ setRoute maybeRoute model =
             in
             { model | page = updatedPage } => Cmd.none
 
+        Just Router.DashRoute ->
+            let
+                updatedPage = Dash Dash.init
+
+            in
+            { model | page = updatedPage } => Cmd.none
+
         Just Router.NotFoundRoute -> model => Cmd.none
 
         Nothing -> model => Cmd.none
@@ -129,6 +138,14 @@ updatePage page msg model =
 
         ( HomeMsg subMsg, Home subModel )->
             toPage Home HomeMsg (Home.update) subMsg subModel
+
+        ( DashMsg subMsg, Dash subModel )->
+            let
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    Dash.update subMsg subModel
+
+            in
+                { model | page = ( Dash pageModel) } => Cmd.map DashMsg cmd
 
         ( TosserSignUpMsg subMsg, TosserSignUp subModel )->
             let
@@ -266,6 +283,10 @@ pageView page =
                   TosserSignUp.view subModel
                       |> Html.map TosserSignUpMsg
 
+                Dash subModel ->
+                  Dash.view subModel
+                      |> Html.map DashMsg
+
                 Login subModel ->
                   Login.view subModel
                       |> Html.map LoginMsg
@@ -299,6 +320,11 @@ renderNav =
                     [ span [] []
                     , span [] []
                     , span [] []
+                    ]
+              , div [ class "nav-right nav-menu" ]
+                    [ a [ class "nav-item", Router.href DashRoute ]
+                        [ text "Dash"
+                        ]
                     ]
               , div [ class "nav-right nav-menu" ]
                     [ a [ class "nav-item", Router.href TosserSignUpRoute ]
