@@ -76,7 +76,7 @@ update msg model =
             case data of
                 Success user ->
                     model
-                      => Cmd.batch [ storeSession user, Router.modifyUrl Router.HomeRoute ]
+                      => Cmd.batch [ storeSession user, Router.modifyUrl Router.DashRoute ]
                       => SetUser user
 
                 _ ->
