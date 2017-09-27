@@ -19,6 +19,7 @@ import Json.Decode as Decode exposing (Value)
 type Route
     = HomeRoute
     | TosserSignUpRoute
+    | DashRoute
     | LoginRoute
     | LogoutRoute
     | NotFoundRoute
@@ -170,14 +171,14 @@ sessionChange : Sub (Maybe User)
 sessionChange =
     Ports.onSessionChange (Decode.decodeValue User.decoder >> Result.toMaybe)
 
-reverseRoute : Route -> String
-reverseRoute route =
-    case route of
-        TosserSignUpRoute ->
-            "#/tosser-sign-up"
+-- reverseRoute : Route -> String
+-- reverseRoute route =
+--     case route of
+--         TosserSignUpRoute ->
+--             "#/tosser-sign-up"
 
-        _ ->
-            "#/"
+--         _ ->
+--             "#/"
 
 routeToString : Route -> String
 routeToString page =
@@ -189,6 +190,9 @@ routeToString page =
 
                 TosserSignUpRoute ->
                     [ "tosser-sign-up" ]
+
+                DashRoute ->
+                    [ "dash" ]
 
                 LoginRoute ->
                     [ "login" ]
@@ -207,6 +211,7 @@ routeParser =
     UrlParser.oneOf
         [ UrlParser.map HomeRoute UrlParser.top
         , UrlParser.map TosserSignUpRoute ( UrlParser.s "tosser-sign-up" )
+        , UrlParser.map DashRoute ( UrlParser.s "dash" )
         ]
 
 
