@@ -163,9 +163,9 @@ updatePage page msg model =
                                     model.session
 
                             in
-                                { model | session = { user =  Just user } }
+                                { model | session = { user = Just user } }
             in
-                { model | page = ( TosserSignUp pageModel) } => Cmd.map TosserSignUpMsg cmd
+                { newModel | page = ( TosserSignUp pageModel) } => Cmd.map TosserSignUpMsg cmd
 
 
         ( LoginMsg subMsg, Login subModel ) ->
@@ -301,6 +301,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ pageView model.session model.page ]
+
 main : Program Value Model Msg
 main =
     Navigation.programWithFlags (Router.fromLocation >> SetRoute)
