@@ -1,9 +1,10 @@
 module Pages.Dash exposing (..)
 
 import Html exposing (..)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (class, style, src)
 import Html.Events exposing (onInput, onClick)
 import Navigation
+import Data.Session as Session exposing (Session)
 import Util exposing ((=>))
 
 type alias Model =
@@ -51,9 +52,15 @@ update msg model =
         SaveNewBountyForm ->
             ( model, Cmd.none ) => NoOp
 
-view : Model -> Html Msg
-view model =
-    dashView
+view : Session -> Model -> Html Msg
+view session model =
+    section
+        [ class "section" ]
+        [
+         div
+             [ class "container" ]
+             [ dashView ]
+        ]
 
 dashView : Html Msg
 dashView =
@@ -66,10 +73,10 @@ dashView =
                     [ class "media-left" ]
                     [
                     figure
-                        [ class "image is-64x64"]
+                        [ class "image"]
                         [
                             img
-                                []
+                                [ src "http://placekitten.com.s3.amazonaws.com/homepage-samples/96/139.jpg" ]
                                 []
                         ]
                     ]
@@ -81,7 +88,7 @@ dashView =
                            [
                                 p
                                     []
-                                    []
+                                    [ text "Vestibulum convallis, lorem a tempus semper, dui dui euismod elit, vitae placerat urna tortor vitae lacus." ]
                            ]
                   ]
               , nav
