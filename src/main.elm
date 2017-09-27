@@ -165,7 +165,7 @@ updatePage page msg model =
                             in
                                 { model | session = { user = Just user } }
             in
-                { newModel | page = ( TosserSignUp pageModel) } => Cmd.map TosserSignUpMsg cmd
+                { newModel | page = ( TosserSignUp pageModel ) } => Cmd.map TosserSignUpMsg cmd
 
 
         ( LoginMsg subMsg, Login subModel ) ->
