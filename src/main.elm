@@ -49,7 +49,7 @@ decodeUserFromJson json =
     json
         |> Decode.decodeValue Decode.string
         |> Result.toMaybe
-        |> Maybe.andThen (Decode.decodeString User.decoder >> Result.toMaybe)
+        |> Maybe.andThen (Decode.decodeString User.returnToSessionDecoder >> Result.toMaybe)
 
 init : Value -> Location -> ( Model, Cmd Msg )
 init val location =
@@ -105,6 +105,7 @@ sessionChange =
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
 updatePage page msg model =
     let
+
         session =
             model.session
 
@@ -299,6 +300,10 @@ pageView session page =
 
 view : Model -> Html Msg
 view model =
+    let
+        _ = Debug.log "model" model
+    in
+
     div []
         [ pageView model.session model.page ]
 
