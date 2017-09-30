@@ -42,6 +42,7 @@ type Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
     | SetUser (Maybe User)
+    | LoginUser String String
     | SetRoute (Maybe Route)
 
 decodeUserFromJson : Value -> Maybe User
@@ -67,7 +68,11 @@ setRoute maybeRoute model =
             model => Cmd.none
 
         Just Router.LoginRoute ->
-            model => Cmd.none
+            let
+                updatedPage = Login Login.init
+
+            in
+            { model | page = updatedPage } => Cmd.none
 
         Just Router.LogoutRoute ->
             let
@@ -137,10 +142,10 @@ updatePage page msg model =
             { model | session = { session | user = user } }
                 => cmd
 
-        ( HomeMsg subMsg, Home subModel )->
+        ( HomeMsg subMsg, Home subModel ) ->
             toPage Home HomeMsg (Home.update) subMsg subModel
 
-        ( DashMsg subMsg, Dash subModel )->
+        ( DashMsg subMsg, Dash subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Dash.update subMsg subModel
@@ -165,6 +170,7 @@ updatePage page msg model =
 
                             in
                                 { model | session = { user = Just user } }
+
             in
                 { newModel | page = ( TosserSignUp pageModel ) } => Cmd.map TosserSignUpMsg cmd
 
@@ -217,20 +223,6 @@ updatePage page msg model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     updatePage model.page msg model
-
--- updateRouter :  Router.Msg -> Model -> ( Model, Cmd Msg )
--- updateRouter msg model  =
---     let
---         session =
---             model.session
-
---         routerModel =
---             model.routerModel
-
---         (updatedRouterModel, _) =
---           Router.update session msg routerModel
---     in
---         { model | routerModel = updatedRouterModel } => Cmd.none
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -285,6 +277,7 @@ pageView session page =
 
             Login subModel ->
               Login.view subModel
+                  |> frame Page.Login
                   |> Html.map LoginMsg
 
             Logout subModel ->
@@ -300,10 +293,6 @@ pageView session page =
 
 view : Model -> Html Msg
 view model =
-    let
-        _ = Debug.log "model" model
-    in
-
     div []
         [ pageView model.session model.page ]
 

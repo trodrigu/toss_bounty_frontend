@@ -1,4 +1,4 @@
-module Data.User exposing (User, decoder, encode, returnToSessionDecoder)
+module Data.User exposing (User, decoder, encode, encodeLogin, returnToSessionDecoder)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback)
 import Html exposing (Html)
@@ -42,6 +42,22 @@ encode user =
             Encode.object
                 [ ("name", Encode.string user.name)
                 , ("email", Encode.string user.email)
+                , ("password", Encode.string user.password) ]
+
+        data_attributes =
+            Encode.object [ ( "attributes", user_attributes)]
+
+    in
+        Encode.object [ ("data", data_attributes) ]
+
+encodeLogin : { r | email : String, password : String } -> Encode.Value
+encodeLogin user =
+
+    let
+
+        user_attributes =
+            Encode.object
+                [ ("email", Encode.string user.email)
                 , ("password", Encode.string user.password) ]
 
         data_attributes =

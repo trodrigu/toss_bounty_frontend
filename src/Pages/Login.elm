@@ -9,22 +9,28 @@ import RemoteData.Http
 import RemoteData exposing (RemoteData(..), WebData)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Json.Decode exposing (string, Decoder)
-import Data.User as User exposing (User)
+import Data.User as User exposing (User, encodeLogin)
 import Util exposing ((=>))
+import Routing.Router as Router
+import Request.User as User exposing (storeSession)
+import Validate exposing (ifBlank)
 
 init : Model
 init =
     { email = ""
-    , password = ""}
+    , password = ""
+    , errors = [] }
 
 type alias Model =
     { email : String
-    , password : String }
+    , password : String
+    , errors : List Error }
 
 type Msg
     = SaveLoginForm
     | UpdateEmailField String
     | UpdatePasswordField String
+    | HandleLogin (WebData User)
 
 type ExternalMsg
     = NoOp
@@ -32,15 +38,16 @@ type ExternalMsg
 
 view : Model -> Html Msg
 view model =
-   loginForm
+   loginForm model
 
-loginForm : Html Msg
-loginForm =
+loginForm : Model -> Html Msg
+loginForm model =
     section [ class "hero" ]
             [ div [ class "hero-body", style[ ( "padding", "7rem 1.5rem" ) ] ]
                   [ div [ class "columns" ]
                         [ div [ class "column is-one-third is-offset-one-third"]
                               [ h1 [ class "title" ] [ text "Start Writing Stories" ]
+                              , viewErrors model.errors
                               , div [ class "field" ]
                                     [ label [ class "label" ]
                                             [ text "Email" ]
@@ -64,7 +71,7 @@ loginForm =
                               , div [ class "field is-grouped" ]
                                     [ p [ class "control" ]
                                           [ button [ class "button is-primary", onClick SaveLoginForm ]
-                                                [ text "Save" ]
+                                                [ text "Login" ]
                                         ]
                                     ]
                               ]
@@ -74,4 +81,66 @@ loginForm =
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
-    (model, Cmd.none) => NoOp
+    case msg of
+        UpdatePasswordField str ->
+            ( { model | password = str }, Cmd.none ) => NoOp
+
+        UpdateEmailField str ->
+            ( { model | email = str }, Cmd.none ) => NoOp
+
+        HandleLogin data ->
+            case data of
+                Success user ->
+                    model
+                      => Cmd.batch [ storeSession user, Router.modifyUrl Router.DashRoute ]
+                      => SetUser user
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        SaveLoginForm ->
+            case validate model of
+                [] ->
+                    let
+                        newModel =
+                            { model | errors = [] }
+
+                    in
+                    ( model, postSignIn model ) => NoOp
+
+                errors ->
+                    { model | errors = errors }
+                        => Cmd.none
+                        => NoOp
+
+postSignIn : Model -> Cmd Msg
+postSignIn model =
+    let
+        data =
+            { email = model.email
+            , password = model.password }
+
+    in
+        RemoteData.Http.post "http://api.tossbounty.com/token" HandleLogin User.decoder (User.encodeLogin data)
+
+validate : Model -> List Error
+validate =
+    Validate.all
+        [ .email >> ifBlank (Email => "Email can't be blank.")
+        , .password >> ifBlank (Password => "Password can't be blank.")
+        ]
+
+type Field
+    = Form
+    | Email
+    | Password
+
+type alias Error =
+    ( Field, String )
+
+viewErrors : List ( a, String ) -> Html msg
+viewErrors errors =
+    errors
+        |> List.map (\( _, error ) -> li [] [ text error ])
+        |> ul [ class "help is-danger" ]

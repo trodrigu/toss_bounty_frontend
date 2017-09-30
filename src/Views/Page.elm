@@ -22,6 +22,7 @@ type ActivePage
     = Other
     | Home
     | Dash
+    | Login
     | TosserSignUp
 
 
@@ -68,6 +69,7 @@ viewSignIn page user =
     case user of
         Nothing ->
             [ navbarHomeLink [ text "Toss Bounty" ]
+            , navbarRightLink (page == Home) LoginRoute [ text "Login" ]
             , navbarRightLink (page == Home) TosserSignUpRoute [ text "Sign up as a tosser" ]
             , navbarRightLink (page == Home) TosserSignUpRoute [ text "Sign up as a bounty hunter" ]
             ]

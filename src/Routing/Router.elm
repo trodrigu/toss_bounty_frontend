@@ -212,6 +212,7 @@ routeParser =
         [ UrlParser.map HomeRoute UrlParser.top
         , UrlParser.map TosserSignUpRoute ( UrlParser.s "tosser-sign-up" )
         , UrlParser.map DashRoute ( UrlParser.s "dash" )
+        , UrlParser.map LoginRoute ( UrlParser.s "login" )
         ]
 
 
