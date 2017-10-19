@@ -23,35 +23,30 @@ init =
 encodeTosserSignUpFormAsValues : Model -> Json.Encode.Value
 encodeTosserSignUpFormAsValues tosserSignUpForm =
   Json.Encode.object
-      [ ("name", Json.Encode.string tosserSignUpForm.name)
-      , ("email", Json.Encode.string tosserSignUpForm.email)
+      [ ("email", Json.Encode.string tosserSignUpForm.email)
       , ("password", Json.Encode.string tosserSignUpForm.password) ]
 
 postTosserSignUpForm : Model -> Cmd Msg
 postTosserSignUpForm model =
     let
         data =
-            { name = model.name
-            , email = model.email
+            { email = model.email
             , password = model.password }
 
     in
         RemoteData.Http.post "http://api.tossbounty.com/users" HandlePostTosserSignUpForm User.decoder (User.encode data)
 
 type alias Model =
-    { name : String
-    , email : String
+    { email : String
     , password : String }
 
 emptyTosserSignUpForm : Model
 emptyTosserSignUpForm =
-    { name = ""
-    , email = ""
+    { email = ""
     , password = "" }
 
 type Msg
     = SaveTosserForm
-    | UpdateNameField String
     | UpdateEmailField String
     | UpdatePasswordField String
     | HandlePostTosserSignUpForm (WebData User)
@@ -63,9 +58,6 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
-        UpdateNameField str ->
-            ( { model | name = str }, Cmd.none ) => NoOp
-
         UpdateEmailField str ->
             ( { model | email = str }, Cmd.none ) => NoOp
 
@@ -97,16 +89,6 @@ tosserSignUpForm =
                   [ div [ class "columns" ]
                         [ Html.form [ Html.Events.onSubmit SaveTosserForm, class "column is-one-third is-offset-one-third"]
                               [ h1 [ class "title" ] [ text "Start Writing Stories" ]
-                              , div [ class "field" ]
-                                    [ label [ class "label" ]
-                                            [ text "Name" ]
-                                    , p [ class "control" ]
-                                        [ input [ class "input"
-                                                , onInput UpdateNameField
-                                                ]
-                                                []
-                                        ]
-                                    ]
                               , div [ class "field" ]
                                     [ label [ class "label" ]
                                             [ text "Email" ]

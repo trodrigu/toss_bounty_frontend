@@ -11,8 +11,7 @@ import Util exposing ((=>))
 
 
 type alias User =
-    { name : String
-    , email : String
+    { email : String
     , token : AuthToken
     }
 
@@ -21,27 +20,22 @@ type alias User =
 returnToSessionDecoder : Decoder User
 returnToSessionDecoder =
     decode User
-        |> required "name" Decode.string
         |> required "email" Decode.string
         |> optional "token" AuthToken.decoder AuthToken.fallback
 
 decoder : Decoder User
 decoder =
     decode User
-      |> requiredAt [ "data", "attributes", "name" ] Decode.string
       |> requiredAt [ "data", "attributes", "email" ] Decode.string
       |> optionalAt [ "data", "attributes", "token" ] AuthToken.decoder AuthToken.fallback
 
 
-encode : { r | name : String, email : String, password : String } -> Encode.Value
+encode : { r | email : String, password : String } -> Encode.Value
 encode user =
-
     let
-
         user_attributes =
             Encode.object
-                [ ("name", Encode.string user.name)
-                , ("email", Encode.string user.email)
+                [ ("email", Encode.string user.email)
                 , ("password", Encode.string user.password) ]
 
         data_attributes =
@@ -60,8 +54,5 @@ encodeLogin user =
                 [ ("email", Encode.string user.email)
                 , ("password", Encode.string user.password) ]
 
-        data_attributes =
-            Encode.object [ ( "attributes", user_attributes)]
-
     in
-        Encode.object [ ("data", data_attributes) ]
+        user_attributes
