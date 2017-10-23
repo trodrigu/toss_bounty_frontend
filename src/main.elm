@@ -1,24 +1,27 @@
 module Main exposing (..)
 
+import Data.Session as Session exposing (Session)
+import Data.User as User exposing (User)
 import Html exposing (..)
-import Navigation exposing (Location)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (..)
-import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Http
-import Routing.Router as Router exposing (Route(..), fromLocation)
-import Ports
-import Data.Session as Session exposing (Session)
-import Pages.Home as Home
-import Pages.TosserSignUp as TosserSignUp
+import Json.Decode as Decode exposing (Value)
+import Json.Encode as Encode exposing (Value)
+import Navigation exposing (Location)
 import Pages.Dash as Dash
+import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
 import Pages.Logout as Logout
 import Pages.NotFound as NotFound
-import Views.Page as Page exposing (frame)
-import Data.User as User exposing (User)
-import Json.Decode as Decode exposing (Value)
+import Pages.TosserSignUp as TosserSignUp
+import Ports
+import RemoteData exposing (RemoteData(..), WebData)
+import RemoteData.Http
+import Routing.Router as Router exposing (Route(..), fromLocation)
 import Util exposing ((=>))
+import Views.Page as Page exposing (frame)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt)
 
 type Page
     = Home Home.Model
@@ -32,6 +35,7 @@ type alias Model =
     { session : Session
     , location : Location
     , page : Page
+    , githubUrl : WebData (GitHubUrl)
     }
 
 type Msg
@@ -44,20 +48,26 @@ type Msg
     | SetUser (Maybe User)
     | LoginUser String String
     | SetRoute (Maybe Route)
+    | JoinChannel
+    | ShowJoinedMessage String
+    | ShowLeftMessage String
+    | ReceiveMessage Encode.Value
+    | FetchGitHubUrl (WebData GitHubUrl)
 
-decodeUserFromJson : Value -> Maybe User
+decodeUserFromJson : Decode.Value -> Maybe User
 decodeUserFromJson json =
     json
         |> Decode.decodeValue Decode.string
         |> Result.toMaybe
         |> Maybe.andThen (Decode.decodeString User.returnToSessionDecoder >> Result.toMaybe)
 
-init : Value -> Location -> ( Model, Cmd Msg )
+init : Decode.Value -> Location -> ( Model, Cmd Msg )
 init val location =
     setRoute (Router.fromLocation location)
         { session = { user = decodeUserFromJson val }
         , location = location
         , page = Home Home.init
+        , githubUrl = Loading
         }
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -65,7 +75,7 @@ setRoute maybeRoute model =
     case maybeRoute of
 
         Just Router.HomeRoute ->
-            model => Cmd.none
+            model => Cmd.batch [ getGitHubSignInUrl ]
 
         Just Router.LoginRoute ->
             let
@@ -143,7 +153,15 @@ updatePage page msg model =
                 => cmd
 
         ( HomeMsg subMsg, Home subModel ) ->
-            toPage Home HomeMsg (Home.update) subMsg subModel
+            let
+                newSubModel =
+                    { subModel | url = model.githubUrl }
+
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    Home.update subMsg newSubModel
+
+            in
+                { model | page = ( Home pageModel ) } => Cmd.map HomeMsg cmd
 
         ( DashMsg subMsg, Dash subModel ) ->
             let
@@ -213,12 +231,35 @@ updatePage page msg model =
                             in
                                 { model | session = { user =  Just user } }
             in
-                { model | page = ( Logout pageModel) } => Cmd.map LogoutMsg cmd
+                { model | page = ( Logout pageModel ) } => Cmd.map LogoutMsg cmd
+
+        ( FetchGitHubUrl data, _ ) ->
+            let
+                updatedModel =
+                    { model | githubUrl = data }
+
+            in
+            ({ updatedModel | page = Home { url = data } }, Cmd.none)
+            -- case data of
+            --     Failure _ ->
+            --         Debug.crash "OMG CANT EVEN DOWNLOAD."
+
+            --     Success data ->
+            --         let
+            --             _ = Debug.log "data" data
+
+            --             updatedModel =
+            --                 { model | githubUrl = data }
+            --         in
+
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
             model => Cmd.none
 
+userParams : Encode.Value
+userParams =
+    Encode.object [ ( "user_id", Encode.string "123" )]
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -288,18 +329,26 @@ pageView session page =
               NotFound.view
                   |> Html.map NotFoundMsg
 
-              )]
-
+              ) ]
 
 view : Model -> Html Msg
 view model =
     div []
         [ pageView model.session model.page ]
 
-main : Program Value Model Msg
+main : Program Decode.Value Model Msg
 main =
     Navigation.programWithFlags (Router.fromLocation >> SetRoute)
         { init = init
         , update = update
         , view = view
         , subscriptions = subscriptions }
+
+getGitHubSignInUrl : Cmd Msg
+getGitHubSignInUrl =
+    RemoteData.Http.get "http://localhost:4000/github_oauth_url" FetchGitHubUrl githubUrlDecoder
+
+githubUrlDecoder : Decoder GitHubUrl
+githubUrlDecoder =
+    decode GitHubUrl
+        |> optionalAt [ "data", "attributes", "url" ] Decode.string ""

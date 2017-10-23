@@ -29,7 +29,6 @@ decoder =
       |> requiredAt [ "data", "attributes", "email" ] Decode.string
       |> optionalAt [ "data", "attributes", "token" ] AuthToken.decoder AuthToken.fallback
 
-
 encode : { r | email : String, password : String } -> Encode.Value
 encode user =
     let

@@ -122,7 +122,7 @@ postSignIn model =
             , password = model.password }
 
     in
-        RemoteData.Http.post "http://api.tossbounty.com/token" HandleLogin User.decoder (User.encodeLogin data)
+        RemoteData.Http.post "http://localhost:4000/token" HandleLogin User.decoder (User.encodeLogin data)
 
 validate : Model -> List Error
 validate =
