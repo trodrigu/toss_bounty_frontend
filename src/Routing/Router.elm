@@ -3,6 +3,7 @@ module Routing.Router exposing (..)
 import Navigation exposing (Location)
 import Html exposing (..)
 import Html.Attributes as Attributes exposing (class, style)
+import UrlParser exposing (..)
 import Data.User as User exposing (User)
 import Ports
 import Json.Decode as Decode exposing (Value)
@@ -12,6 +13,7 @@ type Route
     | TosserSignUpRoute
     | DashRoute
     | LoginRoute
+    | SaveTokenRoute ( Maybe String ) ( Maybe String )
     | LogoutRoute
     | NotFoundRoute
 
@@ -54,6 +56,12 @@ routeToString page =
                 LogoutRoute ->
                     [ "logout" ]
 
+                SaveTokenRoute ( Just token ) _ ->
+                    [ "save-session" ++ "?token" ++ token ]
+
+                SaveTokenRoute _ _ ->
+                    [ "save-session" ]
+
                 NotFoundRoute ->
                     []
 
@@ -66,6 +74,7 @@ routeParser =
         [ UrlParser.map HomeRoute UrlParser.top
         , UrlParser.map TosserSignUpRoute ( UrlParser.s "tosser-sign-up" )
         , UrlParser.map DashRoute ( UrlParser.s "dash" )
+        , UrlParser.map SaveTokenRoute ( UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" )
         , UrlParser.map LoginRoute ( UrlParser.s "login" )
         ]
 
@@ -89,4 +98,20 @@ fromLocation location =
     if String.isEmpty location.hash then
         Just HomeRoute
     else
-        UrlParser.parseHash routeParser location
+        UrlParser.parseHash routeParser ( fixLocationQuery location )
+
+fixLocationQuery : Location -> Location
+fixLocationQuery location =
+    let
+        hash =
+            String.split "?" location.hash
+                |> List.head
+                |> Maybe.withDefault ""
+
+        search =
+            String.split "?" location.hash
+                |> List.drop 1
+                |> String.join "?"
+                |> String.append "?"
+    in
+        { location | hash = hash, search = search }
