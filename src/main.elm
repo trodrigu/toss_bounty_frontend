@@ -22,6 +22,8 @@ import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt)
+import Request.User exposing (storeSession)
+import Data.AuthToken exposing (AuthToken, fallback, init)
 
 type Page
     = Home Home.Model
@@ -77,6 +79,22 @@ setRoute maybeRoute model =
         Just Router.HomeRoute ->
             model => Cmd.batch [ getGitHubSignInUrl ]
 
+        Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ) ->
+            let
+                user = { email = email, token = ( Data.AuthToken.init token ) }
+                session = model.session
+                updatedModel = { model | session = { session | user = Just user } }
+            in
+
+            updatedModel => Cmd.batch [ Router.modifyUrl Router.DashRoute
+                               , Request.User.storeSession user
+                               ]
+
+        Just ( Router.SaveTokenRoute _ _ ) ->
+
+            model => Cmd.batch [ Router.modifyUrl Router.DashRoute
+                               ]
+
         Just Router.LoginRoute ->
             let
                 updatedPage = Login Login.init
@@ -107,7 +125,12 @@ setRoute maybeRoute model =
                 updatedPage = Dash Dash.init
 
             in
-            { model | page = updatedPage } => Cmd.none
+                case model.session.user of
+                    Just user ->
+                        { model | page = updatedPage } => Cmd.none
+
+                    Nothing ->
+                        model => Router.modifyUrl Router.HomeRoute
 
         Just Router.NotFoundRoute -> model => Cmd.none
 
