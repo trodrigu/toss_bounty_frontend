@@ -1,4 +1,4 @@
-module Data.AuthToken exposing (AuthToken, decoder, encode, fallback)
+module Data.AuthToken exposing (AuthToken, decoder, encode, fallback, init)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
@@ -21,3 +21,7 @@ decoder =
 fallback : AuthToken
 fallback =
     AuthToken ""
+
+init : String -> AuthToken
+init token =
+    AuthToken token
