@@ -8,8 +8,6 @@ init = {}
 
 type alias Model = {}
 
--- VIEW --
-
 type Msg =
     NoOp
 

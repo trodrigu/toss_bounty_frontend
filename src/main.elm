@@ -240,26 +240,10 @@ updatePage page msg model =
 
             in
             ({ updatedModel | page = Home { url = data } }, Cmd.none)
-            -- case data of
-            --     Failure _ ->
-            --         Debug.crash "OMG CANT EVEN DOWNLOAD."
-
-            --     Success data ->
-            --         let
-            --             _ = Debug.log "data" data
-
-            --             updatedModel =
-            --                 { model | githubUrl = data }
-            --         in
-
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
             model => Cmd.none
-
-userParams : Encode.Value
-userParams =
-    Encode.object [ ( "user_id", Encode.string "123" )]
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
