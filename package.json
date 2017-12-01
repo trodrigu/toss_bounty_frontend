@@ -1,0 +1,13 @@
+{
+  "name": "tossbounty front end",
+  "version": "0.0.1",
+  "description": "The presentation layer of TossBounty",
+  "keywords": [
+    "tossbounty",
+  ],
+  "author": "Tommy Rodriguez",
+  "license": "MIT",
+  "dependencies": {
+    "elm": "^0.18.0"
+  }
+}
