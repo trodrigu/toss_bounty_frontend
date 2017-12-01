@@ -1,13 +1,19 @@
 {
-  "name": "tossbounty front end",
-  "version": "0.0.1",
-  "description": "The presentation layer of TossBounty",
+  "name": "toss_bounty_frontend",
+  "version": "1.0.0",
+  "description": "The presentation layer for TossBounty",
+  "main": "_build/elm.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trodrigu/toss_bounty_frontend.git"
+  },
   "keywords": [
-    "tossbounty",
+    "elm"
   ],
   "author": "Tommy Rodriguez",
-  "license": "MIT",
-  "dependencies": {
-    "elm": "^0.18.0"
-  }
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/trodrigu/toss_bounty_frontend/issues"
+  },
+  "homepage": "https://github.com/trodrigu/toss_bounty_frontend#readme"
 }
