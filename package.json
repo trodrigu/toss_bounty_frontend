@@ -12,6 +12,9 @@
   ],
   "author": "Tommy Rodriguez",
   "license": "ISC",
+  "dependencies": {
+    "elm": "^0.18.0"
+  },
   "bugs": {
     "url": "https://github.com/trodrigu/toss_bounty_frontend/issues"
   },
