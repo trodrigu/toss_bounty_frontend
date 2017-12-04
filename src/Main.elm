@@ -80,7 +80,7 @@ setRoute maybeRoute model =
     case maybeRoute of
 
         Just Router.HomeRoute ->
-            model => Cmd.batch [ getGitHubSignInUrl ]
+            model => Cmd.batch [ getGitHubSignInUrl model.apiUrl ]
 
         Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ) ->
             let
@@ -358,9 +358,9 @@ main =
         , view = view
         , subscriptions = subscriptions }
 
-getGitHubSignInUrl : Cmd Msg
-getGitHubSignInUrl =
-    RemoteData.Http.get "http://localhost:4000/github_oauth_url" FetchGitHubUrl githubUrlDecoder
+getGitHubSignInUrl : String -> Cmd Msg
+getGitHubSignInUrl apiUrl =
+    RemoteData.Http.get apiUrl FetchGitHubUrl githubUrlDecoder
 
 githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
