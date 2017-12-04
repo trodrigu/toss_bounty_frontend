@@ -38,7 +38,7 @@ type alias Model =
     , location : Location
     , page : Page
     , githubUrl : WebData (GitHubUrl)
-    , apiUrl : String
+    , apiUrl : Maybe String
     }
 
 type Msg
@@ -49,7 +49,6 @@ type Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
     | SetUser (Maybe User)
-    | ApiUrl String
     | LoginUser String String
     | SetRoute (Maybe Route)
     | JoinChannel
@@ -61,7 +60,7 @@ type Msg
 decodeUserFromJson : Decode.Value -> Maybe User
 decodeUserFromJson json =
     json
-        |> Decode.decodeValue Decode.string
+        |> Decode.decodeValue ( Decode.field "session" Decode.string )
         |> Result.toMaybe
         |> Maybe.andThen (Decode.decodeString User.returnToSessionDecoder >> Result.toMaybe)
 
@@ -72,15 +71,21 @@ init val location =
         , location = location
         , page = Home Home.init
         , githubUrl = Loading
-        , apiUrl = ""
+        , apiUrl = decodeUrlFromJson val
         }
+
+decodeUrlFromJson : Decode.Value -> Maybe String
+decodeUrlFromJson json =
+    json
+        |> Decode.decodeValue ( Decode.field "apiUrl" Decode.string )
+        |> Result.toMaybe
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     case maybeRoute of
 
         Just Router.HomeRoute ->
-            model => Cmd.batch [ getGitHubSignInUrl ]
+            model => Cmd.batch [ getGitHubSignInUrl model.apiUrl ]
 
         Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ) ->
             let
@@ -90,8 +95,8 @@ setRoute maybeRoute model =
             in
 
             updatedModel => Cmd.batch [ Router.modifyUrl Router.DashRoute
-                               , Request.User.storeSession user
-                               ]
+                                      , Request.User.storeSession user
+                                      ]
 
         Just ( Router.SaveTokenRoute _ _ ) ->
 
@@ -162,9 +167,6 @@ updatePage page msg model =
 
         ( SetRoute route, _ ) ->
             setRoute route model
-
-        ( ApiUrl newApiUrl, _ ) ->
-            { model | apiUrl = newApiUrl } => Cmd.none
 
         ( SetUser user, _ ) ->
             let
@@ -282,7 +284,6 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Sub.map SetUser sessionChange
-        , Ports.apiUrl (decodeUrl)
         ]
 
 developerHeroArea : Html Msg
@@ -358,25 +359,22 @@ main =
         , view = view
         , subscriptions = subscriptions }
 
-getGitHubSignInUrl : Cmd Msg
-getGitHubSignInUrl =
-    RemoteData.Http.get "http://localhost:4000/github_oauth_url" FetchGitHubUrl githubUrlDecoder
+getGitHubSignInUrl : Maybe String -> Cmd Msg
+getGitHubSignInUrl apiUrl =
+    let
+
+        github_oauth_url =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/github_oauth_url"
+
+    in
+    RemoteData.Http.get github_oauth_url FetchGitHubUrl githubUrlDecoder
 
 githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
-
-decodeUrl : Decode.Value -> Msg
-decodeUrl value =
-    let
-        result =
-            Decode.decodeValue Decode.string value
-
-    in
-        case result of
-            Ok string ->
-                ApiUrl string
-
-            Err _ ->
-                ApiUrl ""
