@@ -360,7 +360,12 @@ main =
 
 getGitHubSignInUrl : String -> Cmd Msg
 getGitHubSignInUrl apiUrl =
-    RemoteData.Http.get apiUrl FetchGitHubUrl githubUrlDecoder
+    let
+        github_oauth_url =
+            apiUrl ++ "/github_oauth_url"
+
+    in
+    RemoteData.Http.get github_oauth_url FetchGitHubUrl githubUrlDecoder
 
 githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
