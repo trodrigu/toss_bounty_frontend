@@ -4,3 +4,5 @@
 .DS_Store
 elm.js
 /TAGS
+.env
+_build/env.js
