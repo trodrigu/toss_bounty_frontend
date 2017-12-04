@@ -38,6 +38,7 @@ type alias Model =
     , location : Location
     , page : Page
     , githubUrl : WebData (GitHubUrl)
+    , apiUrl : String
     }
 
 type Msg
@@ -48,6 +49,7 @@ type Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
     | SetUser (Maybe User)
+    | ApiUrl String
     | LoginUser String String
     | SetRoute (Maybe Route)
     | JoinChannel
@@ -70,6 +72,7 @@ init val location =
         , location = location
         , page = Home Home.init
         , githubUrl = Loading
+        , apiUrl = ""
         }
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -159,6 +162,9 @@ updatePage page msg model =
 
         ( SetRoute route, _ ) ->
             setRoute route model
+
+        ( ApiUrl newApiUrl, _ ) ->
+            { model | apiUrl = newApiUrl } => Cmd.none
 
         ( SetUser user, _ ) ->
             let
@@ -276,6 +282,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Sub.map SetUser sessionChange
+        , Ports.apiUrl (decodeUrl)
         ]
 
 developerHeroArea : Html Msg
@@ -359,3 +366,17 @@ githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+decodeUrl : Decode.Value -> Msg
+decodeUrl value =
+    let
+        result =
+            Decode.decodeValue Decode.string value
+
+    in
+        case result of
+            Ok string ->
+                ApiUrl string
+
+            Err _ ->
+                ApiUrl ""
