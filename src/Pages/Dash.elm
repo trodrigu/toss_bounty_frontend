@@ -8,7 +8,9 @@ import Data.Session as Session exposing (Session)
 import Util exposing ((=>))
 
 type alias Model =
-    { bounties : List Bounty, currentBounty : Int, showNewBountyForm : Bool }
+    { bounties : List Bounty
+    , currentBounty : Int
+    , showNewBountyForm : Bool }
 
 init : Model
 init =
@@ -16,7 +18,9 @@ init =
 
 emptyDash : Model
 emptyDash =
-    { bounties = [], currentBounty = 0, showNewBountyForm = False }
+    { bounties = []
+    , currentBounty = 0
+    , showNewBountyForm = False }
 
 type alias Bounty =
     { repoName : String
