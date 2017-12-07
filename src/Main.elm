@@ -89,10 +89,7 @@ setRoute maybeRoute model =
 
         Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ) ->
             let
-                user = { email = email
-                       , token = ( Data.AuthToken.init token )
-                       , isMaintainer = False
-                       , isTosser =  False }
+                user = { email = email, token = ( Data.AuthToken.init token ) }
                 session = model.session
                 updatedModel = { model | session = { session | user = Just user } }
             in
