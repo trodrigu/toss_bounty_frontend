@@ -24,6 +24,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt)
 import Request.User exposing (storeSession)
 import Data.AuthToken exposing (AuthToken, fallback, init)
+import Date exposing (..)
 
 type Page
     = Home Home.Model
@@ -37,8 +38,19 @@ type alias Model =
     { session : Session
     , location : Location
     , page : Page
-    , githubUrl : WebData (GitHubUrl)
+    , githubUrl : WebData GitHubUrl
     , apiUrl : Maybe String
+    , campaigns : WebData Campaigns
+    }
+
+type alias Campaigns = List Campaign
+
+type alias Campaign =
+    { current_funding : Float
+    , short_description : String
+    , long_description : String
+    , funding_goal : String
+    , funding_end_date : Date
     }
 
 type Msg
@@ -56,6 +68,7 @@ type Msg
     | ShowLeftMessage String
     | ReceiveMessage Encode.Value
     | FetchGitHubUrl (WebData GitHubUrl)
+    | FetchCampaigns (WebData Campaigns)
 
 decodeUserFromJson : Decode.Value -> Maybe User
 decodeUserFromJson json =
@@ -72,6 +85,7 @@ init val location =
         , page = Home Home.init
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
+        , campaigns = Loading
         }
 
 decodeUrlFromJson : Decode.Value -> Maybe String
