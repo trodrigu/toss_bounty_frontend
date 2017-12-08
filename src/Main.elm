@@ -16,15 +16,17 @@ import Pages.NotFound as NotFound
 import Pages.TosserSignUp as TosserSignUp
 import Ports
 import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Http
+import RemoteData.Http exposing (..)
 import Routing.Router as Router exposing (Route(..), fromLocation)
 import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt)
+import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Request.User exposing (storeSession)
 import Data.AuthToken exposing (AuthToken, fallback, init)
-import Date exposing (..)
+import Date exposing (Date)
+import Json.Decode.Extra exposing (date)
+import Http exposing (header)
 
 type Page
     = Home Home.Model
@@ -41,16 +43,6 @@ type alias Model =
     , githubUrl : WebData GitHubUrl
     , apiUrl : Maybe String
     , campaigns : WebData Campaigns
-    }
-
-type alias Campaigns = List Campaign
-
-type alias Campaign =
-    { current_funding : Float
-    , short_description : String
-    , long_description : String
-    , funding_goal : String
-    , funding_end_date : Date
     }
 
 type Msg
@@ -108,7 +100,8 @@ setRoute maybeRoute model =
                 updatedModel = { model | session = { session | user = Just user } }
             in
 
-            updatedModel => Cmd.batch [ Router.modifyUrl Router.DashRoute
+            updatedModel => Cmd.batch [ getCampaigns model.apiUrl token
+                                      , Router.modifyUrl Router.DashRoute
                                       , Request.User.storeSession user
                                       ]
 
@@ -145,6 +138,9 @@ setRoute maybeRoute model =
         Just Router.DashRoute ->
             let
                 updatedPage = Dash Dash.init
+
+                _ = Debug.log "Model" model
+
 
             in
                 case model.session.user of
@@ -373,6 +369,38 @@ main =
         , view = view
         , subscriptions = subscriptions }
 
+
+authHeader : String -> Http.Header
+authHeader token =
+    let
+        completeTokenValue =
+            "Bearer " ++ token
+
+    in
+    Http.header "Authorization" completeTokenValue
+
+authConfig : String -> Config
+authConfig token =
+    { headers = [ authHeader token ]
+    , withCredentials = True
+    , timeout = Nothing
+    }
+
+getCampaigns : Maybe String -> String -> Cmd Msg
+getCampaigns apiUrl token =
+    let
+
+        campaign_url =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/campaigns"
+
+    in
+    RemoteData.Http.getWithConfig ( authConfig token ) campaign_url FetchCampaigns campaignsDecoder
+
 getGitHubSignInUrl : Maybe String -> Cmd Msg
 getGitHubSignInUrl apiUrl =
     let
@@ -392,3 +420,28 @@ githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+type alias Campaigns =
+    { campaigns : List Campaign }
+
+type alias Campaign =
+    { current_funding : Float
+    , short_description : String
+    , long_description : String
+    , funding_goal : Float
+    , funding_end_date : Date
+    }
+
+campaignsDecoder : Decoder Campaigns
+campaignsDecoder =
+    decode Campaigns
+        |> optionalAt [ "data" ] ( Decode.list campaignDecoder ) []
+
+campaignDecoder : Decoder Campaign
+campaignDecoder =
+    decode Campaign
+        |> requiredAt [ "attributes", "current_funding" ] Decode.float
+        |> requiredAt [ "attributes", "short_description" ] Decode.string
+        |> requiredAt [ "attributes", "long_description" ] Decode.string
+        |> requiredAt [ "attributes",  "funding_goal" ] Decode.float
+        |> requiredAt [ "attributes", "funding_end_date" ] Json.Decode.Extra.date
