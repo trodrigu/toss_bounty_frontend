@@ -12,6 +12,7 @@ type ActivePage
     | Home
     | Dash
     | Login
+    | CreateCampaign
     | TosserSignUp
 
 

@@ -12,8 +12,9 @@ type Route
     = HomeRoute
     | TosserSignUpRoute
     | DashRoute
+    | CreateCampaignRoute
     | LoginRoute
-    | SaveTokenRoute ( Maybe String ) ( Maybe String )
+    | SaveTokenRoute ( Maybe String ) ( Maybe String ) ( Maybe String )
     | LogoutRoute
     | NotFoundRoute
 
@@ -50,16 +51,19 @@ routeToString page =
                 DashRoute ->
                     [ "dash" ]
 
+                CreateCampaignRoute ->
+                    [ "create-campaign" ]
+
                 LoginRoute ->
                     [ "login" ]
 
                 LogoutRoute ->
                     [ "logout" ]
 
-                SaveTokenRoute ( Just token ) _ ->
+                SaveTokenRoute ( Just token ) _ _ ->
                     [ "save-session" ++ "?token" ++ token ]
 
-                SaveTokenRoute _ _ ->
+                SaveTokenRoute _ _ _ ->
                     [ "save-session" ]
 
                 NotFoundRoute ->
@@ -74,7 +78,8 @@ routeParser =
         [ UrlParser.map HomeRoute UrlParser.top
         , UrlParser.map TosserSignUpRoute ( UrlParser.s "tosser-sign-up" )
         , UrlParser.map DashRoute ( UrlParser.s "dash" )
-        , UrlParser.map SaveTokenRoute ( UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" )
+        , UrlParser.map CreateCampaignRoute ( UrlParser.s "create-campaign" )
+        , UrlParser.map SaveTokenRoute ( UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" <?> UrlParser.stringParam "user_id" )
         , UrlParser.map LoginRoute ( UrlParser.s "login" )
         ]
 

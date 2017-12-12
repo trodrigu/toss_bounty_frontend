@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Data.Session as Session exposing (Session)
 import Data.User as User exposing (User)
+import Data.Campaign as Campaign exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (..)
@@ -9,6 +10,7 @@ import Json.Decode as Decode exposing (Value)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
 import Pages.Dash as Dash
+import Pages.CreateCampaign as CreateCampaign
 import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
 import Pages.Logout as Logout
@@ -33,6 +35,7 @@ type Page
     | TosserSignUp TosserSignUp.Model
     | Dash Dash.Model
     | Login Login.Model
+    | CreateCampaign CreateCampaign.Model
     | Logout Logout.Model
     | NotFound NotFound.Model
 
@@ -50,6 +53,7 @@ type Msg
     | TosserSignUpMsg TosserSignUp.Msg
     | DashMsg Dash.Msg
     | LoginMsg Login.Msg
+    | CreateCampaignMsg CreateCampaign.Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
     | SetUser (Maybe User)
@@ -61,6 +65,7 @@ type Msg
     | ReceiveMessage Encode.Value
     | FetchGitHubUrl (WebData GitHubUrl)
     | FetchCampaigns (WebData Campaigns)
+
 
 decodeUserFromJson : Decode.Value -> Maybe User
 decodeUserFromJson json =
@@ -93,19 +98,20 @@ setRoute maybeRoute model =
         Just Router.HomeRoute ->
             model => Cmd.batch [ getGitHubSignInUrl model.apiUrl ]
 
-        Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ) ->
+        Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ( Just userId ) ) ->
             let
-                user = { email = email, token = ( Data.AuthToken.init token ) }
+                user = { email = email, token = ( Data.AuthToken.init token ), userId = userId }
                 session = model.session
                 updatedModel = { model | session = { session | user = Just user } }
+
             in
 
             updatedModel => Cmd.batch [ getCampaigns model.apiUrl token
-                                      , Router.modifyUrl Router.DashRoute
+                                      , Router.modifyUrl Router.CreateCampaignRoute
                                       , Request.User.storeSession user
                                       ]
 
-        Just ( Router.SaveTokenRoute _ _ ) ->
+        Just ( Router.SaveTokenRoute _ _ _ ) ->
 
             model => Cmd.batch [ Router.modifyUrl Router.DashRoute
                                ]
@@ -139,9 +145,6 @@ setRoute maybeRoute model =
             let
                 updatedPage = Dash Dash.init
 
-                _ = Debug.log "Model" model
-
-
             in
                 case model.session.user of
                     Just user ->
@@ -149,6 +152,22 @@ setRoute maybeRoute model =
 
                     Nothing ->
                         model => Router.modifyUrl Router.HomeRoute
+
+        Just Router.CreateCampaignRoute ->
+            case model.session.user of
+                Just user ->
+                    let
+                        _ = Debug.log "user" user
+                    in
+
+                    let
+                        session = model.session
+                        token = user.token
+                        updatedPage = CreateCampaign ( CreateCampaign.init token )
+                    in
+                    { model | page = updatedPage } => Cmd.none
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
 
         Just Router.NotFoundRoute -> model => Cmd.none
 
@@ -211,6 +230,14 @@ updatePage page msg model =
 
             in
                 { model | page = ( Dash pageModel) } => Cmd.map DashMsg cmd
+
+        ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
+            let
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    CreateCampaign.update subMsg subModel
+
+            in
+                { model | page = ( CreateCampaign pageModel) } => Cmd.map CreateCampaignMsg cmd
 
         ( TosserSignUpMsg subMsg, TosserSignUp subModel )->
             let
@@ -346,6 +373,11 @@ pageView session page =
                   |> frame Page.Login
                   |> Html.map LoginMsg
 
+            CreateCampaign subModel ->
+              CreateCampaign.view subModel
+                  |> frame Page.CreateCampaign
+                  |> Html.map CreateCampaignMsg
+
             Logout subModel ->
               Logout.view subModel
                   |> Html.map LogoutMsg
@@ -420,28 +452,3 @@ githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
-
-type alias Campaigns =
-    { campaigns : List Campaign }
-
-type alias Campaign =
-    { current_funding : Float
-    , short_description : String
-    , long_description : String
-    , funding_goal : Float
-    , funding_end_date : Date
-    }
-
-campaignsDecoder : Decoder Campaigns
-campaignsDecoder =
-    decode Campaigns
-        |> optionalAt [ "data" ] ( Decode.list campaignDecoder ) []
-
-campaignDecoder : Decoder Campaign
-campaignDecoder =
-    decode Campaign
-        |> requiredAt [ "attributes", "current_funding" ] Decode.float
-        |> requiredAt [ "attributes", "short_description" ] Decode.string
-        |> requiredAt [ "attributes", "long_description" ] Decode.string
-        |> requiredAt [ "attributes",  "funding_goal" ] Decode.float
-        |> requiredAt [ "attributes", "funding_end_date" ] Json.Decode.Extra.date
