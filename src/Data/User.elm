@@ -13,6 +13,7 @@ import Util exposing ((=>))
 type alias User =
     { email : String
     , token : AuthToken
+    , userId : String
     }
 
 -- SERIALIZATION --
@@ -22,12 +23,14 @@ returnToSessionDecoder =
     decode User
         |> required "email" Decode.string
         |> optional "token" AuthToken.decoder AuthToken.fallback
+        |> optional "userId" Decode.string ""
 
 decoder : Decoder User
 decoder =
     decode User
       |> requiredAt [ "data", "attributes", "email" ] Decode.string
       |> optionalAt [ "data", "attributes", "token" ] AuthToken.decoder AuthToken.fallback
+      |> optionalAt [ "data", "attributes", "user_id" ] Decode.string ""
 
 encode : { r | email : String, password : String } -> Encode.Value
 encode user =
