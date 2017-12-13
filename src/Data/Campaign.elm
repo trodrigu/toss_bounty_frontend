@@ -1,28 +1,30 @@
-module Data.Campaign exposing (Campaign, Campaigns, decoder, campaignsDecoder, encode)
+module Data.Campaign exposing (Campaign, Campaigns, campaignsDecoder, decoder, encode)
 
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, requiredAt, optionalAt)
+import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
-import Json.Encode.Extra as EncodeExtra
-import Json.Decode.Extra exposing (date)
-import UrlParser
-import Time.Date as Date exposing (toISO8601, fromISO8601, Date)
+import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
+
 
 type alias Campaigns =
     { campaigns : List Campaign }
+
 
 type alias Campaign =
     { currentFunding : Float
     , shortDescription : String
     , longDescription : String
     , fundingGoal : Float
-    , fundingEndDate : Date
+    , fundingEndDate : DateTime
+    , userId : String
     }
+
 
 campaignsDecoder : Decoder Campaigns
 campaignsDecoder =
     decode Campaigns
-        |> optionalAt [ "data" ] ( Decode.list decoder ) []
+        |> optionalAt [ "data" ] (Decode.list decoder) []
+
 
 decoder : Decoder Campaign
 decoder =
@@ -30,38 +32,59 @@ decoder =
         |> requiredAt [ "attributes", "current_funding" ] Decode.float
         |> requiredAt [ "attributes", "short_description" ] Decode.string
         |> requiredAt [ "attributes", "long_description" ] Decode.string
-        |> requiredAt [ "attributes",  "funding_goal" ] Decode.float
-        |> optionalAt [ "attributes", "funding_end_date" ] dateDecoder (Date.date 0 0 0)
+        |> requiredAt [ "attributes", "funding_goal" ] Decode.float
+        |> optionalAt [ "attributes", "funding_end_date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
+        |> optionalAt [ "attributes", "user_id" ] Decode.string ""
 
-dateDecoder : Decoder Date
+
+dateDecoder : Decoder DateTime
 dateDecoder =
     let
-        convert : String -> Decoder Date
+        convert : String -> Decoder DateTime
         convert raw =
-            case Date.fromISO8601 raw of
+            case DateTime.fromISO8601 raw of
                 Ok date ->
                     Decode.succeed date
 
                 Err error ->
                     Decode.fail error
     in
-        Decode.string |> Decode.andThen convert
+    Decode.string |> Decode.andThen convert
 
-encode : { r | shortDescription : String, longDescription : String, fundingGoal : Float, fundingEndDate : Date.Date } -> Encode.Value
+
+encode : { r | shortDescription : String, longDescription : String, fundingGoal : Float, fundingEndDate : DateTime, userId : String } -> Encode.Value
 encode campaign =
     let
         is8601DateString =
-          campaign.fundingEndDate
-                  |> Date.toISO8601
+            campaign.fundingEndDate
+                |> DateTime.toISO8601
 
         campaign_attributes =
             Encode.object
-                [ ("shortDescription", Encode.string campaign.shortDescription)
-                , ("longDescription", Encode.string campaign.longDescription)
-                , ("fundingGoal", Encode.float campaign.fundingGoal)
-                , ("fundingEndDate", Encode.string is8601DateString) ]
+                [ ( "short_description", Encode.string campaign.shortDescription )
+                , ( "long_description", Encode.string campaign.longDescription )
+                , ( "funding_goal", Encode.float campaign.fundingGoal )
+                , ( "funding_end_date", Encode.string is8601DateString )
+                ]
+
+        relationships =
+            Encode.object
+                [ ( "user", user_data_attribute ) ]
+
+        user_data_attribute =
+            Encode.object [ ( "data", user_attributes ) ]
+
+        user_attributes =
+            Encode.object
+                [ ( "type", Encode.string "user" )
+                , ( "id", Encode.string campaign.userId )
+                ]
 
         data_attributes =
-            Encode.object [ ( "attributes", campaign_attributes)]
+            Encode.object
+                [ ( "attributes", campaign_attributes )
+                , ( "type", Encode.string "campaign" )
+                , ( "relationships", relationships )
+                ]
     in
-        Encode.object [ ("data", data_attributes) ]
+    Encode.object [ ( "data", data_attributes ) ]

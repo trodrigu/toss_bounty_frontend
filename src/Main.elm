@@ -1,16 +1,21 @@
 module Main exposing (..)
 
+import Data.AuthToken exposing (AuthToken, fallback, init)
+import Data.Campaign as Campaign exposing (..)
 import Data.Session as Session exposing (Session)
 import Data.User as User exposing (User)
-import Data.Campaign as Campaign exposing (..)
+import Date exposing (Date)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (..)
-import Json.Decode as Decode exposing (Value)
+import Http exposing (header)
+import Json.Decode as Decode exposing (Decoder, Value)
+import Json.Decode.Extra exposing (date)
+import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
-import Pages.Dash as Dash
 import Pages.CreateCampaign as CreateCampaign
+import Pages.Dash as Dash
 import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
 import Pages.Logout as Logout
@@ -19,16 +24,11 @@ import Pages.TosserSignUp as TosserSignUp
 import Ports
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
+import Request.User exposing (storeSession)
 import Routing.Router as Router exposing (Route(..), fromLocation)
 import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
-import Request.User exposing (storeSession)
-import Data.AuthToken exposing (AuthToken, fallback, init)
-import Date exposing (Date)
-import Json.Decode.Extra exposing (date)
-import Http exposing (header)
+
 
 type Page
     = Home Home.Model
@@ -39,6 +39,7 @@ type Page
     | Logout Logout.Model
     | NotFound NotFound.Model
 
+
 type alias Model =
     { session : Session
     , location : Location
@@ -47,6 +48,7 @@ type alias Model =
     , apiUrl : Maybe String
     , campaigns : WebData Campaigns
     }
+
 
 type Msg
     = HomeMsg Home.Msg
@@ -70,9 +72,10 @@ type Msg
 decodeUserFromJson : Decode.Value -> Maybe User
 decodeUserFromJson json =
     json
-        |> Decode.decodeValue ( Decode.field "session" Decode.string )
+        |> Decode.decodeValue (Decode.field "session" Decode.string)
         |> Result.toMaybe
         |> Maybe.andThen (Decode.decodeString User.returnToSessionDecoder >> Result.toMaybe)
+
 
 init : Decode.Value -> Location -> ( Model, Cmd Msg )
 init val location =
@@ -85,41 +88,48 @@ init val location =
         , campaigns = Loading
         }
 
+
 decodeUrlFromJson : Decode.Value -> Maybe String
 decodeUrlFromJson json =
     json
-        |> Decode.decodeValue ( Decode.field "apiUrl" Decode.string )
+        |> Decode.decodeValue (Decode.field "apiUrl" Decode.string)
         |> Result.toMaybe
+
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     case maybeRoute of
-
         Just Router.HomeRoute ->
             model => Cmd.batch [ getGitHubSignInUrl model.apiUrl ]
 
-        Just ( Router.SaveTokenRoute ( Just token ) ( Just email ) ( Just userId ) ) ->
+        Just (Router.SaveTokenRoute (Just token) (Just email) (Just userId)) ->
             let
-                user = { email = email, token = ( Data.AuthToken.init token ), userId = userId }
-                session = model.session
-                updatedModel = { model | session = { session | user = Just user } }
+                user =
+                    { email = email, token = Data.AuthToken.init token, userId = userId }
 
+                session =
+                    model.session
+
+                updatedModel =
+                    { model | session = { session | user = Just user } }
             in
+            updatedModel
+                => Cmd.batch
+                    [ getCampaigns model.apiUrl token
+                    , Router.modifyUrl Router.CreateCampaignRoute
+                    , Request.User.storeSession user
+                    ]
 
-            updatedModel => Cmd.batch [ getCampaigns model.apiUrl token
-                                      , Router.modifyUrl Router.CreateCampaignRoute
-                                      , Request.User.storeSession user
-                                      ]
-
-        Just ( Router.SaveTokenRoute _ _ _ ) ->
-
-            model => Cmd.batch [ Router.modifyUrl Router.DashRoute
-                               ]
+        Just (Router.SaveTokenRoute _ _ _) ->
+            model
+                => Cmd.batch
+                    [ Router.modifyUrl Router.DashRoute
+                    ]
 
         Just Router.LoginRoute ->
             let
-                updatedPage = Login Login.init
-
+                updatedPage =
+                    Login Login.init
             in
             { model | page = updatedPage } => Cmd.none
 
@@ -136,51 +146,59 @@ setRoute maybeRoute model =
 
         Just Router.TosserSignUpRoute ->
             let
-                updatedPage = TosserSignUp TosserSignUp.init
-
+                updatedPage =
+                    TosserSignUp TosserSignUp.init
             in
             { model | page = updatedPage } => Cmd.none
 
         Just Router.DashRoute ->
             let
-                updatedPage = Dash Dash.init
-
+                updatedPage =
+                    Dash Dash.init
             in
-                case model.session.user of
-                    Just user ->
-                        { model | page = updatedPage } => Cmd.none
+            case model.session.user of
+                Just user ->
+                    { model | page = updatedPage } => Cmd.none
 
-                    Nothing ->
-                        model => Router.modifyUrl Router.HomeRoute
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
 
         Just Router.CreateCampaignRoute ->
             case model.session.user of
                 Just user ->
                     let
-                        _ = Debug.log "user" user
-                    in
+                        session =
+                            model.session
 
-                    let
-                        session = model.session
-                        token = user.token
-                        updatedPage = CreateCampaign ( CreateCampaign.init token )
+                        token =
+                            user.token
+
+                        userId =
+                            user.userId
+
+                        updatedPage =
+                            CreateCampaign (CreateCampaign.init token userId)
                     in
                     { model | page = updatedPage } => Cmd.none
+
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
 
-        Just Router.NotFoundRoute -> model => Cmd.none
+        Just Router.NotFoundRoute ->
+            model => Cmd.none
 
-        Nothing -> model => Cmd.none
+        Nothing ->
+            model => Cmd.none
+
 
 sessionChange : Sub (Maybe User)
 sessionChange =
     Ports.onSessionChange (Decode.decodeValue User.decoder >> Result.toMaybe)
 
+
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
 updatePage page msg model =
     let
-
         session =
             model.session
 
@@ -189,11 +207,9 @@ updatePage page msg model =
                 ( newModel, newCmd ) =
                     subUpdate subMsg subModel
             in
-            ( { model | page = (toModel newModel) }, Cmd.map toMsg newCmd )
-
+            ( { model | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
     case ( msg, page ) of
-
         ( SetRoute route, _ ) ->
             setRoute route model
 
@@ -219,27 +235,24 @@ updatePage page msg model =
 
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Home.update subMsg newSubModel
-
             in
-                { model | page = ( Home pageModel ) } => Cmd.map HomeMsg cmd
+            { model | page = Home pageModel } => Cmd.map HomeMsg cmd
 
         ( DashMsg subMsg, Dash subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Dash.update subMsg subModel
-
             in
-                { model | page = ( Dash pageModel) } => Cmd.map DashMsg cmd
+            { model | page = Dash pageModel } => Cmd.map DashMsg cmd
 
         ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     CreateCampaign.update subMsg subModel
-
             in
-                { model | page = ( CreateCampaign pageModel) } => Cmd.map CreateCampaignMsg cmd
+            { model | page = CreateCampaign pageModel } => Cmd.map CreateCampaignMsg cmd
 
-        ( TosserSignUpMsg subMsg, TosserSignUp subModel )->
+        ( TosserSignUpMsg subMsg, TosserSignUp subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     TosserSignUp.update subMsg subModel
@@ -253,13 +266,10 @@ updatePage page msg model =
                             let
                                 session =
                                     model.session
-
                             in
-                                { model | session = { user = Just user } }
-
+                            { model | session = { user = Just user } }
             in
-                { newModel | page = ( TosserSignUp pageModel ) } => Cmd.map TosserSignUpMsg cmd
-
+            { newModel | page = TosserSignUp pageModel } => Cmd.map TosserSignUpMsg cmd
 
         ( LoginMsg subMsg, Login subModel ) ->
             let
@@ -275,11 +285,10 @@ updatePage page msg model =
                             let
                                 session =
                                     model.session
-
                             in
-                                { model | session = { user =  Just user } }
+                            { model | session = { user = Just user } }
             in
-                { model | page = ( Login pageModel) } => Cmd.map LoginMsg cmd
+            { model | page = Login pageModel } => Cmd.map LoginMsg cmd
 
         ( LogoutMsg subMsg, Logout subModel ) ->
             let
@@ -295,27 +304,27 @@ updatePage page msg model =
                             let
                                 session =
                                     model.session
-
                             in
-                                { model | session = { user =  Just user } }
+                            { model | session = { user = Just user } }
             in
-                { model | page = ( Logout pageModel ) } => Cmd.map LogoutMsg cmd
+            { model | page = Logout pageModel } => Cmd.map LogoutMsg cmd
 
         ( FetchGitHubUrl data, _ ) ->
             let
                 updatedModel =
                     { model | githubUrl = data }
-
             in
-            ({ updatedModel | page = Home { url = data } }, Cmd.none)
+            ( { updatedModel | page = Home { url = data } }, Cmd.none )
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
             model => Cmd.none
 
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     updatePage model.page msg model
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -323,75 +332,77 @@ subscriptions model =
         [ Sub.map SetUser sessionChange
         ]
 
+
 developerHeroArea : Html Msg
 developerHeroArea =
-        section [ class "hero" ]
-                [ div [ class "hero-body", style[ ( "padding", "7rem 1.5rem" ) ] ]
-                      [ div [ class "container" ]
-                            [ div [ class "columns is-vcentered" ]
-                                  [ div [ class "column has-text-centered" ]
-                                        [ p [ class "title" ]
-                                            [ text "For developers" ]
-                                        , p [ class "subtitle" ]
-                                            [ text "get paid with"
-                                            , strong [][ text " no strings"]
-                                            ]
-                                        , button [ class "button" ]
-                                            [ text "Start winning" ]
-                                        ]
-                                 ]
-                           ]
-                     ]
-               ]
+    section [ class "hero" ]
+        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+            [ div [ class "container" ]
+                [ div [ class "columns is-vcentered" ]
+                    [ div [ class "column has-text-centered" ]
+                        [ p [ class "title" ]
+                            [ text "For developers" ]
+                        , p [ class "subtitle" ]
+                            [ text "get paid with"
+                            , strong [] [ text " no strings" ]
+                            ]
+                        , button [ class "button" ]
+                            [ text "Start winning" ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
 
 pageView : Session -> Page -> Html Msg
 pageView session page =
     let
         frame =
             Page.frame session.user
-
     in
     div []
-        [ (case page of
+        [ case page of
             Home subModel ->
-              Home.view subModel
-                  |> frame Page.Home
-                  |> Html.map HomeMsg
+                Home.view subModel
+                    |> frame Page.Home
+                    |> Html.map HomeMsg
 
             TosserSignUp subModel ->
-              TosserSignUp.view subModel
-                  |> frame Page.TosserSignUp
-                  |> Html.map TosserSignUpMsg
+                TosserSignUp.view subModel
+                    |> frame Page.TosserSignUp
+                    |> Html.map TosserSignUpMsg
 
             Dash subModel ->
-              Dash.view session subModel
-                  |> frame Page.Dash
-                  |> Html.map DashMsg
+                Dash.view session subModel
+                    |> frame Page.Dash
+                    |> Html.map DashMsg
 
             Login subModel ->
-              Login.view subModel
-                  |> frame Page.Login
-                  |> Html.map LoginMsg
+                Login.view subModel
+                    |> frame Page.Login
+                    |> Html.map LoginMsg
 
             CreateCampaign subModel ->
-              CreateCampaign.view subModel
-                  |> frame Page.CreateCampaign
-                  |> Html.map CreateCampaignMsg
+                CreateCampaign.view subModel
+                    |> frame Page.CreateCampaign
+                    |> Html.map CreateCampaignMsg
 
             Logout subModel ->
-              Logout.view subModel
-                  |> Html.map LogoutMsg
+                Logout.view subModel
+                    |> Html.map LogoutMsg
 
             NotFound subModel ->
-              NotFound.view
-                  |> Html.map NotFoundMsg
+                NotFound.view
+                    |> Html.map NotFoundMsg
+        ]
 
-              ) ]
 
 view : Model -> Html Msg
 view model =
     div []
         [ pageView model.session model.page ]
+
 
 main : Program Decode.Value Model Msg
 main =
@@ -399,7 +410,8 @@ main =
         { init = init
         , update = update
         , view = view
-        , subscriptions = subscriptions }
+        , subscriptions = subscriptions
+        }
 
 
 authHeader : String -> Http.Header
@@ -407,9 +419,9 @@ authHeader token =
     let
         completeTokenValue =
             "Bearer " ++ token
-
     in
     Http.header "Authorization" completeTokenValue
+
 
 authConfig : String -> Config
 authConfig token =
@@ -418,10 +430,10 @@ authConfig token =
     , timeout = Nothing
     }
 
+
 getCampaigns : Maybe String -> String -> Cmd Msg
 getCampaigns apiUrl token =
     let
-
         campaign_url =
             case apiUrl of
                 Nothing ->
@@ -429,14 +441,13 @@ getCampaigns apiUrl token =
 
                 Just url ->
                     url ++ "/campaigns"
-
     in
-    RemoteData.Http.getWithConfig ( authConfig token ) campaign_url FetchCampaigns campaignsDecoder
+    RemoteData.Http.getWithConfig (authConfig token) campaign_url FetchCampaigns campaignsDecoder
+
 
 getGitHubSignInUrl : Maybe String -> Cmd Msg
 getGitHubSignInUrl apiUrl =
     let
-
         github_oauth_url =
             case apiUrl of
                 Nothing ->
@@ -444,9 +455,9 @@ getGitHubSignInUrl apiUrl =
 
                 Just url ->
                     url ++ "/github_oauth_url"
-
     in
     RemoteData.Http.get github_oauth_url FetchGitHubUrl githubUrlDecoder
+
 
 githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
