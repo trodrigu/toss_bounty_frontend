@@ -14,6 +14,7 @@ import Json.Decode.Extra exposing (date)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
+import Pages.BetaSignUp as BetaSignUp
 import Pages.CreateCampaign as CreateCampaign
 import Pages.Dash as Dash
 import Pages.Home as Home exposing (GitHubUrl)
@@ -35,6 +36,7 @@ type Page
     | TosserSignUp TosserSignUp.Model
     | Dash Dash.Model
     | Login Login.Model
+    | BetaSignUp BetaSignUp.Model
     | CreateCampaign CreateCampaign.Model
     | Logout Logout.Model
     | NotFound NotFound.Model
@@ -55,6 +57,7 @@ type Msg
     | TosserSignUpMsg TosserSignUp.Msg
     | DashMsg Dash.Msg
     | LoginMsg Login.Msg
+    | BetaSignUpMsg BetaSignUp.Msg
     | CreateCampaignMsg CreateCampaign.Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
@@ -82,7 +85,7 @@ init val location =
     setRoute (Router.fromLocation location)
         { session = { user = decodeUserFromJson val }
         , location = location
-        , page = Home Home.init
+        , page = BetaSignUp BetaSignUp.init
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
         , campaigns = Loading
@@ -99,6 +102,13 @@ decodeUrlFromJson json =
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     case maybeRoute of
+        Just Router.BetaSignUpRoute ->
+            let
+                updatedPage =
+                    BetaSignUp BetaSignUp.init
+            in
+            { model | page = updatedPage } => Cmd.none
+
         Just Router.HomeRoute ->
             model => Cmd.batch [ getGitHubSignInUrl model.apiUrl ]
 
@@ -271,6 +281,18 @@ updatePage page msg model =
             in
             { newModel | page = TosserSignUp pageModel } => Cmd.map TosserSignUpMsg cmd
 
+        ( BetaSignUpMsg subMsg, BetaSignUp subModel ) ->
+            let
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    BetaSignUp.update subMsg subModel
+
+                newModel =
+                    case msgFromPage of
+                        BetaSignUp.NoOp ->
+                            model
+            in
+            { model | page = BetaSignUp pageModel } => Cmd.map BetaSignUpMsg cmd
+
         ( LoginMsg subMsg, Login subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
@@ -377,6 +399,11 @@ pageView session page =
                 Dash.view session subModel
                     |> frame Page.Dash
                     |> Html.map DashMsg
+
+            BetaSignUp subModel ->
+                BetaSignUp.view subModel
+                    |> frame Page.BetaSignUp
+                    |> Html.map BetaSignUpMsg
 
             Login subModel ->
                 Login.view subModel
