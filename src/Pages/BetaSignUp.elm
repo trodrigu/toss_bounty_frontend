@@ -78,7 +78,7 @@ betaSignUpForm model =
                                     [ viewErrors model.errors
                                     , div [ id "mc_embed_signup_scroll" ]
                                         [ h2 [ class "title" ]
-                                            [ text "Sign Up For The Beta" ]
+                                            [ text "Stay in the know" ]
                                         , div [ class "mc-field-group field" ]
                                             [ label [ for "mce-EMAIL", class "label" ]
                                                 [ p [ class "control" ]
@@ -117,15 +117,29 @@ betaSignUpForm model =
                                     [ p [ class "title" ]
                                         [ text "For developers" ]
                                     , p [ class "subtitle" ]
-                                        [ text "get paid with"
+                                        [ text "Get paid with"
                                         , strong [] [ text " no strings" ]
                                         ]
                                     , p [ class "subtitle" ]
-                                        [ text "for the open source software"
+                                        [ text "For the open source software"
                                         , strong [] [ text " you create." ]
                                         ]
-                                    , button [ class "button", onClick ShowBetaSignUp ]
-                                        [ text "Start winning" ]
+                                    , p []
+                                        [ text "Start your campaign in minutes for your open source project and get funded." ]
+                                    , p []
+                                        [ text "TossBounty will parse your Github data and present you a marketable page to help you." ]
+                                    , p []
+                                        [ text "You are free to tweak this page and add rewards for your awesome donors." ]
+                                    , p []
+                                        [ text "TossBounty will outline some good "
+                                        , strong [] [ text " rewards to offer!" ]
+                                        ]
+                                    , p []
+                                        [ text "It only takes "
+                                        , strong [] [ text " 30 days." ]
+                                        ]
+                                    , button [ class "button is-primary is-large", style [ ( "margin-top", "1rem" ) ], onClick ShowBetaSignUp ]
+                                        [ text "Stay Indie" ]
                                     ]
                                 ]
                             ]
