@@ -14,6 +14,7 @@ import Json.Encode exposing (Value, encode, object, string)
 import Navigation
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
+import Request.Auth as Auth exposing (config)
 import Request.User as User exposing (storeSession)
 import Routing.Router as Router
 import Task
@@ -184,26 +185,6 @@ update msg model =
             ( updatedModel, Cmd.none ) => NoOp
 
 
-authHeader : AuthToken -> Http.Header
-authHeader token =
-    let
-        tokenString =
-            AuthToken.toString token
-
-        completeTokenValue =
-            "Bearer " ++ tokenString
-    in
-    Http.header "Authorization" completeTokenValue
-
-
-authConfig : AuthToken -> Config
-authConfig token =
-    { headers = [ authHeader token ]
-    , withCredentials = True
-    , timeout = Nothing
-    }
-
-
 postCampaign : Model -> Cmd Msg
 postCampaign model =
     let
@@ -216,7 +197,7 @@ postCampaign model =
             , userId = model.userId
             }
     in
-    RemoteData.Http.postWithConfig (authConfig model.token) "http://localhost:4000/campaigns" HandleCampaign Campaign.decoder (Campaign.encode data)
+    RemoteData.Http.postWithConfig (Auth.config model.token) "http://localhost:4000/campaigns" HandleCampaign Campaign.decoder (Campaign.encode data)
 
 
 validate : Model -> List Error

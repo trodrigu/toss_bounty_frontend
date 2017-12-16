@@ -25,6 +25,7 @@ import Pages.TosserSignUp as TosserSignUp
 import Ports
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
+import Request.Auth as Auth exposing (config)
 import Request.User exposing (storeSession)
 import Routing.Router as Router exposing (Route(..), fromLocation)
 import Util exposing ((=>))
@@ -85,7 +86,7 @@ init val location =
     setRoute (Router.fromLocation location)
         { session = { user = decodeUserFromJson val }
         , location = location
-        , page = BetaSignUp BetaSignUp.init
+        , page = Home Home.init
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
         , campaigns = Loading
@@ -105,7 +106,7 @@ setRoute maybeRoute model =
         Just Router.BetaSignUpRoute ->
             let
                 updatedPage =
-                    BetaSignUp BetaSignUp.init
+                    Home Home.init
             in
             { model | page = updatedPage } => Cmd.none
 
@@ -114,8 +115,11 @@ setRoute maybeRoute model =
 
         Just (Router.SaveTokenRoute (Just token) (Just email) (Just userId)) ->
             let
+                updatedToken =
+                    Data.AuthToken.init token
+
                 user =
-                    { email = email, token = Data.AuthToken.init token, userId = userId }
+                    { email = email, token = updatedToken, userId = userId }
 
                 session =
                     model.session
@@ -125,7 +129,7 @@ setRoute maybeRoute model =
             in
             updatedModel
                 => Cmd.batch
-                    [ getCampaigns model.apiUrl token
+                    [ getCampaigns model.apiUrl updatedToken
                     , Router.modifyUrl Router.CreateCampaignRoute
                     , Request.User.storeSession user
                     ]
@@ -441,24 +445,7 @@ main =
         }
 
 
-authHeader : String -> Http.Header
-authHeader token =
-    let
-        completeTokenValue =
-            "Bearer " ++ token
-    in
-    Http.header "Authorization" completeTokenValue
-
-
-authConfig : String -> Config
-authConfig token =
-    { headers = [ authHeader token ]
-    , withCredentials = True
-    , timeout = Nothing
-    }
-
-
-getCampaigns : Maybe String -> String -> Cmd Msg
+getCampaigns : Maybe String -> AuthToken -> Cmd Msg
 getCampaigns apiUrl token =
     let
         campaign_url =
@@ -469,7 +456,7 @@ getCampaigns apiUrl token =
                 Just url ->
                     url ++ "/campaigns"
     in
-    RemoteData.Http.getWithConfig (authConfig token) campaign_url FetchCampaigns campaignsDecoder
+    RemoteData.Http.getWithConfig (Auth.config token) campaign_url FetchCampaigns campaignsDecoder
 
 
 getGitHubSignInUrl : Maybe String -> Cmd Msg
