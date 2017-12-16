@@ -6,3 +6,4 @@ elm.js
 /TAGS
 .env
 _build/env.js
+/tests/elm-stuff
