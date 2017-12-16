@@ -172,9 +172,6 @@ update msg model =
 
         ReceiveDate date ->
             let
-                _ =
-                    Debug.log "date" date
-
                 stockDateTime =
                     DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
 
