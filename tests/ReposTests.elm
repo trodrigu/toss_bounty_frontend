@@ -8,20 +8,30 @@ import Test exposing (..)
 
 listOfRepos : Repos
 listOfRepos =
-    { repos = [ repo ] }
+    { repos = [ correctRepo, incorrectRepo, anotherIncorrectRepo ] }
 
 
-repo : Repo
-repo =
-    Repo "a title" "an image src"
+correctRepo : Repo
+correctRepo =
+    Repo "a title" "an image src" 4
+
+
+incorrectRepo : Repo
+incorrectRepo =
+    Repo "a title" "an image src" 1
+
+
+anotherIncorrectRepo : Repo
+anotherIncorrectRepo =
+    Repo "a title" "an image src" 2
 
 
 all : Test
 all =
     describe "mostBountifulRepo"
-        [ test "returns one repo" <|
+        [ test "returns correct repo" <|
             \() ->
                 listOfRepos
                     |> mostBountifulRepo
-                    |> Expect.equal repo
+                    |> Expect.equal correctRepo
         ]

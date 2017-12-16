@@ -21,7 +21,7 @@ mostBountifulRepo : Repos -> Repo
 mostBountifulRepo repos =
     let
         repo =
-            repos.repos
+            List.sortBy .bountifulScore repos.repos
                 |> reverse
                 |> head
     in
@@ -30,4 +30,4 @@ mostBountifulRepo repos =
             repo
 
         Nothing ->
-            Repo "" ""
+            Repo "" "" 0
