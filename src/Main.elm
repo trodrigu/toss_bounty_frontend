@@ -2,6 +2,8 @@ module Main exposing (..)
 
 import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
+import Data.Issues as Issues exposing (Issues)
+import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Data.Session as Session exposing (Session)
 import Data.User as User exposing (User)
 import Date exposing (Date)
@@ -50,6 +52,8 @@ type alias Model =
     , githubUrl : WebData GitHubUrl
     , apiUrl : Maybe String
     , campaigns : WebData Campaigns
+    , repos : WebData Repos
+    , mostBountifulIssues : WebData Issues
     }
 
 
@@ -71,6 +75,8 @@ type Msg
     | ReceiveMessage Encode.Value
     | FetchGitHubUrl (WebData GitHubUrl)
     | FetchCampaigns (WebData Campaigns)
+    | FetchRepos (WebData Repos)
+    | FetchIssues (WebData Issues)
 
 
 decodeUserFromJson : Decode.Value -> Maybe User
@@ -90,6 +96,8 @@ init val location =
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
         , campaigns = Loading
+        , repos = Loading
+        , mostBountifulIssues = Loading
         }
 
 
@@ -124,14 +132,25 @@ setRoute maybeRoute model =
                 session =
                     model.session
 
+                repos =
+                    case model.repos of
+                        Success repos ->
+                            repos
+
+                        _ ->
+                            Repos []
+
+                bountifulRepo =
+                    Repos.mostBountifulRepo repos
+
                 updatedModel =
                     { model | session = { session | user = Just user } }
             in
             updatedModel
                 => Cmd.batch
-                    [ getCampaigns model.apiUrl updatedToken
-                    , Router.modifyUrl Router.CreateCampaignRoute
-                    , Request.User.storeSession user
+                    [ Request.User.storeSession user
+                    , getRepos model.apiUrl updatedToken
+                    , getIssues model.apiUrl updatedToken bountifulRepo.id
                     ]
 
         Just (Router.SaveTokenRoute _ _ _) ->
@@ -190,8 +209,27 @@ setRoute maybeRoute model =
                         userId =
                             user.userId
 
+                        repos =
+                            case model.repos of
+                                Success repos ->
+                                    repos
+
+                                _ ->
+                                    Repos []
+
+                        bountifulRepo =
+                            Repos.mostBountifulRepo repos
+
+                        updatedIssues =
+                            case model.mostBountifulIssues of
+                                Success issues ->
+                                    issues.issues
+
+                                _ ->
+                                    []
+
                         updatedPage =
-                            CreateCampaign (CreateCampaign.init token userId)
+                            CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues)
                     in
                     { model | page = updatedPage } => Cmd.none
 
@@ -342,6 +380,106 @@ updatePage page msg model =
             in
             ( { updatedModel | page = Home { url = data } }, Cmd.none )
 
+        ( FetchRepos data, _ ) ->
+            let
+                session =
+                    model.session
+
+                cmd =
+                    -- If we just signed out, then redirect to Home.
+                    if session.user /= Nothing && user == Nothing then
+                        Router.modifyUrl Router.HomeRoute
+                    else
+                        Cmd.none
+
+                user =
+                    session.user
+
+                updatedUser =
+                    case user of
+                        Just user ->
+                            user
+
+                        Nothing ->
+                            User "" (Data.AuthToken.init "") ""
+
+                token =
+                    updatedUser.token
+
+                userId =
+                    updatedUser.userId
+
+                updatedModel =
+                    { model | repos = data }
+
+                repos =
+                    case data of
+                        Success repos ->
+                            repos
+
+                        _ ->
+                            Repos []
+
+                bountifulRepo =
+                    Repos.mostBountifulRepo repos
+            in
+            ( updatedModel, Cmd.none )
+
+        ( FetchIssues data, _ ) ->
+            let
+                session =
+                    model.session
+
+                user =
+                    session.user
+
+                cmd =
+                    -- If we just signed out, then redirect to Home.
+                    if session.user /= Nothing && user == Nothing then
+                        Router.modifyUrl Router.HomeRoute
+                    else
+                        Router.modifyUrl Router.CreateCampaignRoute
+
+                updatedUser =
+                    case user of
+                        Just user ->
+                            user
+
+                        Nothing ->
+                            User "" (Data.AuthToken.init "") ""
+
+                token =
+                    updatedUser.token
+
+                userId =
+                    updatedUser.userId
+
+                repos =
+                    case model.repos of
+                        Success repos ->
+                            repos
+
+                        _ ->
+                            Repos []
+
+                bountifulRepo =
+                    Repos.mostBountifulRepo repos
+
+                updatedIssues =
+                    case data of
+                        Success issues ->
+                            issues.issues
+
+                        _ ->
+                            []
+
+                updatedPage =
+                    CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues)
+            in
+            ( { model | page = updatedPage, mostBountifulIssues = data }
+            , cmd
+            )
+
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
             model => Cmd.none
@@ -448,7 +586,7 @@ main =
 getCampaigns : Maybe String -> AuthToken -> Cmd Msg
 getCampaigns apiUrl token =
     let
-        campaign_url =
+        campaignUrl =
             case apiUrl of
                 Nothing ->
                     ""
@@ -456,7 +594,38 @@ getCampaigns apiUrl token =
                 Just url ->
                     url ++ "/campaigns"
     in
-    RemoteData.Http.getWithConfig (Auth.config token) campaign_url FetchCampaigns campaignsDecoder
+    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl FetchCampaigns campaignsDecoder
+
+
+getRepos : Maybe String -> AuthToken -> Cmd Msg
+getRepos apiUrl token =
+    let
+        reposUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/github_repos"
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) reposUrl FetchRepos Repos.decoder
+
+
+getIssues : Maybe String -> AuthToken -> String -> Cmd Msg
+getIssues apiUrl token githubRepoId =
+    let
+        issuesUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/github_issues"
+
+        issuesFilteredByRepoId =
+            issuesUrl ++ "?github_repo_id=" ++ githubRepoId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) issuesFilteredByRepoId FetchIssues Issues.decoder
 
 
 getGitHubSignInUrl : Maybe String -> Cmd Msg

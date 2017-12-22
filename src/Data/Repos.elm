@@ -30,4 +30,4 @@ mostBountifulRepo repos =
             repo
 
         Nothing ->
-            Repo "" "" 0
+            Repo "0" "" "" 0 ""

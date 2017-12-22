@@ -1,4 +1,4 @@
-module Data.Issue exposing (Issue)
+module Data.Issue exposing (Issue, decoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)

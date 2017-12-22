@@ -2,10 +2,13 @@ module Pages.CreateCampaign exposing (..)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback, toString)
 import Data.Campaign as Campaign exposing (..)
+import Data.Issue as Issue exposing (Issue)
+import Data.Issues as Issues exposing (Issues)
+import Data.Repo as Repo exposing (Repo)
 import Data.User as User exposing (User, encodeLogin)
 import Date exposing (Date, now)
 import Html exposing (..)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (alt, class, datetime, href, src, style)
 import Html.Events exposing (onClick, onInput)
 import Http exposing (header)
 import Json.Decode exposing (Decoder, string)
@@ -24,8 +27,8 @@ import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
 
-init : AuthToken -> String -> Model
-init token userId =
+init : AuthToken -> String -> Repo -> List Issue -> Model
+init token userId repo issues =
     { currentFunding = 0.0
     , errors = []
     , fundingEndDate = DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
@@ -34,6 +37,8 @@ init token userId =
     , shortDescription = ""
     , token = token
     , userId = userId
+    , bountifulRepo = repo
+    , issues = issues
     }
 
 
@@ -46,6 +51,8 @@ type alias Model =
     , token : AuthToken
     , errors : List Error
     , userId : String
+    , bountifulRepo : Repo
+    , issues : List Issue
     }
 
 
@@ -66,7 +73,95 @@ type ExternalMsg
 
 view : Model -> Html Msg
 view model =
-    createCampaignForm model
+    maintainerHero model
+
+
+maintainerHero : Model -> Html Msg
+maintainerHero model =
+    let
+        name =
+            model.bountifulRepo.name
+
+        imageSrc =
+            model.bountifulRepo.image
+
+        owner =
+            model.bountifulRepo.owner
+    in
+    div []
+        [ section [ class "hero" ]
+            [ div [ class "hero-body" ]
+                [ div [ class "container" ]
+                    [ h1 [ class "title" ]
+                        [ text name ]
+                    , h2 [ class "subtitle" ]
+                        [ text ("By " ++ owner) ]
+                    ]
+                ]
+            ]
+        , issuesView model.issues
+        , bioAndPic model
+        ]
+
+
+issuesView : List Issue -> Html Msg
+issuesView issues =
+    div [] <|
+        List.map issueView issues
+
+
+issueView : Issue -> Html Msg
+issueView issue =
+    section [ class "section" ]
+        [ div [ class "container" ]
+            [ div [ class "columns" ]
+                [ div [ class "column is-one-third" ]
+                    [ h1 [ class "title" ]
+                        [ text issue.title ]
+                    , h2 [ class "subtitle" ]
+                        [ text issue.body ]
+                    ]
+                ]
+            ]
+        ]
+
+
+bioAndPic : Model -> Html Msg
+bioAndPic model =
+    section [ class "section" ]
+        [ div
+            [ class "container" ]
+            [ article [ class "media" ]
+                [ figure [ class "media-left" ]
+                    [ p [ class "image is-128x128" ]
+                        [ img [ src model.bountifulRepo.image ]
+                            []
+                        ]
+                    ]
+                , div [ class "media-content" ]
+                    [ div [ class "content" ]
+                        [ p []
+                            [ strong []
+                                [ text model.bountifulRepo.owner ]
+                            , br []
+                                []
+                            , text "Does code push you?"
+                            ]
+                        ]
+                    , nav [ class "level is-mobile" ]
+                        [ div [ class "level-left" ]
+                            [ a [ class "level-item" ]
+                                [ span [ class "icon is-medium" ]
+                                    [ i [ class "fa fa-github" ]
+                                        []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
 
 
 createCampaignForm : Model -> Html Msg
