@@ -55,6 +55,7 @@ routeToString page =
 
                 HomeRoute ->
                     []
+
                 StripeConnectSignUpRoute ->
                     [ "stripe-connect-sign-up" ]
 
@@ -95,6 +96,7 @@ routeParser =
         , UrlParser.map TosserSignUpRoute (UrlParser.s "tosser-sign-up")
         , UrlParser.map DashRoute (UrlParser.s "dash")
         , UrlParser.map CreateCampaignRoute (UrlParser.s "create-campaign")
+        , UrlParser.map StripeConnectSignUpRoute (UrlParser.s "stripe-connect-sign-up")
         , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" <?> UrlParser.stringParam "user_id")
         , UrlParser.map LoginRoute (UrlParser.s "login")
         , UrlParser.map BetaSignUpRoute (UrlParser.s "beta-sign-up")
