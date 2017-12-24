@@ -44,8 +44,9 @@ viewSignIn page user =
             ]
 
         Just user ->
-            [-- [ navbarHomeLink [ text "Toss Bounty" ]
-             -- , navbarRightLink (page == Dash) DashRoute [ text "Dash" ]
+            [ navbarHomeLink [ text "Toss Bounty" ]
+
+            -- , navbarRightLink (page == Dash) DashRoute [ text "Dash" ]
             ]
 
 
