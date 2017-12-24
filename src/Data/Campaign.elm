@@ -29,12 +29,12 @@ campaignsDecoder =
 decoder : Decoder Campaign
 decoder =
     decode Campaign
-        |> requiredAt [ "attributes", "current_funding" ] Decode.float
-        |> requiredAt [ "attributes", "short_description" ] Decode.string
-        |> requiredAt [ "attributes", "long_description" ] Decode.string
-        |> requiredAt [ "attributes", "funding_goal" ] Decode.float
-        |> optionalAt [ "attributes", "funding_end_date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
-        |> optionalAt [ "attributes", "user_id" ] Decode.string ""
+        |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
+        |> requiredAt [ "data", "attributes", "short-description" ] Decode.string
+        |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
+        |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
+        |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
+        |> optionalAt [ "relationships", "user", "data", "id" ] Decode.string ""
 
 
 dateDecoder : Decoder DateTime
