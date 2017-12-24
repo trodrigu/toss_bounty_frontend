@@ -1,0 +1,15 @@
+module Data.StripeConnectUrl exposing (StripeConnectUrl, decoder)
+
+import Json.Decode as Decode exposing (Decoder, Value)
+import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import RemoteData.Http exposing (..)
+
+
+type alias StripeConnectUrl =
+    { url : String }
+
+
+decoder : Decoder StripeConnectUrl
+decoder =
+    decode StripeConnectUrl
+        |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
