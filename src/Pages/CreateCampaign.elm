@@ -40,7 +40,6 @@ init token userId repo issues =
     , userId = userId
     , bountifulRepo = repo
     , issues = issues
-    , stripeConnectUrl = Loading
     }
 
 
@@ -55,7 +54,6 @@ type alias Model =
     , userId : String
     , bountifulRepo : Repo
     , issues : List Issue
-    , stripeConnectUrl : WebData StripeConnectUrl
     }
 
 
@@ -226,8 +224,8 @@ createCampaignForm model =
                         ]
                     , div [ class "field is-grouped" ]
                         [ p [ class "control" ]
-                            [ button [ class "button is-primary", onClick SaveCampaignForm, onClick RequestDate ]
-                                [ text "Connect with Stripe" ]
+                            [ button [ class "button is-primary", onClick RequestDate ]
+                                [ text "Create Campaign" ]
                             ]
                         ]
                     ]
@@ -271,6 +269,9 @@ update msg model =
             case validate model of
                 [] ->
                     let
+                        _ =
+                            Debug.log "model" model
+
                         newModel =
                             { model | errors = [] }
                     in
@@ -284,18 +285,38 @@ update msg model =
         RequestDate ->
             ( model, Task.perform ReceiveDate now ) => NoOp
 
-        ReceiveDate date ->
+        ReceiveDate time ->
             let
-                stockDateTime =
-                    DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
+                year =
+                    Date.year time
 
-                convertedTimeDate =
-                    stockDateTime
+                monthAsInt =
+                    time
+                        |> Date.month
+                        |> monthToInt
+
+                day =
+                    Date.day time
+
+                hour =
+                    Date.hour time
+
+                minute =
+                    Date.minute time
+
+                second =
+                    Date.second time
+
+                stockDateTime =
+                    DateTime.dateTime { year = year, month = monthAsInt, day = day, hour = hour, minute = minute, second = second, millisecond = 0 }
+
+                dateTimeMonthFromNow =
+                    DateTime.addMonths 1 stockDateTime
 
                 updatedModel =
-                    { model | fundingEndDate = convertedTimeDate }
+                    { model | fundingEndDate = dateTimeMonthFromNow }
             in
-            ( updatedModel, Cmd.none ) => NoOp
+            ( updatedModel, postCampaign updatedModel ) => NoOp
 
 
 postCampaign : Model -> Cmd Msg
@@ -339,3 +360,43 @@ viewErrors errors =
     errors
         |> List.map (\( _, error ) -> li [] [ text error ])
         |> ul [ class "help is-danger" ]
+
+
+monthToInt : Date.Month -> Int
+monthToInt month =
+    case month of
+        Date.Jan ->
+            1
+
+        Date.Feb ->
+            2
+
+        Date.Mar ->
+            3
+
+        Date.Apr ->
+            4
+
+        Date.May ->
+            5
+
+        Date.Jun ->
+            6
+
+        Date.Jul ->
+            7
+
+        Date.Aug ->
+            8
+
+        Date.Sep ->
+            9
+
+        Date.Oct ->
+            10
+
+        Date.Nov ->
+            11
+
+        Date.Dec ->
+            12
