@@ -11,6 +11,7 @@ import Util exposing ((=>))
 type ActivePage
     = Other
     | Home
+    | StripeConnectSignUp
     | Dash
     | Login
     | BetaSignUp

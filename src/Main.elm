@@ -5,6 +5,7 @@ import Data.Campaign as Campaign exposing (..)
 import Data.Issues as Issues exposing (Issues)
 import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Data.Session as Session exposing (Session)
+import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Data.User as User exposing (User)
 import Date exposing (Date)
 import Html exposing (..)
@@ -23,6 +24,7 @@ import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
 import Pages.Logout as Logout
 import Pages.NotFound as NotFound
+import Pages.StripeConnectSignUp as StripeConnectSignUp
 import Pages.TosserSignUp as TosserSignUp
 import Ports
 import RemoteData exposing (RemoteData(..), WebData)
@@ -40,6 +42,7 @@ type Page
     | Dash Dash.Model
     | Login Login.Model
     | BetaSignUp BetaSignUp.Model
+    | StripeConnectSignUp StripeConnectSignUp.Model
     | CreateCampaign CreateCampaign.Model
     | Logout Logout.Model
     | NotFound NotFound.Model
@@ -54,6 +57,7 @@ type alias Model =
     , campaigns : WebData Campaigns
     , repos : WebData Repos
     , mostBountifulIssues : WebData Issues
+    , stripeConnectUrl : WebData StripeConnectUrl
     }
 
 
@@ -64,6 +68,7 @@ type Msg
     | LoginMsg Login.Msg
     | BetaSignUpMsg BetaSignUp.Msg
     | CreateCampaignMsg CreateCampaign.Msg
+    | StripeConnectSignUpMsg StripeConnectSignUp.Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
     | SetUser (Maybe User)
@@ -77,6 +82,7 @@ type Msg
     | FetchCampaigns (WebData Campaigns)
     | FetchRepos (WebData Repos)
     | FetchIssues (WebData Issues)
+    | FetchStripeConnectUrl (WebData StripeConnectUrl)
 
 
 decodeUserFromJson : Decode.Value -> Maybe User
@@ -98,6 +104,7 @@ init val location =
         , campaigns = Loading
         , repos = Loading
         , mostBountifulIssues = Loading
+        , stripeConnectUrl = Loading
         }
 
 
@@ -149,8 +156,7 @@ setRoute maybeRoute model =
             updatedModel
                 => Cmd.batch
                     [ Request.User.storeSession user
-                    , getRepos model.apiUrl updatedToken
-                    , getIssues model.apiUrl updatedToken bountifulRepo.id
+                    , getStripeConnectUrl model.apiUrl
                     ]
 
         Just (Router.SaveTokenRoute _ _ _) ->
@@ -181,6 +187,13 @@ setRoute maybeRoute model =
             let
                 updatedPage =
                     TosserSignUp TosserSignUp.init
+            in
+            { model | page = updatedPage } => Cmd.none
+
+        Just Router.StripeConnectSignUpRoute ->
+            let
+                updatedPage =
+                    StripeConnectSignUp StripeConnectSignUp.init
             in
             { model | page = updatedPage } => Cmd.none
 
@@ -299,6 +312,10 @@ updatePage page msg model =
 
         ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
             let
+                _ =
+                    Debug.log "subMsg" subMsg
+            in
+            let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     CreateCampaign.update subMsg subModel
             in
@@ -380,6 +397,39 @@ updatePage page msg model =
             in
             ( { updatedModel | page = Home { url = data } }, Cmd.none )
 
+        ( FetchStripeConnectUrl data, _ ) ->
+            let
+                session =
+                    model.session
+
+                user =
+                    session.user
+
+                cmd =
+                    -- If we just signed out, then redirect to Home.
+                    if session.user /= Nothing && user == Nothing then
+                        Router.modifyUrl Router.HomeRoute
+                    else
+                        Router.modifyUrl Router.CreateCampaignRoute
+
+                updatedUser =
+                    case user of
+                        Just user ->
+                            user
+
+                        Nothing ->
+                            User "" (Data.AuthToken.init "") ""
+
+                token =
+                    updatedUser.token
+
+                updatedModel =
+                    { model | stripeConnectUrl = data }
+            in
+            ( { updatedModel | page = Home { url = data } }
+            , getRepos model.apiUrl token
+            )
+
         ( FetchRepos data, _ ) ->
             let
                 session =
@@ -423,7 +473,9 @@ updatePage page msg model =
                 bountifulRepo =
                     Repos.mostBountifulRepo repos
             in
-            ( updatedModel, Cmd.none )
+            ( updatedModel
+            , getIssues model.apiUrl token bountifulRepo.id
+            )
 
         ( FetchIssues data, _ ) ->
             let
@@ -477,7 +529,7 @@ updatePage page msg model =
                     CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues)
             in
             ( { model | page = updatedPage, mostBountifulIssues = data }
-            , cmd
+            , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
             )
 
         ( _, _ ) ->
@@ -531,6 +583,11 @@ pageView session page =
                 Home.view subModel
                     |> frame Page.Home
                     |> Html.map HomeMsg
+
+            StripeConnectSignUp subModel ->
+                StripeConnectSignUp.view subModel
+                    |> frame Page.StripeConnectSignUp
+                    |> Html.map StripeConnectSignUpMsg
 
             TosserSignUp subModel ->
                 TosserSignUp.view subModel
@@ -645,4 +702,24 @@ getGitHubSignInUrl apiUrl =
 githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
+        |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+
+getStripeConnectUrl : Maybe String -> Cmd Msg
+getStripeConnectUrl apiUrl =
+    let
+        stripeConnectUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/stripe_oauth_url"
+    in
+    RemoteData.Http.get stripeConnectUrl FetchStripeConnectUrl stripeConnectUrlUrlDecoder
+
+
+stripeConnectUrlUrlDecoder : Decoder StripeConnectUrl
+stripeConnectUrlUrlDecoder =
+    decode StripeConnectUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""

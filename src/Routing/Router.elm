@@ -11,6 +11,7 @@ import UrlParser exposing (..)
 
 type Route
     = HomeRoute
+    | StripeConnectSignUpRoute
     | TosserSignUpRoute
     | DashRoute
     | CreateCampaignRoute
@@ -54,6 +55,8 @@ routeToString page =
 
                 HomeRoute ->
                     []
+                StripeConnectSignUpRoute ->
+                    [ "stripe-connect-sign-up" ]
 
                 TosserSignUpRoute ->
                     [ "tosser-sign-up" ]
