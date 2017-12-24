@@ -5,6 +5,7 @@ import Data.Campaign as Campaign exposing (..)
 import Data.Issue as Issue exposing (Issue)
 import Data.Issues as Issues exposing (Issues)
 import Data.Repo as Repo exposing (Repo)
+import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Data.User as User exposing (User, encodeLogin)
 import Date exposing (Date, now)
 import Html exposing (..)
@@ -39,6 +40,7 @@ init token userId repo issues =
     , userId = userId
     , bountifulRepo = repo
     , issues = issues
+    , stripeConnectUrl = Loading
     }
 
 
@@ -53,6 +55,7 @@ type alias Model =
     , userId : String
     , bountifulRepo : Repo
     , issues : List Issue
+    , stripeConnectUrl : WebData StripeConnectUrl
     }
 
 
@@ -89,17 +92,32 @@ maintainerHero model =
             model.bountifulRepo.owner
     in
     div []
-        [ section [ class "hero" ]
+        [ section [ class "hero is-medium is-primary is-bold" ]
             [ div [ class "hero-body" ]
                 [ div [ class "container" ]
-                    [ h1 [ class "title" ]
-                        [ text name ]
-                    , h2 [ class "subtitle" ]
-                        [ text ("By " ++ owner) ]
+                    [ div [ class "columns" ]
+                        [ div [ class "column is-half is-offset-one-quarter" ]
+                            [ h1 [ class "title" ]
+                                [ text name ]
+                            , h2 [ class "subtitle" ]
+                                [ text ("By " ++ owner) ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        , section [ class "section" ]
+            [ div [ class "container" ]
+                [ div [ class "columns" ]
+                    [ div [ class "column is-half is-offset-one-quarter" ]
+                        [ h1 [ class "title" ]
+                            [ text "Popular Issues" ]
+                        ]
                     ]
                 ]
             ]
         , issuesView model.issues
+        , createCampaignForm model
         , bioAndPic model
         ]
 
@@ -115,7 +133,7 @@ issueView issue =
     section [ class "section" ]
         [ div [ class "container" ]
             [ div [ class "columns" ]
-                [ div [ class "column is-one-third" ]
+                [ div [ class "column is-half is-offset-one-quarter" ]
                     [ h1 [ class "title" ]
                         [ text issue.title ]
                     , h2 [ class "subtitle" ]
@@ -169,12 +187,12 @@ createCampaignForm model =
     section [ class "hero" ]
         [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
             [ div [ class "columns" ]
-                [ div [ class "column is-one-third is-offset-one-third" ]
-                    [ h1 [ class "title" ] [ text "Create your first Campaign" ]
+                [ div [ class "column is-half is-offset-one-quarter" ]
+                    [ h1 [ class "title" ] [ text "Tell us a little about your project" ]
                     , viewErrors model.errors
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "FundingGoal" ]
+                            [ text "Funding Goal" ]
                         , p [ class "control" ]
                             [ input
                                 [ class "input"
@@ -186,7 +204,7 @@ createCampaignForm model =
                         ]
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "LongDescription" ]
+                            [ text "Summary" ]
                         , p [ class "control" ]
                             [ input
                                 [ class "input"
@@ -197,7 +215,7 @@ createCampaignForm model =
                         ]
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "ShortDescription" ]
+                            [ text "A cool headline" ]
                         , p [ class "control" ]
                             [ input
                                 [ class "input"
@@ -209,7 +227,7 @@ createCampaignForm model =
                     , div [ class "field is-grouped" ]
                         [ p [ class "control" ]
                             [ button [ class "button is-primary", onClick SaveCampaignForm, onClick RequestDate ]
-                                [ text "CreateCampaign" ]
+                                [ text "Connect with Stripe" ]
                             ]
                         ]
                     ]
