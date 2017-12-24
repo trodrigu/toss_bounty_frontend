@@ -242,7 +242,7 @@ setRoute maybeRoute model =
                                     []
 
                         updatedPage =
-                            CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues)
+                            CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues model.apiUrl)
                     in
                     { model | page = updatedPage } => Cmd.none
 
@@ -526,7 +526,7 @@ updatePage page msg model =
                             []
 
                 updatedPage =
-                    CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues)
+                    CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues model.apiUrl)
             in
             ( { model | page = updatedPage, mostBountifulIssues = data }
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]

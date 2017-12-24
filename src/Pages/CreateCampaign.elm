@@ -28,8 +28,17 @@ import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
 
-init : AuthToken -> String -> Repo -> List Issue -> Model
-init token userId repo issues =
+init : AuthToken -> String -> Repo -> List Issue -> Maybe String -> Model
+init token userId repo issues apiUrl =
+    let
+        url =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url
+    in
     { currentFunding = 0.0
     , errors = []
     , fundingEndDate = DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
@@ -40,6 +49,7 @@ init token userId repo issues =
     , userId = userId
     , bountifulRepo = repo
     , issues = issues
+    , apiUrl = url
     }
 
 
@@ -54,6 +64,7 @@ type alias Model =
     , userId : String
     , bountifulRepo : Repo
     , issues : List Issue
+    , apiUrl : String
     }
 
 
@@ -258,7 +269,8 @@ update msg model =
         HandleCampaign data ->
             case data of
                 Success campaign ->
-                    ( model, Cmd.none )
+                    model
+                        => Router.modifyUrl Router.StripeConnectSignUpRoute
                         => NoOp
 
                 _ ->
@@ -322,6 +334,9 @@ update msg model =
 postCampaign : Model -> Cmd Msg
 postCampaign model =
     let
+        campaignUrl =
+            model.apiUrl ++ "/campaigns"
+
         data =
             { currentFunding = model.currentFunding
             , shortDescription = model.shortDescription
@@ -331,7 +346,7 @@ postCampaign model =
             , userId = model.userId
             }
     in
-    RemoteData.Http.postWithConfig (Auth.config model.token) "http://localhost:4000/campaigns" HandleCampaign Campaign.decoder (Campaign.encode data)
+    RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.decoder (Campaign.encode data)
 
 
 validate : Model -> List Error
