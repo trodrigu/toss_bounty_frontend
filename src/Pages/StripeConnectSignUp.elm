@@ -19,9 +19,9 @@ type ExternalMsg
     = ExternalNoOp
 
 
-init : Model
-init =
-    { url = Loading }
+init : WebData StripeConnectUrl -> Model
+init url =
+    { url = url }
 
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
@@ -33,6 +33,10 @@ update msg model =
 
 viewButton : Model -> Html Msg
 viewButton model =
+    let
+        _ =
+            Debug.log "model" model
+    in
     case model.url of
         Loading ->
             text ""

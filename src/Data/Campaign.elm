@@ -11,7 +11,8 @@ type alias Campaigns =
 
 
 type alias Campaign =
-    { currentFunding : Float
+    { id : String
+    , currentFunding : Float
     , shortDescription : String
     , longDescription : String
     , fundingGoal : Float
@@ -29,6 +30,7 @@ campaignsDecoder =
 decoder : Decoder Campaign
 decoder =
     decode Campaign
+        |> requiredAt [ "data", "id" ] Decode.string
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "data", "attributes", "short-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string

@@ -35,6 +35,8 @@ postTosserSignUpForm model =
         data =
             { email = model.email
             , password = model.password
+            , stripeExternalId = ""
+            , stripeAccessToken = ""
             }
     in
     RemoteData.Http.post "http://localhost:4000/users" HandlePostTosserSignUpForm User.decoder (User.encode data)

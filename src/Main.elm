@@ -19,6 +19,7 @@ import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
 import Pages.BetaSignUp as BetaSignUp
 import Pages.CreateCampaign as CreateCampaign
+import Pages.CreateRewards as CreateRewards
 import Pages.Dash as Dash
 import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
@@ -32,6 +33,7 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Request.User exposing (storeSession)
 import Routing.Router as Router exposing (Route(..), fromLocation)
+import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
 
@@ -44,6 +46,7 @@ type Page
     | BetaSignUp BetaSignUp.Model
     | StripeConnectSignUp StripeConnectSignUp.Model
     | CreateCampaign CreateCampaign.Model
+    | CreateRewards CreateRewards.Model
     | Logout Logout.Model
     | NotFound NotFound.Model
 
@@ -54,7 +57,7 @@ type alias Model =
     , page : Page
     , githubUrl : WebData GitHubUrl
     , apiUrl : Maybe String
-    , campaigns : WebData Campaigns
+    , campaigns : List Campaign
     , repos : WebData Repos
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
@@ -68,6 +71,7 @@ type Msg
     | LoginMsg Login.Msg
     | BetaSignUpMsg BetaSignUp.Msg
     | CreateCampaignMsg CreateCampaign.Msg
+    | CreateRewardsMsg CreateRewards.Msg
     | StripeConnectSignUpMsg StripeConnectSignUp.Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
@@ -83,6 +87,7 @@ type Msg
     | FetchRepos (WebData Repos)
     | FetchIssues (WebData Issues)
     | FetchStripeConnectUrl (WebData StripeConnectUrl)
+    | HandleStripeIdUpdate (WebData User)
 
 
 decodeUserFromJson : Decode.Value -> Maybe User
@@ -101,7 +106,7 @@ init val location =
         , page = Home Home.init
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
-        , campaigns = Loading
+        , campaigns = []
         , repos = Loading
         , mostBountifulIssues = Loading
         , stripeConnectUrl = Loading
@@ -134,7 +139,12 @@ setRoute maybeRoute model =
                     Data.AuthToken.init token
 
                 user =
-                    { email = email, token = updatedToken, userId = userId }
+                    { email = email
+                    , token = updatedToken
+                    , userId = userId
+                    , stripeExternalId = ""
+                    , stripeAccessToken = ""
+                    }
 
                 session =
                     model.session
@@ -152,6 +162,9 @@ setRoute maybeRoute model =
 
                 updatedModel =
                     { model | session = { session | user = Just user } }
+
+                _ =
+                    Debug.log "updatedModel" updatedModel
             in
             updatedModel
                 => Cmd.batch
@@ -193,9 +206,30 @@ setRoute maybeRoute model =
         Just Router.StripeConnectSignUpRoute ->
             let
                 updatedPage =
-                    StripeConnectSignUp StripeConnectSignUp.init
+                    StripeConnectSignUp (StripeConnectSignUp.init model.stripeConnectUrl)
             in
             { model | page = updatedPage } => Cmd.none
+
+        Just (Router.SaveStripeRoute (Just stripeId)) ->
+            case model.session.user of
+                Just user ->
+                    let
+                        session =
+                            model.session
+
+                        token =
+                            user.token
+                    in
+                    ( model, updateUserWithStripeInfo model.apiUrl token stripeId user.userId )
+
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
+
+        Just (Router.SaveStripeRoute Nothing) ->
+            model
+                => Cmd.batch
+                    [ Router.modifyUrl Router.HomeRoute
+                    ]
 
         Just Router.DashRoute ->
             let
@@ -243,6 +277,35 @@ setRoute maybeRoute model =
 
                         updatedPage =
                             CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues model.apiUrl)
+                    in
+                    { model | page = updatedPage } => Cmd.none
+
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
+
+        Just Router.CreateRewardsRoute ->
+            case model.session.user of
+                Just user ->
+                    let
+                        session =
+                            model.session
+
+                        token =
+                            user.token
+
+                        apiUrl =
+                            model.apiUrl
+
+                        campaign =
+                            case List.head model.campaigns of
+                                Just campaign ->
+                                    campaign
+
+                                Nothing ->
+                                    Campaign "0" 0.0 "" "" 0.0 (DateTime.dateTime DateTime.zero) "0"
+
+                        updatedPage =
+                            CreateRewards (CreateRewards.init apiUrl token campaign.id)
                     in
                     { model | page = updatedPage } => Cmd.none
 
@@ -310,16 +373,27 @@ updatePage page msg model =
             in
             { model | page = Dash pageModel } => Cmd.map DashMsg cmd
 
-        ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
+        ( CreateRewardsMsg subMsg, CreateRewards subModel ) ->
             let
-                _ =
-                    Debug.log "subMsg" subMsg
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    CreateRewards.update subMsg subModel
             in
+            { model | page = CreateRewards pageModel } => Cmd.map CreateRewardsMsg cmd
+
+        ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     CreateCampaign.update subMsg subModel
+
+                newModel =
+                    case msgFromPage of
+                        CreateCampaign.NoOp ->
+                            model
+
+                        CreateCampaign.AddCampaign campaign ->
+                            { model | campaigns = [ campaign ] }
             in
-            { model | page = CreateCampaign pageModel } => Cmd.map CreateCampaignMsg cmd
+            { newModel | page = CreateCampaign pageModel } => Cmd.map CreateCampaignMsg cmd
 
         ( TosserSignUpMsg subMsg, TosserSignUp subModel ) ->
             let
@@ -390,6 +464,9 @@ updatePage page msg model =
             in
             { model | page = Logout pageModel } => Cmd.map LogoutMsg cmd
 
+        ( HandleStripeIdUpdate data, _ ) ->
+            ( model, Router.modifyUrl Router.DashRoute )
+
         ( FetchGitHubUrl data, _ ) ->
             let
                 updatedModel =
@@ -418,15 +495,18 @@ updatePage page msg model =
                             user
 
                         Nothing ->
-                            User "" (Data.AuthToken.init "") ""
+                            User "" (Data.AuthToken.init "") "" "" ""
 
                 token =
                     updatedUser.token
 
                 updatedModel =
                     { model | stripeConnectUrl = data }
+
+                _ =
+                    Debug.log "inside fetch stripe" data
             in
-            ( { updatedModel | page = Home { url = data } }
+            ( { updatedModel | page = StripeConnectSignUp { url = data } }
             , getRepos model.apiUrl token
             )
 
@@ -451,7 +531,7 @@ updatePage page msg model =
                             user
 
                         Nothing ->
-                            User "" (Data.AuthToken.init "") ""
+                            User "" (Data.AuthToken.init "") "" "" ""
 
                 token =
                     updatedUser.token
@@ -498,7 +578,7 @@ updatePage page msg model =
                             user
 
                         Nothing ->
-                            User "" (Data.AuthToken.init "") ""
+                            User "" (Data.AuthToken.init "") "" "" ""
 
                 token =
                     updatedUser.token
@@ -614,6 +694,11 @@ pageView session page =
                     |> frame Page.CreateCampaign
                     |> Html.map CreateCampaignMsg
 
+            CreateRewards subModel ->
+                CreateRewards.view subModel
+                    |> frame Page.CreateRewards
+                    |> Html.map CreateRewardsMsg
+
             Logout subModel ->
                 Logout.view subModel
                     |> Html.map LogoutMsg
@@ -703,6 +788,25 @@ githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+
+updateUserWithStripeInfo : Maybe String -> AuthToken -> String -> String -> Cmd Msg
+updateUserWithStripeInfo apiUrl token stripeExternalId userId =
+    let
+        usersUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/users/" ++ userId
+
+        data =
+            { stripeExternalId = stripeExternalId
+            , stripeAccessToken = ""
+            }
+    in
+    RemoteData.Http.patchWithConfig (Auth.config token) usersUrl HandleStripeIdUpdate User.decoder (User.encodeStripeUserUpdate data)
 
 
 getStripeConnectUrl : Maybe String -> Cmd Msg

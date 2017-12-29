@@ -16,6 +16,7 @@ type ActivePage
     | Login
     | BetaSignUp
     | CreateCampaign
+    | CreateRewards
     | TosserSignUp
 
 

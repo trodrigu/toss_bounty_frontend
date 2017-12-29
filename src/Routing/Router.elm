@@ -15,9 +15,11 @@ type Route
     | TosserSignUpRoute
     | DashRoute
     | CreateCampaignRoute
+    | CreateRewardsRoute
     | LoginRoute
     | BetaSignUpRoute
     | SaveTokenRoute (Maybe String) (Maybe String) (Maybe String)
+    | SaveStripeRoute (Maybe String)
     | LogoutRoute
     | NotFoundRoute
 
@@ -50,14 +52,20 @@ routeToString page =
     let
         pieces =
             case page of
-                BetaSignUpRoute ->
-                    []
-
                 HomeRoute ->
-                    []
+                    [ "home" ]
 
                 StripeConnectSignUpRoute ->
                     [ "stripe-connect-sign-up" ]
+
+                SaveStripeRoute (Just stripeId) ->
+                    [ "save-stripe" ++ "?stripe_id" ++ stripeId ]
+
+                SaveStripeRoute _ ->
+                    [ "save-stripe" ]
+
+                BetaSignUpRoute ->
+                    [ "poop" ]
 
                 TosserSignUpRoute ->
                     [ "tosser-sign-up" ]
@@ -67,6 +75,9 @@ routeToString page =
 
                 CreateCampaignRoute ->
                     [ "create-campaign" ]
+
+                CreateRewardsRoute ->
+                    [ "create-rewards" ]
 
                 LoginRoute ->
                     [ "login" ]
@@ -89,15 +100,16 @@ routeToString page =
 routeParser : UrlParser.Parser (Route -> a) a
 routeParser =
     UrlParser.oneOf
-        [ UrlParser.map BetaSignUpRoute UrlParser.top
-
+        -- [ UrlParser.map BetaSignUpRoute UrlParser.top
         -- The home route will be the base after beta
-        -- [ UrlParser.map HomeRoute UrlParser.top
+        [ UrlParser.map HomeRoute (UrlParser.s "home")
         , UrlParser.map TosserSignUpRoute (UrlParser.s "tosser-sign-up")
         , UrlParser.map DashRoute (UrlParser.s "dash")
         , UrlParser.map CreateCampaignRoute (UrlParser.s "create-campaign")
+        , UrlParser.map CreateRewardsRoute (UrlParser.s "create-rewards")
         , UrlParser.map StripeConnectSignUpRoute (UrlParser.s "stripe-connect-sign-up")
         , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" <?> UrlParser.stringParam "user_id")
+        , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> UrlParser.stringParam "stripe_id")
         , UrlParser.map LoginRoute (UrlParser.s "login")
         , UrlParser.map BetaSignUpRoute (UrlParser.s "beta-sign-up")
         ]
@@ -123,7 +135,7 @@ href route =
 fromLocation : Location -> Maybe Route
 fromLocation location =
     if String.isEmpty location.hash then
-        Just BetaSignUpRoute
+        Just HomeRoute
     else
         UrlParser.parseHash routeParser (fixLocationQuery location)
 

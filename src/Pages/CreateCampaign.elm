@@ -80,7 +80,7 @@ type Msg
 
 type ExternalMsg
     = NoOp
-    | SetUser User
+    | AddCampaign Campaign
 
 
 view : Model -> Html Msg
@@ -270,8 +270,8 @@ update msg model =
             case data of
                 Success campaign ->
                     model
-                        => Router.modifyUrl Router.StripeConnectSignUpRoute
-                        => NoOp
+                        => Router.modifyUrl Router.CreateRewardsRoute
+                        => AddCampaign campaign
 
                 _ ->
                     ( model, Cmd.none )
@@ -281,9 +281,6 @@ update msg model =
             case validate model of
                 [] ->
                     let
-                        _ =
-                            Debug.log "model" model
-
                         newModel =
                             { model | errors = [] }
                     in
