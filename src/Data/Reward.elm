@@ -6,7 +6,8 @@ import Json.Encode as Encode exposing (Value)
 
 
 type alias Reward =
-    { description : String
+    { id : String
+    , description : String
     , donationLevel : Float
     }
 
@@ -46,5 +47,6 @@ encode reward =
 decoder : Decoder Reward
 decoder =
     decode Reward
+        |> requiredAt [ "data", "id" ] Decode.string
         |> requiredAt [ "data", "attributes", "description" ] Decode.string
         |> requiredAt [ "data", "attributes", "donation-level" ] Decode.float

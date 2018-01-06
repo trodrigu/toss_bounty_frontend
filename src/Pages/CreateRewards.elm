@@ -3,14 +3,13 @@ module Pages.CreateRewards exposing (..)
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Reward as Reward exposing (Reward)
 import Html exposing (..)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (class, style, value)
 import Html.Events exposing (onClick, onInput)
-import List.Zipper exposing (fromList, mapCurrent, toList)
 import Maybe
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
-import Routing.Router as Router
+import SelectList as SelectList exposing (SelectList)
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
@@ -26,30 +25,39 @@ init apiUrl token campaignId =
                 Just url ->
                     url
     in
-    { donationLevel = 100.0
+    { rewards = SelectList.singleton { id = "", donationLevel = 100.0, description = "" }
+    , rewardId = ""
     , description = ""
+    , donationLevel = 0.0
     , apiUrl = url
     , token = token
     , campaignId = campaignId
     , errors = []
+    , isEditing = False
     }
 
 
 type alias Model =
-    { donationLevel : Float
+    { rewardId : String
     , description : String
+    , donationLevel : Float
+    , rewards : SelectList Reward
     , apiUrl : String
     , token : AuthToken
     , campaignId : String
     , errors : List Error
+    , isEditing : Bool
     }
 
 
 type Msg
     = SaveRewardForm
+    | SaveUpdateForm
     | UpdateDescriptionField String
     | UpdateDonateLevelField String
     | HandleReward (WebData Reward)
+    | HandlePutReward (WebData Reward)
+    | SelectReward String
 
 
 type ExternalMsg
@@ -58,13 +66,218 @@ type ExternalMsg
 
 view : Model -> Html Msg
 view model =
-    div [] [ createRewardForm model ]
+    let
+        rewards =
+            SelectList.toList model.rewards
+
+        persistedRewards =
+            filterPersistedRewards rewards
+    in
+    case model.isEditing of
+        True ->
+            div []
+                [ div
+                    []
+                    (List.map
+                        (\reward ->
+                            case model.isEditing && SelectList.selected model.rewards == reward of
+                                True ->
+                                    div []
+                                        [ updateRewardForm model
+                                        ]
+
+                                False ->
+                                    div []
+                                        [ div
+                                            []
+                                            [ section [ class "section" ]
+                                                [ div [ class "container" ]
+                                                    [ div [ class "columns" ]
+                                                        [ div [ class "column is-half is-offset-one-quarter" ]
+                                                            [ div [ class "card" ]
+                                                                [ div [ class "card-header" ]
+                                                                    [ p [ class "card-header-title" ]
+                                                                        [ text "Reward #1" ]
+                                                                    , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
+                                                                        [ span [] [ text "edit" ] ]
+                                                                    ]
+                                                                , div [ class "card-content" ]
+                                                                    [ label [ class "label" ]
+                                                                        [ text "Donation Level" ]
+                                                                    , p [ class "control" ]
+                                                                        [ text (toString reward.donationLevel) ]
+                                                                    , label [ class "label" ]
+                                                                        [ text "Description" ]
+                                                                    , p []
+                                                                        [ text reward.description ]
+                                                                    ]
+                                                                ]
+                                                            ]
+                                                        ]
+                                                    ]
+                                                ]
+                                            ]
+                                        ]
+                        )
+                        persistedRewards
+                    )
+                ]
+
+        False ->
+            div []
+                [ div
+                    []
+                    (List.map
+                        (\reward ->
+                            case model.isEditing of
+                                True ->
+                                    div []
+                                        [ updateRewardForm model
+                                        ]
+
+                                False ->
+                                    div []
+                                        [ div
+                                            []
+                                            [ section [ class "section" ]
+                                                [ div [ class "container" ]
+                                                    [ div [ class "columns" ]
+                                                        [ div [ class "column is-half is-offset-one-quarter" ]
+                                                            [ div [ class "card" ]
+                                                                [ div [ class "card-header" ]
+                                                                    [ p [ class "card-header-title" ]
+                                                                        [ text "Reward #1" ]
+                                                                    , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
+                                                                        [ span [] [ text "edit" ] ]
+                                                                    ]
+                                                                , div [ class "card-content" ]
+                                                                    [ label [ class "label" ]
+                                                                        [ text "Donation Level" ]
+                                                                    , p [ class "control" ]
+                                                                        [ text (toString reward.donationLevel) ]
+                                                                    , label [ class "label" ]
+                                                                        [ text "Description" ]
+                                                                    , p []
+                                                                        [ text reward.description ]
+                                                                    ]
+                                                                ]
+                                                            ]
+                                                        ]
+                                                    ]
+                                                ]
+                                            ]
+                                        ]
+                        )
+                        persistedRewards
+                    )
+                , createRewardForm model
+                ]
+
+
+filterPersistedRewards : List Reward -> List Reward
+filterPersistedRewards rewardList =
+    List.filter hasId rewardList
+
+
+hasId : Reward -> Bool
+hasId reward =
+    not (reward.id == "")
+
+
+renderReward : Reward -> Model -> Html Msg
+renderReward reward model =
+    case model.isEditing of
+        True ->
+            div []
+                [ updateRewardForm model
+                ]
+
+        False ->
+            div []
+                [ div
+                    []
+                    [ section [ class "section" ]
+                        [ div [ class "container" ]
+                            [ div [ class "columns" ]
+                                [ div [ class "column is-half is-offset-one-quarter" ]
+                                    [ div [ class "card" ]
+                                        [ div [ class "card-header" ]
+                                            [ p [ class "card-header-title" ]
+                                                [ text "Reward #1" ]
+                                            , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
+                                                [ span [] [ text "edit" ] ]
+                                            ]
+                                        , div [ class "card-content" ]
+                                            [ label [ class "label" ]
+                                                [ text "Donation Level" ]
+                                            , p [ class "control" ]
+                                                [ text (toString reward.donationLevel) ]
+                                            , label [ class "label" ]
+                                                [ text "Description" ]
+                                            , p []
+                                                [ text reward.description ]
+                                            ]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+
+
+updateRewardForm : Model -> Html Msg
+updateRewardForm model =
+    section [ class "section" ]
+        [ div [ class "container" ]
+            [ div [ class "columns" ]
+                [ div [ class "column is-half is-offset-one-quarter" ]
+                    [ div [ class "card" ]
+                        [ div [ class "card-content" ]
+                            [ viewErrors model.errors
+                            , div [ class "field" ]
+                                [ label [ class "label" ]
+                                    [ text "Donation Level" ]
+                                , p [ class "control" ]
+                                    [ input
+                                        [ class "input"
+                                        , Html.Attributes.type_ "number"
+                                        , onInput UpdateDonateLevelField
+                                        , value (toString model.donationLevel)
+                                        ]
+                                        []
+                                    ]
+                                ]
+                            , div [ class "field" ]
+                                [ label [ class "label" ]
+                                    [ text "Description of reward" ]
+                                , p [ class "control" ]
+                                    [ input
+                                        [ class "input"
+                                        , onInput UpdateDescriptionField
+                                        , value model.description
+                                        ]
+                                        []
+                                    ]
+                                ]
+                            , div [ class "field is-grouped" ]
+                                [ p [ class "control" ]
+                                    [ button [ class "button is-primary", onClick SaveUpdateForm ]
+                                        [ text "Update Reward" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
 
 
 createRewardForm : Model -> Html Msg
 createRewardForm model =
-    section [ class "hero" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+    section [ class "section" ]
+        [ div [ class "container" ]
             [ div [ class "columns" ]
                 [ div [ class "column is-half is-offset-one-quarter" ]
                     [ h1 [ class "title" ] [ text "What kind of rewards will you have?" ]
@@ -77,6 +290,7 @@ createRewardForm model =
                                 [ class "input"
                                 , Html.Attributes.type_ "number"
                                 , onInput UpdateDonateLevelField
+                                , value (toString model.donationLevel)
                                 ]
                                 []
                             ]
@@ -88,6 +302,7 @@ createRewardForm model =
                             [ input
                                 [ class "input"
                                 , onInput UpdateDescriptionField
+                                , value model.description
                                 ]
                                 []
                             ]
@@ -119,22 +334,102 @@ update msg model =
             in
             ( { model | donationLevel = updatedDonateLevel }, Cmd.none ) => NoOp
 
-        UpdateDescriptionField str ->
-            ( { model | description = str }, Cmd.none ) => NoOp
+        SelectReward rewardId ->
+            let
+                updatedRewards =
+                    SelectList.select (\u -> u.id == rewardId) model.rewards
 
-        HandleReward data ->
+                selectedReward =
+                    SelectList.selected updatedRewards
+            in
+            ( { model | rewards = updatedRewards, isEditing = True, description = selectedReward.description, donationLevel = selectedReward.donationLevel }, Cmd.none ) => NoOp
+
+        UpdateDescriptionField str ->
             let
                 _ =
-                    Debug.log "data in Handle Reward" data
+                    Debug.log "str" str
             in
+            ( { model | description = str }, Cmd.none ) => NoOp
+
+        HandlePutReward data ->
             case data of
                 Success reward ->
-                    model
-                        => Router.modifyUrl Router.StripeConnectSignUpRoute
+                    let
+                        currentSelectedReward =
+                            SelectList.selected model.rewards
+
+                        updatedReward =
+                            { currentSelectedReward
+                                | description = reward.description
+                                , donationLevel = reward.donationLevel
+                            }
+
+                        befores =
+                            SelectList.before model.rewards
+
+                        afters =
+                            SelectList.after model.rewards
+
+                        updatedRewards =
+                            SelectList.singleton updatedReward
+                                |> SelectList.prepend befores
+                                |> SelectList.append afters
+
+                        _ =
+                            Debug.log "updatedRewards" updatedRewards
+                    in
+                    { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
+                        => Cmd.none
                         => NoOp
 
                 _ ->
                     ( model, Cmd.none )
+                        => NoOp
+
+        HandleReward data ->
+            case data of
+                Success reward ->
+                    let
+                        currentSelectedReward =
+                            SelectList.selected model.rewards
+
+                        newReward =
+                            SelectList.singleton reward
+
+                        befores =
+                            SelectList.before model.rewards
+
+                        afters =
+                            SelectList.after model.rewards
+
+                        aftersWithCurrentSelectedReward =
+                            currentSelectedReward :: afters
+
+                        updatedRewards =
+                            newReward
+                                |> SelectList.prepend befores
+                                |> SelectList.append aftersWithCurrentSelectedReward
+                    in
+                    { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
+                        => Cmd.none
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        SaveUpdateForm ->
+            case validate model of
+                [] ->
+                    let
+                        newModel =
+                            { model | errors = [] }
+                    in
+                    ( model, putReward model ) => NoOp
+
+                errors ->
+                    { model | errors = errors }
+                        => Cmd.none
                         => NoOp
 
         SaveRewardForm ->
@@ -167,6 +462,24 @@ postReward model =
     RemoteData.Http.postWithConfig (Auth.config model.token) rewardUrl HandleReward Reward.decoder (Reward.encode data)
 
 
+putReward : Model -> Cmd Msg
+putReward model =
+    let
+        selectedReward =
+            SelectList.selected model.rewards
+
+        rewardUrl =
+            model.apiUrl ++ "/rewards/" ++ selectedReward.id
+
+        data =
+            { description = model.description
+            , donationLevel = model.donationLevel
+            , campaignId = model.campaignId
+            }
+    in
+    RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutReward Reward.decoder (Reward.encode data)
+
+
 type Field
     = Form
     | Description
@@ -188,6 +501,19 @@ validate : Model -> List Error
 validate =
     Validate.all
         [ .description >> ifBlank (Description => "Description can't be blank.")
-
-        -- , .donationLevel >> ifBlank (DonateLevel => "Donate Level can't be blank.")
+        , .donationLevel >> ifZero (DonateLevel => "Donate Level can't be zero.")
         ]
+
+
+ifZero : error -> Validate.Validator error Float
+ifZero error subject =
+    let
+        errors =
+            case subject > 0.0 of
+                True ->
+                    []
+
+                False ->
+                    [ error ]
+    in
+    errors

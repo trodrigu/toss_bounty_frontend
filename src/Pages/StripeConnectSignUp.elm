@@ -33,10 +33,6 @@ update msg model =
 
 viewButton : Model -> Html Msg
 viewButton model =
-    let
-        _ =
-            Debug.log "model" model
-    in
     case model.url of
         Loading ->
             text ""

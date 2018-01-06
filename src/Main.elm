@@ -162,9 +162,6 @@ setRoute maybeRoute model =
 
                 updatedModel =
                     { model | session = { session | user = Just user } }
-
-                _ =
-                    Debug.log "updatedModel" updatedModel
             in
             updatedModel
                 => Cmd.batch
@@ -502,9 +499,6 @@ updatePage page msg model =
 
                 updatedModel =
                     { model | stripeConnectUrl = data }
-
-                _ =
-                    Debug.log "inside fetch stripe" data
             in
             ( { updatedModel | page = StripeConnectSignUp { url = data } }
             , getRepos model.apiUrl token
