@@ -80,7 +80,6 @@ type Msg
 
 type ExternalMsg
     = NoOp
-    | AddCampaign Campaign
 
 
 view : Model -> Html Msg
@@ -271,7 +270,7 @@ update msg model =
                 Success campaign ->
                     model
                         => Router.modifyUrl Router.CreateRewardsRoute
-                        => AddCampaign campaign
+                        => NoOp
 
                 _ ->
                     ( model, Cmd.none )
@@ -343,7 +342,7 @@ postCampaign model =
             , userId = model.userId
             }
     in
-    RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.decoder (Campaign.encode data)
+    RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.showDecoder (Campaign.encode data)
 
 
 validate : Model -> List Error
