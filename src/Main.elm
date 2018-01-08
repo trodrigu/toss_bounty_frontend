@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
+import Data.Campaigns as Campaigns exposing (Campaigns, decoder)
 import Data.Issues as Issues exposing (Issues)
 import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Data.Session as Session exposing (Session)
@@ -57,7 +58,8 @@ type alias Model =
     , page : Page
     , githubUrl : WebData GitHubUrl
     , apiUrl : Maybe String
-    , campaigns : List Campaign
+    , yourCampaigns : WebData Campaigns
+    , campaignsContributedTo : List Campaign
     , repos : WebData Repos
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
@@ -83,9 +85,9 @@ type Msg
     | ShowLeftMessage String
     | ReceiveMessage Encode.Value
     | FetchGitHubUrl (WebData GitHubUrl)
-    | FetchCampaigns (WebData Campaigns)
+    | HandleFetchCampaigns (WebData Campaigns)
     | FetchRepos (WebData Repos)
-    | FetchIssues (WebData Issues)
+    | HandleFetchIssues (WebData Issues)
     | FetchStripeConnectUrl (WebData StripeConnectUrl)
     | HandleStripeIdUpdate (WebData User)
 
@@ -106,7 +108,8 @@ init val location =
         , page = Home Home.init
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
-        , campaigns = []
+        , yourCampaigns = Loading
+        , campaignsContributedTo = []
         , repos = Loading
         , mostBountifulIssues = Loading
         , stripeConnectUrl = Loading
@@ -229,12 +232,26 @@ setRoute maybeRoute model =
                     ]
 
         Just Router.DashRoute ->
-            let
-                updatedPage =
-                    Dash Dash.init
-            in
             case model.session.user of
                 Just user ->
+                    let
+                        token =
+                            user.token
+
+                        campaignsContributedTo =
+                            model.campaignsContributedTo
+
+                        updatedYourCampaigns =
+                            case model.yourCampaigns of
+                                Success yourCampaigns ->
+                                    yourCampaigns
+
+                                _ ->
+                                    Campaigns []
+
+                        updatedPage =
+                            Dash (Dash.init model.apiUrl token updatedYourCampaigns.campaigns campaignsContributedTo)
+                    in
                     { model | page = updatedPage } => Cmd.none
 
                 Nothing ->
@@ -293,8 +310,16 @@ setRoute maybeRoute model =
                         apiUrl =
                             model.apiUrl
 
+                        yourCampaigns =
+                            case model.yourCampaigns of
+                                Success yourCampaigns ->
+                                    yourCampaigns
+
+                                _ ->
+                                    Campaigns []
+
                         campaign =
-                            case List.head model.campaigns of
+                            case List.head yourCampaigns.campaigns of
                                 Just campaign ->
                                     campaign
 
@@ -386,9 +411,6 @@ updatePage page msg model =
                     case msgFromPage of
                         CreateCampaign.NoOp ->
                             model
-
-                        CreateCampaign.AddCampaign campaign ->
-                            { model | campaigns = [ campaign ] }
             in
             { newModel | page = CreateCampaign pageModel } => Cmd.map CreateCampaignMsg cmd
 
@@ -462,7 +484,28 @@ updatePage page msg model =
             { model | page = Logout pageModel } => Cmd.map LogoutMsg cmd
 
         ( HandleStripeIdUpdate data, _ ) ->
-            ( model, Router.modifyUrl Router.DashRoute )
+            let
+                session =
+                    model.session
+
+                user =
+                    session.user
+
+                updatedUser =
+                    case user of
+                        Just user ->
+                            user
+
+                        Nothing ->
+                            User "" (Data.AuthToken.init "") "" "" ""
+
+                token =
+                    updatedUser.token
+
+                userId =
+                    updatedUser.userId
+            in
+            ( model, fetchYourCampaigns model.apiUrl token userId )
 
         ( FetchGitHubUrl data, _ ) ->
             let
@@ -551,7 +594,7 @@ updatePage page msg model =
             , getIssues model.apiUrl token bountifulRepo.id
             )
 
-        ( FetchIssues data, _ ) ->
+        ( HandleFetchIssues data, _ ) ->
             let
                 session =
                     model.session
@@ -605,6 +648,9 @@ updatePage page msg model =
             ( { model | page = updatedPage, mostBountifulIssues = data }
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
             )
+
+        ( HandleFetchCampaigns data, _ ) ->
+            ( { model | yourCampaigns = data }, Router.modifyUrl Router.DashRoute )
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
@@ -669,7 +715,7 @@ pageView session page =
                     |> Html.map TosserSignUpMsg
 
             Dash subModel ->
-                Dash.view session subModel
+                Dash.view subModel
                     |> frame Page.Dash
                     |> Html.map DashMsg
 
@@ -719,8 +765,8 @@ main =
         }
 
 
-getCampaigns : Maybe String -> AuthToken -> Cmd Msg
-getCampaigns apiUrl token =
+fetchYourCampaigns : Maybe String -> AuthToken -> String -> Cmd Msg
+fetchYourCampaigns apiUrl token userId =
     let
         campaignUrl =
             case apiUrl of
@@ -728,9 +774,9 @@ getCampaigns apiUrl token =
                     ""
 
                 Just url ->
-                    url ++ "/campaigns"
+                    url ++ "/campaigns?user_id=" ++ userId
     in
-    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl FetchCampaigns campaignsDecoder
+    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaigns Campaigns.decoder
 
 
 getRepos : Maybe String -> AuthToken -> Cmd Msg
@@ -761,7 +807,7 @@ getIssues apiUrl token githubRepoId =
         issuesFilteredByRepoId =
             issuesUrl ++ "?github_repo_id=" ++ githubRepoId
     in
-    RemoteData.Http.getWithConfig (Auth.config token) issuesFilteredByRepoId FetchIssues Issues.decoder
+    RemoteData.Http.getWithConfig (Auth.config token) issuesFilteredByRepoId HandleFetchIssues Issues.decoder
 
 
 getGitHubSignInUrl : Maybe String -> Cmd Msg
