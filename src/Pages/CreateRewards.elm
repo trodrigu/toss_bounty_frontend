@@ -9,6 +9,7 @@ import Maybe
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
+import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList)
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
@@ -60,6 +61,7 @@ type Msg
     | HandleDeleteReward (WebData String)
     | SelectReward String
     | DeleteReward String
+    | StripePage
 
 
 type ExternalMsg
@@ -170,7 +172,34 @@ view model =
                         persistedRewards
                     )
                 , createRewardForm model
+                , div []
+                    [ renderStripeConnectButton persistedRewards ]
                 ]
+
+
+renderStripeConnectButton : List Reward -> Html Msg
+renderStripeConnectButton rewards =
+    let
+        rewardsLength =
+            List.length rewards
+
+        updatedButton =
+            case rewardsLength > 0 of
+                True ->
+                    section [ class "section" ]
+                        [ div [ class "container" ]
+                            [ div [ class "level" ]
+                                [ div [ class "level-item" ]
+                                    [ button [ class "button is-success is-large", onClick StripePage ] [ text "Connect With Stripe" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+
+                False ->
+                    div [] []
+    in
+    updatedButton
 
 
 filterPersistedRewards : List Reward -> List Reward
@@ -454,6 +483,9 @@ update msg model =
                     { model | errors = errors }
                         => Cmd.none
                         => NoOp
+
+        StripePage ->
+            model => Router.modifyUrl Router.StripeConnectSignUpRoute => NoOp
 
 
 postReward : Model -> Cmd Msg
