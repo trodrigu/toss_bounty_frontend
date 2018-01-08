@@ -1,13 +1,9 @@
-module Data.Campaign exposing (Campaign, Campaigns, campaignsDecoder, decoder, encode)
+module Data.Campaign exposing (Campaign, encode, indexDecoder, showDecoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
-
-
-type alias Campaigns =
-    { campaigns : List Campaign }
 
 
 type alias Campaign =
@@ -19,12 +15,6 @@ type alias Campaign =
     , fundingEndDate : DateTime
     , userId : String
     }
-
-
-campaignsDecoder : Decoder Campaigns
-campaignsDecoder =
-    decode Campaigns
-        |> optionalAt [ "data" ] (Decode.list decoder) []
 
 
 decoder : Decoder Campaign
@@ -90,3 +80,27 @@ encode campaign =
                 ]
     in
     Encode.object [ ( "data", data_attributes ) ]
+
+
+indexDecoder : Decoder Campaign
+indexDecoder =
+    decode Campaign
+        |> requiredAt [ "id" ] Decode.string
+        |> optionalAt [ "attributes", "current-funding" ] Decode.float 0
+        |> requiredAt [ "attributes", "short-description" ] Decode.string
+        |> requiredAt [ "attributes", "long-description" ] Decode.string
+        |> requiredAt [ "attributes", "funding-goal" ] Decode.float
+        |> optionalAt [ "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
+        |> optionalAt [ "relationships", "user", "data", "id" ] Decode.string ""
+
+
+showDecoder : Decoder Campaign
+showDecoder =
+    decode Campaign
+        |> requiredAt [ "data", "id" ] Decode.string
+        |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
+        |> requiredAt [ "data", "attributes", "short-description" ] Decode.string
+        |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
+        |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
+        |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
+        |> optionalAt [ "data", "relationships", "user", "data", "id" ] Decode.string ""
