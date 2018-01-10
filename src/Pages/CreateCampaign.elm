@@ -80,6 +80,7 @@ type Msg
 
 type ExternalMsg
     = NoOp
+    | FetchCampaigns
 
 
 view : Model -> Html Msg
@@ -269,8 +270,8 @@ update msg model =
             case data of
                 Success campaign ->
                     model
-                        => Router.modifyUrl Router.CreateRewardsRoute
-                        => NoOp
+                        => Cmd.none
+                        => FetchCampaigns
 
                 _ ->
                     ( model, Cmd.none )
@@ -340,6 +341,7 @@ postCampaign model =
             , fundingGoal = model.fundingGoal
             , fundingEndDate = model.fundingEndDate
             , userId = model.userId
+            , githubRepoId = model.bountifulRepo.id
             }
     in
     RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.showDecoder (Campaign.encode data)
@@ -350,8 +352,6 @@ validate =
     Validate.all
         [ .shortDescription >> ifBlank (ShortDescription => "Short Description can't be blank.")
         , .longDescription >> ifBlank (LongDescription => "Long Description can't be blank.")
-
-        -- , .fundingGoal >> ifBlank (FundingGoal => "Funding Goal can't be blank.")
         ]
 
 
