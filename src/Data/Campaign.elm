@@ -14,6 +14,7 @@ type alias Campaign =
     , fundingGoal : Float
     , fundingEndDate : DateTime
     , userId : String
+    , githubRepoId : String
     }
 
 
@@ -27,6 +28,7 @@ decoder =
         |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
         |> optionalAt [ "relationships", "user", "data", "id" ] Decode.string ""
+        |> optionalAt [ "relationships", "github-repo", "data", "id" ] Decode.string ""
 
 
 dateDecoder : Decoder DateTime
@@ -44,7 +46,7 @@ dateDecoder =
     Decode.string |> Decode.andThen convert
 
 
-encode : { r | shortDescription : String, longDescription : String, fundingGoal : Float, fundingEndDate : DateTime, userId : String } -> Encode.Value
+encode : { r | shortDescription : String, longDescription : String, fundingGoal : Float, fundingEndDate : DateTime, userId : String, githubRepoId : String } -> Encode.Value
 encode campaign =
     let
         is8601DateString =
@@ -61,15 +63,26 @@ encode campaign =
 
         relationships =
             Encode.object
-                [ ( "user", user_data_attribute ) ]
+                [ ( "user", user_data_attribute )
+                , ( "github_repo", github_repo_data_attribute )
+                ]
 
         user_data_attribute =
             Encode.object [ ( "data", user_attributes ) ]
+
+        github_repo_data_attribute =
+            Encode.object [ ( "data", github_repo_attributes ) ]
 
         user_attributes =
             Encode.object
                 [ ( "type", Encode.string "user" )
                 , ( "id", Encode.string campaign.userId )
+                ]
+
+        github_repo_attributes =
+            Encode.object
+                [ ( "type", Encode.string "github_repo" )
+                , ( "id", Encode.string campaign.githubRepoId )
                 ]
 
         data_attributes =
@@ -92,6 +105,7 @@ indexDecoder =
         |> requiredAt [ "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
         |> optionalAt [ "relationships", "user", "data", "id" ] Decode.string ""
+        |> optionalAt [ "relationships", "github-repo", "data", "id" ] Decode.string ""
 
 
 showDecoder : Decoder Campaign
@@ -104,3 +118,4 @@ showDecoder =
         |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
         |> optionalAt [ "data", "relationships", "user", "data", "id" ] Decode.string ""
+        |> optionalAt [ "data", "relationships", "github-repo", "data", "id" ] Decode.string ""
