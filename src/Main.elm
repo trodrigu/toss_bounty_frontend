@@ -86,6 +86,7 @@ type Msg
     | ReceiveMessage Encode.Value
     | FetchGitHubUrl (WebData GitHubUrl)
     | HandleFetchCampaigns (WebData Campaigns)
+    | HandleFetchCampaignsForRewards (WebData Campaigns)
     | FetchRepos (WebData Repos)
     | HandleFetchIssues (WebData Issues)
     | FetchStripeConnectUrl (WebData StripeConnectUrl)
@@ -249,10 +250,15 @@ setRoute maybeRoute model =
                                 _ ->
                                     Campaigns []
 
-                        updatedPage =
-                            Dash (Dash.init model.apiUrl token updatedYourCampaigns.campaigns campaignsContributedTo)
+                        updatedModelAndCmd =
+                            case List.length updatedYourCampaigns.campaigns of
+                                0 ->
+                                    model => fetchYourCampaigns model.apiUrl user.token user.userId
+
+                                _ ->
+                                    { model | page = Dash (Dash.init model.apiUrl token updatedYourCampaigns.campaigns campaignsContributedTo) } => Cmd.none
                     in
-                    { model | page = updatedPage } => Cmd.none
+                    updatedModelAndCmd
 
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
@@ -324,7 +330,7 @@ setRoute maybeRoute model =
                                     campaign
 
                                 Nothing ->
-                                    Campaign "0" 0.0 "" "" 0.0 (DateTime.dateTime DateTime.zero) "0"
+                                    Campaign "0" 0.0 "" "" 0.0 (DateTime.dateTime DateTime.zero) "0" "0"
 
                         updatedPage =
                             CreateRewards (CreateRewards.init apiUrl token campaign.id)
@@ -407,12 +413,20 @@ updatePage page msg model =
                 ( ( pageModel, cmd ), msgFromPage ) =
                     CreateCampaign.update subMsg subModel
 
-                newModel =
-                    case msgFromPage of
-                        CreateCampaign.NoOp ->
-                            model
+                updatedCmd =
+                    case model.session.user of
+                        Just user ->
+                            case msgFromPage of
+                                CreateCampaign.NoOp ->
+                                    Cmd.map CreateCampaignMsg cmd
+
+                                CreateCampaign.FetchCampaigns ->
+                                    fetchYourCampaignsForRewards model.apiUrl user.token user.userId
+
+                        Nothing ->
+                            Router.modifyUrl HomeRoute
             in
-            { newModel | page = CreateCampaign pageModel } => Cmd.map CreateCampaignMsg cmd
+            { model | page = CreateCampaign pageModel } => updatedCmd
 
         ( TosserSignUpMsg subMsg, TosserSignUp subModel ) ->
             let
@@ -505,7 +519,7 @@ updatePage page msg model =
                 userId =
                     updatedUser.userId
             in
-            ( model, fetchYourCampaigns model.apiUrl token userId )
+            ( model, Router.modifyUrl Router.DashRoute )
 
         ( FetchGitHubUrl data, _ ) ->
             let
@@ -649,6 +663,9 @@ updatePage page msg model =
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
             )
 
+        ( HandleFetchCampaignsForRewards data, _ ) ->
+            ( { model | yourCampaigns = data }, Router.modifyUrl Router.CreateRewardsRoute )
+
         ( HandleFetchCampaigns data, _ ) ->
             ( { model | yourCampaigns = data }, Router.modifyUrl Router.DashRoute )
 
@@ -777,6 +794,20 @@ fetchYourCampaigns apiUrl token userId =
                     url ++ "/campaigns?user_id=" ++ userId
     in
     RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaigns Campaigns.decoder
+
+
+fetchYourCampaignsForRewards : Maybe String -> AuthToken -> String -> Cmd Msg
+fetchYourCampaignsForRewards apiUrl token userId =
+    let
+        campaignUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/campaigns?user_id=" ++ userId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaignsForRewards Campaigns.decoder
 
 
 getRepos : Maybe String -> AuthToken -> Cmd Msg
