@@ -3,34 +3,35 @@ module Pages.CreateCampaign exposing (..)
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback, toString)
 import Data.Campaign as Campaign exposing (..)
 import Data.Issue as Issue exposing (Issue)
-import Data.Issues as Issues exposing (Issues)
 import Data.Repo as Repo exposing (Repo)
-import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
-import Data.User as User exposing (User, encodeLogin)
+import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Date exposing (Date, now)
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, datetime, href, src, style)
 import Html.Events exposing (onClick, onInput)
-import Http exposing (header)
-import Json.Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
-import Json.Encode exposing (Value, encode, object, string)
-import Navigation
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
-import Request.User as User exposing (storeSession)
-import Routing.Router as Router
+import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
 import Task
-import Time exposing (Time)
 import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
 
-init : AuthToken -> String -> Repo -> List Issue -> Maybe String -> Model
-init token userId repo issues apiUrl =
+init : AuthToken -> String -> Repos -> List Issue -> Maybe String -> Model
+init token userId repos issues apiUrl =
     let
+        bountifulRepo =
+            Repos.mostBountifulRepo repos
+
+        otherRepos =
+            List.filter (\repo -> not (repo == bountifulRepo)) repos.repos
+
+        reposAsSelectList =
+            SelectList.singleton bountifulRepo
+                |> SelectList.append otherRepos
+
         url =
             case apiUrl of
                 Nothing ->
@@ -47,7 +48,7 @@ init token userId repo issues apiUrl =
     , shortDescription = ""
     , token = token
     , userId = userId
-    , bountifulRepo = repo
+    , bountifulRepos = reposAsSelectList
     , issues = issues
     , apiUrl = url
     }
@@ -62,7 +63,7 @@ type alias Model =
     , token : AuthToken
     , errors : List Error
     , userId : String
-    , bountifulRepo : Repo
+    , bountifulRepos : SelectList Repo
     , issues : List Issue
     , apiUrl : String
     }
@@ -92,13 +93,19 @@ maintainerHero : Model -> Html Msg
 maintainerHero model =
     let
         name =
-            model.bountifulRepo.name
+            model.bountifulRepos
+                |> SelectList.selected
+                |> .owner
 
         imageSrc =
-            model.bountifulRepo.image
+            model.bountifulRepos
+                |> SelectList.selected
+                |> .image
 
         owner =
-            model.bountifulRepo.owner
+            model.bountifulRepos
+                |> SelectList.selected
+                |> .owner
     in
     div []
         [ section [ class "hero is-medium is-primary is-bold" ]
@@ -155,13 +162,24 @@ issueView issue =
 
 bioAndPic : Model -> Html Msg
 bioAndPic model =
+    let
+        imageSrc =
+            model.bountifulRepos
+                |> SelectList.selected
+                |> .image
+
+        name =
+            model.bountifulRepos
+                |> SelectList.selected
+                |> .owner
+    in
     section [ class "section" ]
         [ div
             [ class "container" ]
             [ article [ class "media" ]
                 [ figure [ class "media-left" ]
                     [ p [ class "image is-128x128" ]
-                        [ img [ src model.bountifulRepo.image ]
+                        [ img [ src imageSrc ]
                             []
                         ]
                     ]
@@ -169,7 +187,7 @@ bioAndPic model =
                     [ div [ class "content" ]
                         [ p []
                             [ strong []
-                                [ text model.bountifulRepo.owner ]
+                                [ text name ]
                             , br []
                                 []
                             , text "Does code push you?"
@@ -334,6 +352,11 @@ postCampaign model =
         campaignUrl =
             model.apiUrl ++ "/campaigns"
 
+        githubRepoId =
+            model.bountifulRepos
+                |> SelectList.selected
+                |> .id
+
         data =
             { currentFunding = model.currentFunding
             , shortDescription = model.shortDescription
@@ -341,7 +364,7 @@ postCampaign model =
             , fundingGoal = model.fundingGoal
             , fundingEndDate = model.fundingEndDate
             , userId = model.userId
-            , githubRepoId = model.bountifulRepo.id
+            , githubRepoId = githubRepoId
             }
     in
     RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.showDecoder (Campaign.encode data)

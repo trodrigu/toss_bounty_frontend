@@ -284,9 +284,6 @@ setRoute maybeRoute model =
                                 _ ->
                                     Repos []
 
-                        bountifulRepo =
-                            Repos.mostBountifulRepo repos
-
                         updatedIssues =
                             case model.mostBountifulIssues of
                                 Success issues ->
@@ -296,7 +293,7 @@ setRoute maybeRoute model =
                                     []
 
                         updatedPage =
-                            CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues model.apiUrl)
+                            CreateCampaign (CreateCampaign.init token userId repos updatedIssues model.apiUrl)
                     in
                     { model | page = updatedPage } => Cmd.none
 
@@ -645,9 +642,6 @@ updatePage page msg model =
                         _ ->
                             Repos []
 
-                bountifulRepo =
-                    Repos.mostBountifulRepo repos
-
                 updatedIssues =
                     case data of
                         Success issues ->
@@ -657,7 +651,7 @@ updatePage page msg model =
                             []
 
                 updatedPage =
-                    CreateCampaign (CreateCampaign.init token userId bountifulRepo updatedIssues model.apiUrl)
+                    CreateCampaign (CreateCampaign.init token userId repos updatedIssues model.apiUrl)
             in
             ( { model | page = updatedPage, mostBountifulIssues = data }
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
