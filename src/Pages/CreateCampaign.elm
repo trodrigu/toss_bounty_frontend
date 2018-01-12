@@ -19,8 +19,8 @@ import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
 
-init : AuthToken -> String -> Repos -> List Issue -> Maybe String -> Model
-init token userId repos issues apiUrl =
+init : AuthToken -> String -> Repos -> Maybe String -> Model
+init token userId repos apiUrl =
     let
         bountifulRepo =
             Repos.mostBountifulRepo repos
@@ -49,7 +49,6 @@ init token userId repos issues apiUrl =
     , token = token
     , userId = userId
     , bountifulRepos = reposAsSelectList
-    , issues = issues
     , apiUrl = url
     }
 
@@ -64,7 +63,6 @@ type alias Model =
     , errors : List Error
     , userId : String
     , bountifulRepos : SelectList Repo
-    , issues : List Issue
     , apiUrl : String
     }
 
@@ -95,7 +93,7 @@ maintainerHero model =
         name =
             model.bountifulRepos
                 |> SelectList.selected
-                |> .owner
+                |> .name
 
         imageSrc =
             model.bountifulRepos
@@ -106,6 +104,10 @@ maintainerHero model =
             model.bountifulRepos
                 |> SelectList.selected
                 |> .owner
+
+        repos =
+            model.bountifulRepos
+                |> SelectList.toList
     in
     div []
         [ section [ class "hero is-medium is-primary is-bold" ]
@@ -113,29 +115,26 @@ maintainerHero model =
                 [ div [ class "container" ]
                     [ div [ class "columns" ]
                         [ div [ class "column is-half is-offset-one-quarter" ]
-                            [ h1 [ class "title" ]
-                                [ text name ]
-                            , h2 [ class "subtitle" ]
-                                [ text ("By " ++ owner) ]
+                            [ div [ class "title" ]
+                                [ text "Pick your project" ]
+                            , div [ class "control" ]
+                                [ div [ class "select" ]
+                                    [ Html.select [] (List.map (\el -> makeOption el.name) repos)
+                                    ]
+                                ]
                             ]
                         ]
                     ]
                 ]
             ]
-        , section [ class "section" ]
-            [ div [ class "container" ]
-                [ div [ class "columns" ]
-                    [ div [ class "column is-half is-offset-one-quarter" ]
-                        [ h1 [ class "title" ]
-                            [ text "Popular Issues" ]
-                        ]
-                    ]
-                ]
-            ]
-        , issuesView model.issues
         , createCampaignForm model
         , bioAndPic model
         ]
+
+
+makeOption : String -> Html Msg
+makeOption name =
+    option [] [ text name ]
 
 
 issuesView : List Issue -> Html Msg

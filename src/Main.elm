@@ -8,13 +8,9 @@ import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Data.Session as Session exposing (Session)
 import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Data.User as User exposing (User)
-import Date exposing (Date)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
-import Html.Events exposing (..)
-import Http exposing (header)
 import Json.Decode as Decode exposing (Decoder, Value)
-import Json.Decode.Extra exposing (date)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
@@ -284,16 +280,8 @@ setRoute maybeRoute model =
                                 _ ->
                                     Repos []
 
-                        updatedIssues =
-                            case model.mostBountifulIssues of
-                                Success issues ->
-                                    issues.issues
-
-                                _ ->
-                                    []
-
                         updatedPage =
-                            CreateCampaign (CreateCampaign.init token userId repos updatedIssues model.apiUrl)
+                            CreateCampaign (CreateCampaign.init token userId repos model.apiUrl)
                     in
                     { model | page = updatedPage } => Cmd.none
 
@@ -642,16 +630,8 @@ updatePage page msg model =
                         _ ->
                             Repos []
 
-                updatedIssues =
-                    case data of
-                        Success issues ->
-                            issues.issues
-
-                        _ ->
-                            []
-
                 updatedPage =
-                    CreateCampaign (CreateCampaign.init token userId repos updatedIssues model.apiUrl)
+                    CreateCampaign (CreateCampaign.init token userId repos model.apiUrl)
             in
             ( { model | page = updatedPage, mostBountifulIssues = data }
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
