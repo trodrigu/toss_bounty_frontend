@@ -71,6 +71,7 @@ init apiUrl token yourCampaigns campaignsContributedTo =
                         , millisecond = 0
                         }
                 , userId = ""
+                , githubRepoId = ""
                 }
 
         updatedYourCampaigns =
@@ -234,6 +235,7 @@ putCampaign model =
             , fundingEndDate = selectedCampaign.fundingEndDate
             , fundingGoal = selectedCampaign.fundingGoal
             , userId = selectedCampaign.userId
+            , githubRepoId = selectedCampaign.githubRepoId
             }
     in
     RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutCampaign Campaign.showDecoder (Campaign.encode data)
@@ -340,6 +342,7 @@ showYourCampaign campaign =
                         , strong
                             []
                             [ text campaign.shortDescription ]
+                        , br [] []
                         , small
                             []
                             [ text campaign.longDescription ]
@@ -347,9 +350,11 @@ showYourCampaign campaign =
                         , strong
                             []
                             [ text (toString campaign.currentFunding) ]
+                        , br [] []
                         , strong
                             []
                             [ text (toString campaign.fundingGoal) ]
+                        , br [] []
                         , strong
                             []
                             [ text (toString campaign.fundingEndDate) ]
