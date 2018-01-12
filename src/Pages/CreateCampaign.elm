@@ -8,7 +8,10 @@ import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Date exposing (Date, now)
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, datetime, href, src, style)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (on, onClick, onInput)
+import Html.Events.Extra exposing (targetSelectedIndex)
+import Json.Decode
+import List.Extra exposing (getAt)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
@@ -75,6 +78,7 @@ type Msg
     | HandleCampaign (WebData Campaign)
     | RequestDate
     | ReceiveDate Date.Date
+    | SelectRepo (Maybe Int)
 
 
 type ExternalMsg
@@ -119,7 +123,7 @@ maintainerHero model =
                                 [ text "Pick your project" ]
                             , div [ class "control" ]
                                 [ div [ class "select" ]
-                                    [ Html.select [] (List.map (\el -> makeOption el.name) repos)
+                                    [ Html.select [ onChange ] (List.map (\el -> makeOption el.name) repos)
                                     ]
                                 ]
                             ]
@@ -130,6 +134,11 @@ maintainerHero model =
         , createCampaignForm model
         , bioAndPic model
         ]
+
+
+onChange : Attribute Msg
+onChange =
+    on "change" (Json.Decode.map SelectRepo Html.Events.Extra.targetSelectedIndex)
 
 
 makeOption : String -> Html Msg
@@ -262,6 +271,11 @@ createCampaignForm model =
         ]
 
 
+defaultRepo : Repo
+defaultRepo =
+    Repo "" "" "" 0 ""
+
+
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
@@ -310,6 +324,44 @@ update msg model =
 
         RequestDate ->
             ( model, Task.perform ReceiveDate now ) => NoOp
+
+        SelectRepo Nothing ->
+            ( model, Cmd.none ) => NoOp
+
+        SelectRepo (Just index) ->
+            let
+                repos =
+                    model.bountifulRepos
+                        |> SelectList.toList
+
+                splitList =
+                    List.Extra.splitAt index repos
+
+                beforesList =
+                    splitList
+                        |> Tuple.first
+
+                aftersList =
+                    splitList
+                        |> Tuple.second
+
+                foundRepo =
+                    aftersList
+                        |> List.head
+                        |> Maybe.withDefault defaultRepo
+
+                aftersWithoutFoundRepo =
+                    aftersList
+                        |> List.Extra.uncons
+                        |> Maybe.withDefault ( defaultRepo, [] )
+                        |> Tuple.second
+
+                updatedRepos =
+                    SelectList.singleton foundRepo
+                        |> SelectList.prepend beforesList
+                        |> SelectList.append aftersWithoutFoundRepo
+            in
+            ( { model | bountifulRepos = updatedRepos }, Cmd.none ) => NoOp
 
         ReceiveDate time ->
             let
