@@ -270,8 +270,8 @@ createRewardForm model =
                     , viewErrors model.errors
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "Donation Level" ]
-                        , p [ class "control" ]
+                            [ text "Donation Amount" ]
+                        , p [ class "control has-icons-left" ]
                             [ input
                                 [ class "input"
                                 , Html.Attributes.type_ "number"
@@ -279,6 +279,9 @@ createRewardForm model =
                                 , value (toString model.donationLevel)
                                 ]
                                 []
+                            , span [ class "icon is-left" ]
+                                [ i [ class "fas fa-money-bill-alt" ] []
+                                ]
                             ]
                         ]
                     , div [ class "field" ]

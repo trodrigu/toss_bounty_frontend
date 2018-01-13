@@ -61,7 +61,7 @@ footerArea =
                     [ strong []
                         [ span []
                             [ text "Made With "
-                            , i [ class "fa fa-heart" ] []
+                            , i [ class "fas fa-heart" ] []
                             , text " in San Diego"
                             ]
                         ]

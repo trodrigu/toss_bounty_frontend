@@ -43,7 +43,7 @@ viewButton model =
         Success data ->
             a [ class "button is-medium", Html.Attributes.href data.url ]
                 [ span [ class "icon is-medium" ]
-                    [ i [ class "fa fa-github" ] []
+                    [ i [ class "fab fa-stripe" ] []
                     ]
                 , p []
                     [ text "Sign In With Stripe Connect" ]

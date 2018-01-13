@@ -5,7 +5,6 @@ import Data.Campaign as Campaign exposing (Campaign, encode, showDecoder)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style)
 import Html.Events exposing (onClick, onInput)
-import Navigation
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
@@ -38,7 +37,7 @@ type alias Model =
     , apiUrl : String
     , token : AuthToken
     , errors : List Error
-    , isEditing : Bool
+    , isEditingYourCampaigns : Bool
     }
 
 
@@ -98,17 +97,19 @@ init apiUrl token yourCampaigns campaignsContributedTo =
     , apiUrl = url
     , token = token
     , errors = []
-    , isEditing = False
+    , isEditingYourCampaigns = False
     }
 
 
 type Msg
-    = SelectCampaign String
+    = SelectYourCampaign String
     | SaveUpdateCampaignForm
     | UpdateFundingGoalField String
     | UpdateLongDescriptionField String
     | UpdateShortDescriptionField String
     | HandlePutCampaign (WebData Campaign)
+    | DeleteCampaign String
+    | HandleDeleteCampaign (WebData String)
 
 
 type ExternalMsg
@@ -120,12 +121,60 @@ validate =
     Validate.all
         [ .shortDescription >> ifBlank (ShortDescription => "Short Description can't be blank.")
         , .longDescription >> ifBlank (LongDescription => "Long Description can't be blank.")
+        , .fundingGoal >> ifZero (FundingGoal => "Funding Goal can't be zero.")
         ]
+
+
+defaultCampaign : Campaign
+defaultCampaign =
+    Campaign "" 0.0 "" "" 0.0 defaultFundingEndDate "" ""
+
+
+defaultFundingEndDate : DateTime
+defaultFundingEndDate =
+    DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
 
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        HandleDeleteCampaign data ->
+            case data of
+                Success _ ->
+                    let
+                        selectedCampaign =
+                            SelectList.selected model.yourCampaigns
+
+                        befores =
+                            SelectList.before model.yourCampaigns
+
+                        afters =
+                            SelectList.after model.yourCampaigns
+
+                        beforesAndAfters =
+                            befores ++ afters
+
+                        defaultSelectedCampaign =
+                            List.filter (\campaign -> not (hasId campaign)) beforesAndAfters
+                                |> List.head
+                                |> Maybe.withDefault defaultCampaign
+
+                        campaignAsSelectList =
+                            SelectList.singleton defaultSelectedCampaign
+
+                        updatedCampaigns =
+                            campaignAsSelectList
+                                |> SelectList.prepend befores
+                                |> SelectList.append afters
+                    in
+                    { model | yourCampaigns = updatedCampaigns, shortDescription = "", longDescription = "", fundingGoal = 0.0, fundingEndDate = defaultFundingEndDate }
+                        => Cmd.none
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
         SaveUpdateCampaignForm ->
             case validate model of
                 [] ->
@@ -140,7 +189,17 @@ update msg model =
                         => Cmd.none
                         => NoOp
 
-        SelectCampaign campaignId ->
+        DeleteCampaign rewardId ->
+            let
+                updatedCampaigns =
+                    SelectList.select (\u -> u.id == rewardId) model.yourCampaigns
+
+                updatedModel =
+                    { model | yourCampaigns = updatedCampaigns }
+            in
+            ( updatedModel, deleteCampaign updatedModel ) => NoOp
+
+        SelectYourCampaign campaignId ->
             let
                 updatedCampaigns =
                     SelectList.select (\campaign -> campaign.id == campaignId) model.yourCampaigns
@@ -148,7 +207,16 @@ update msg model =
                 selectedCampaign =
                     SelectList.selected updatedCampaigns
             in
-            ( { model | yourCampaigns = updatedCampaigns }, Cmd.none ) => NoOp
+            ( { model
+                | yourCampaigns = updatedCampaigns
+                , isEditingYourCampaigns = True
+                , shortDescription = selectedCampaign.shortDescription
+                , longDescription = selectedCampaign.longDescription
+                , fundingGoal = selectedCampaign.fundingGoal
+              }
+            , Cmd.none
+            )
+                => NoOp
 
         UpdateFundingGoalField updatedFundingGoal ->
             let
@@ -210,7 +278,7 @@ update msg model =
                         , fundingGoal = 0.0
                         , longDescription = ""
                         , shortDescription = ""
-                        , isEditing = False
+                        , isEditingYourCampaigns = False
                     }
                         => Cmd.none
                         => NoOp
@@ -227,7 +295,7 @@ putCampaign model =
             SelectList.selected model.yourCampaigns
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ selectedCampaign.id
+            model.apiUrl ++ "/campaigns/" ++ selectedCampaign.id
 
         data =
             { longDescription = selectedCampaign.longDescription
@@ -245,37 +313,63 @@ view : Model -> Html Msg
 view model =
     div
         []
-        [ yourBounties model.yourCampaigns
+        [ yourBounties model
         , campaignsYouContributedTo model.campaignsContributedTo
         ]
 
 
-yourBounties : SelectList Campaign -> Html Msg
-yourBounties campaigns =
+yourBounties : Model -> Html Msg
+yourBounties model =
     let
+        campaigns =
+            model.yourCampaigns
+
         campaignsAsList =
             SelectList.toList campaigns
 
         persistedCampaigns =
             filterPersistedCampaigns campaignsAsList
     in
-    section
-        [ class "section" ]
-        [ div
-            [ class "container" ]
-            [ h1
-                []
-                [ text "Your Campaigns" ]
-            , div
-                [ class "columns" ]
-                [ div
-                    [ class "column" ]
-                    (List.map
-                        (\campaign ->
-                            showYourCampaign campaign
-                        )
-                        persistedCampaigns
+    case model.isEditingYourCampaigns of
+        True ->
+            div [] <|
+                List.indexedMap
+                    (\index campaign ->
+                        case SelectList.selected model.yourCampaigns == campaign of
+                            True ->
+                                div []
+                                    [ updateCampaignForm model campaign ]
+
+                            False ->
+                                showYourCampaign campaign
                     )
+                    persistedCampaigns
+
+        False ->
+            div [] <|
+                List.map
+                    (\campaign ->
+                        showYourCampaign campaign
+                    )
+                    persistedCampaigns
+
+
+updateCampaignForm : Model -> Campaign -> Html Msg
+updateCampaignForm model campaign =
+    section [ class "section" ]
+        [ div [ class "container" ]
+            [ div [ class "columns" ]
+                [ div [ class "column is-half is-offset-one-quarter" ]
+                    [ div [ class "card" ]
+                        [ div [ class "card-content" ]
+                            [ viewErrors model.errors
+                            , displayUpdateShortDescription model
+                            , displayUpdateLongDescription model
+                            , displayUpdateFundingGoal model
+                            , displayUpdateButton
+                            ]
+                        ]
+                    ]
                 ]
             ]
         ]
@@ -293,91 +387,142 @@ hasId campaign =
 
 campaignsYouContributedTo : List Campaign -> Html Msg
 campaignsYouContributedTo campaigns =
-    section
-        [ class "section" ]
-        [ div
-            [ class "container" ]
-            [ h1
-                []
-                [ text "Campaigns You Contributed To" ]
-            , div
-                [ class "columns" ]
-                [ div
-                    [ class "column" ]
-                    (List.map
-                        (\campaign ->
-                            showCampaignYouContributedTo campaign
-                        )
-                        campaigns
-                    )
-                ]
-            ]
-        ]
+    div [] <|
+        List.map
+            (\campaign ->
+                showCampaignYouContributedTo campaign
+            )
+            campaigns
 
 
 showYourCampaign : Campaign -> Html Msg
 showYourCampaign campaign =
-    div
-        [ class "box" ]
-        [ article
-            [ class "media" ]
+    section
+        [ class "section" ]
+        [ div
+            [ class "container" ]
             [ div
-                [ class "media-left" ]
-                [ figure
-                    [ class "image" ]
-                    [ img
-                        [ src "http://placekitten.com.s3.amazonaws.com/homepage-samples/96/139.jpg" ]
-                        []
-                    ]
-                ]
-            , div
-                [ class "media-content" ]
+                [ class "columns" ]
                 [ div
-                    [ class "content" ]
-                    [ p
-                        []
-                        [ h1
-                            []
-                            [ text "Elixir Lang" ]
-                        , strong
-                            []
-                            [ text campaign.shortDescription ]
-                        , br [] []
-                        , small
-                            []
-                            [ text campaign.longDescription ]
-                        , br [] []
-                        , strong
-                            []
-                            [ text (toString campaign.currentFunding) ]
-                        , br [] []
-                        , strong
-                            []
-                            [ text (toString campaign.fundingGoal) ]
-                        , br [] []
-                        , strong
-                            []
-                            [ text (toString campaign.fundingEndDate) ]
-                        ]
-                    ]
-                , nav
-                    [ class "level is-mobile" ]
-                    [ div
-                        [ class "level-left" ]
-                        [ a
-                            [ class "level-item" ]
-                            [ span
-                                [ class "icon is-medium" ]
-                                [ i
-                                    [ class "fa fa-gift" ]
-                                    []
-                                ]
-                            ]
+                    [ class "column is-half is-offset-one-quarter" ]
+                    [ div [ class "card" ]
+                        [ displayFormHeader campaign
+                        , displayFormContent campaign
                         ]
                     ]
                 ]
             ]
         ]
+
+
+displayUpdateButton : Html Msg
+displayUpdateButton =
+    div [ class "field is-grouped" ]
+        [ p [ class "control" ]
+            [ button [ class "button is-primary", onClick SaveUpdateCampaignForm ]
+                [ text "Update Campaign" ]
+            ]
+        ]
+
+
+displayUpdateShortDescription : Model -> Html Msg
+displayUpdateShortDescription model =
+    div [ class "field" ]
+        [ label [ class "label" ]
+            [ text "Short Description" ]
+        , p [ class "control" ]
+            [ input
+                [ class "input"
+                , onInput UpdateShortDescriptionField
+                , Html.Attributes.value model.shortDescription
+                ]
+                []
+            ]
+        ]
+
+
+displayUpdateLongDescription : Model -> Html Msg
+displayUpdateLongDescription model =
+    div [ class "field" ]
+        [ label [ class "label" ]
+            [ text "Long Description" ]
+        , p [ class "control" ]
+            [ input
+                [ class "input"
+                , onInput UpdateLongDescriptionField
+                , Html.Attributes.value model.longDescription
+                ]
+                []
+            ]
+        ]
+
+
+displayUpdateFundingGoal : Model -> Html Msg
+displayUpdateFundingGoal model =
+    div [ class "field" ]
+        [ label [ class "label" ]
+            [ text "Funding Goal" ]
+        , p [ class "control" ]
+            [ input
+                [ class "input"
+                , Html.Attributes.type_ "number"
+                , onInput UpdateFundingGoalField
+                , Html.Attributes.value (toString model.fundingGoal)
+                ]
+                []
+            ]
+        ]
+
+
+displayFormHeader : Campaign -> Html Msg
+displayFormHeader campaign =
+    div [ class "card-header" ]
+        [ p [ class "card-header-title" ]
+            [ text (toString campaign.shortDescription) ]
+        , a [ class "card-header-icon", onClick (SelectYourCampaign campaign.id) ]
+            [ span [] [ text "edit" ] ]
+        , a [ class "card-header-icon", onClick (DeleteCampaign campaign.id) ]
+            [ span [] [ text "delete" ] ]
+        ]
+
+
+displayFormContent : Campaign -> Html Msg
+displayFormContent campaign =
+    div [ class "card-content" ]
+        [ label [ class "label" ]
+            [ text "Long Description" ]
+        , p [ class "control" ]
+            [ text (toString campaign.longDescription) ]
+        , label [ class "label" ]
+            [ text "Funding Goal" ]
+        , p []
+            [ text (toString campaign.fundingGoal) ]
+        , label [ class "label" ]
+            [ text "Funding End Date" ]
+        , p []
+            [ text (formatDateTime campaign) ]
+        ]
+
+
+formatDateTime : Campaign -> String
+formatDateTime campaign =
+    let
+        fundingEndDate =
+            campaign.fundingEndDate
+
+        year =
+            DateTime.year fundingEndDate
+                |> toString
+
+        month =
+            DateTime.month fundingEndDate
+                |> toString
+
+        day =
+            DateTime.day fundingEndDate
+                |> toString
+    in
+    year ++ "-" ++ month ++ "-" ++ day
 
 
 showCampaignYouContributedTo : Campaign -> Html Msg
@@ -434,3 +579,47 @@ showCampaignYouContributedTo campaign =
                 ]
             ]
         ]
+
+
+deleteCampaign : Model -> Cmd Msg
+deleteCampaign model =
+    let
+        selectedCampaign =
+            SelectList.selected model.yourCampaigns
+
+        rewardUrl =
+            model.apiUrl ++ "/campaigns/" ++ selectedCampaign.id
+
+        data =
+            { id = selectedCampaign.id
+            , currentFunding = selectedCampaign.currentFunding
+            , longDescription = selectedCampaign.longDescription
+            , shortDescription = selectedCampaign.shortDescription
+            , fundingGoal = selectedCampaign.fundingGoal
+            , fundingEndDate = selectedCampaign.fundingEndDate
+            , userId = selectedCampaign.userId
+            , githubRepoId = selectedCampaign.githubRepoId
+            }
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteCampaign (Campaign.encode data)
+
+
+viewErrors : List ( a, String ) -> Html msg
+viewErrors errors =
+    errors
+        |> List.map (\( _, error ) -> li [] [ text error ])
+        |> ul [ class "help is-danger" ]
+
+
+ifZero : error -> Validate.Validator error Float
+ifZero error subject =
+    let
+        errors =
+            case subject > 0.0 of
+                True ->
+                    []
+
+                False ->
+                    [ error ]
+    in
+    errors
