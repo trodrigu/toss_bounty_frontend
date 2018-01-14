@@ -1,4 +1,4 @@
-module Data.Campaign exposing (Campaign, encode, indexDecoder, showDecoder)
+module Data.Campaign exposing (Campaign, defaultCampaign, defaultDate, encode, indexDecoder, showDecoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
@@ -119,3 +119,13 @@ showDecoder =
         |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
         |> optionalAt [ "data", "relationships", "user", "data", "id" ] Decode.string ""
         |> optionalAt [ "data", "relationships", "github-repo", "data", "id" ] Decode.string ""
+
+
+defaultCampaign : Campaign
+defaultCampaign =
+    Campaign "" 0.0 "" "" 0.0 defaultDate "" ""
+
+
+defaultDate : DateTime
+defaultDate =
+    DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
