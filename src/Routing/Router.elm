@@ -20,6 +20,7 @@ type Route
     | BetaSignUpRoute
     | SaveTokenRoute (Maybe String) (Maybe String) (Maybe String)
     | SaveStripeRoute (Maybe String)
+    | DiscoverRoute
     | LogoutRoute
     | NotFoundRoute
 
@@ -91,6 +92,9 @@ routeToString page =
                 SaveTokenRoute _ _ _ ->
                     [ "save-session" ]
 
+                DiscoverRoute ->
+                    [ "discover" ]
+
                 NotFoundRoute ->
                     []
     in
@@ -112,6 +116,7 @@ routeParser =
         , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> UrlParser.stringParam "stripe_id")
         , UrlParser.map LoginRoute (UrlParser.s "login")
         , UrlParser.map BetaSignUpRoute (UrlParser.s "beta-sign-up")
+        , UrlParser.map DiscoverRoute (UrlParser.s "discover")
         ]
 
 

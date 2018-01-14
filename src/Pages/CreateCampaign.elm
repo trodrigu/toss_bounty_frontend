@@ -120,7 +120,7 @@ maintainerHero model =
                     [ div [ class "columns" ]
                         [ div [ class "column is-half is-offset-one-quarter" ]
                             [ div [ class "title" ]
-                                [ text "Pick your project" ]
+                                [ text "Pick your Github Repo" ]
                             , div [ class "control" ]
                                 [ div [ class "select" ]
                                     [ Html.select [ onChange ] (List.map (\el -> makeOption el.name) repos)
@@ -227,7 +227,7 @@ createCampaignForm model =
         [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
             [ div [ class "columns" ]
                 [ div [ class "column is-half is-offset-one-quarter" ]
-                    [ h1 [ class "title" ] [ text "Tell us a little about your project" ]
+                    [ h1 [ class "title" ] [ text "Tell us a little about your Campaign" ]
                     , viewErrors model.errors
                     , div [ class "field" ]
                         [ label [ class "label" ]
@@ -246,22 +246,22 @@ createCampaignForm model =
                         ]
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "Summary" ]
+                            [ text "A cool headline" ]
                         , p [ class "control" ]
                             [ input
                                 [ class "input"
-                                , onInput UpdateLongDescriptionField
+                                , onInput UpdateShortDescriptionField
                                 ]
                                 []
                             ]
                         ]
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "A cool headline" ]
+                            [ text "Summary" ]
                         , p [ class "control" ]
-                            [ input
-                                [ class "input"
-                                , onInput UpdateShortDescriptionField
+                            [ textarea
+                                [ class "textarea"
+                                , onInput UpdateLongDescriptionField
                                 ]
                                 []
                             ]

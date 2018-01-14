@@ -18,6 +18,7 @@ import Pages.BetaSignUp as BetaSignUp
 import Pages.CreateCampaign as CreateCampaign
 import Pages.CreateRewards as CreateRewards
 import Pages.Dash as Dash
+import Pages.Discover as Discover
 import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
 import Pages.Logout as Logout
@@ -45,6 +46,7 @@ type Page
     | CreateCampaign CreateCampaign.Model
     | CreateRewards CreateRewards.Model
     | Logout Logout.Model
+    | Discover Discover.Model
     | NotFound NotFound.Model
 
 
@@ -56,6 +58,7 @@ type alias Model =
     , apiUrl : Maybe String
     , yourCampaigns : WebData Campaigns
     , campaignsContributedTo : List Campaign
+    , allCampaigns : WebData Campaigns
     , repos : WebData Repos
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
@@ -65,6 +68,7 @@ type alias Model =
 type Msg
     = HomeMsg Home.Msg
     | TosserSignUpMsg TosserSignUp.Msg
+    | DiscoverMsg Discover.Msg
     | DashMsg Dash.Msg
     | LoginMsg Login.Msg
     | BetaSignUpMsg BetaSignUp.Msg
@@ -87,6 +91,7 @@ type Msg
     | HandleFetchIssues (WebData Issues)
     | FetchStripeConnectUrl (WebData StripeConnectUrl)
     | HandleStripeIdUpdate (WebData User)
+    | HandleFetchAllCampaigns (WebData Campaigns)
 
 
 decodeUserFromJson : Decode.Value -> Maybe User
@@ -110,6 +115,7 @@ init val location =
         , repos = Loading
         , mostBountifulIssues = Loading
         , stripeConnectUrl = Loading
+        , allCampaigns = NotAsked
         }
 
 
@@ -259,6 +265,21 @@ setRoute maybeRoute model =
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
 
+        Just Router.DiscoverRoute ->
+            case model.session.user of
+                Just user ->
+                    let
+                        token =
+                            user.token
+
+                        updatedPage =
+                            Discover (Discover.init token model.apiUrl)
+                    in
+                    { model | page = updatedPage } => Cmd.none
+
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
+
         Just Router.CreateCampaignRoute ->
             case model.session.user of
                 Just user ->
@@ -392,6 +413,13 @@ updatePage page msg model =
                     CreateRewards.update subMsg subModel
             in
             { model | page = CreateRewards pageModel } => Cmd.map CreateRewardsMsg cmd
+
+        ( DiscoverMsg subMsg, Discover subModel ) ->
+            let
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    Discover.update subMsg subModel
+            in
+            { model | page = Discover pageModel } => Cmd.map DiscoverMsg cmd
 
         ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
             let
@@ -637,6 +665,9 @@ updatePage page msg model =
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
             )
 
+        ( HandleFetchAllCampaigns data, _ ) ->
+            ( { model | allCampaigns = data }, Router.modifyUrl Router.DiscoverRoute )
+
         ( HandleFetchCampaignsForRewards data, _ ) ->
             ( { model | yourCampaigns = data }, Router.modifyUrl Router.CreateRewardsRoute )
 
@@ -704,6 +735,11 @@ pageView session page =
                 TosserSignUp.view subModel
                     |> frame Page.TosserSignUp
                     |> Html.map TosserSignUpMsg
+
+            Discover subModel ->
+                Discover.view subModel
+                    |> frame Page.Discover
+                    |> Html.map DiscoverMsg
 
             Dash subModel ->
                 Dash.view subModel
@@ -833,6 +869,20 @@ githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
     decode GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+
+fetchAllCampaigns : Maybe String -> AuthToken -> Cmd Msg
+fetchAllCampaigns apiUrl token =
+    let
+        updatedUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchAllCampaigns Campaigns.decoder
 
 
 updateUserWithStripeInfo : Maybe String -> AuthToken -> String -> String -> Cmd Msg

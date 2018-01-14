@@ -1,7 +1,7 @@
 module Pages.Dash exposing (..)
 
 import Data.AuthToken exposing (AuthToken)
-import Data.Campaign as Campaign exposing (Campaign, encode, showDecoder)
+import Data.Campaign as Campaign exposing (Campaign, defaultCampaign, defaultDate, encode, showDecoder)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style)
 import Html.Events exposing (onClick, onInput)
@@ -53,25 +53,7 @@ init apiUrl token yourCampaigns campaignsContributedTo =
                     url
 
         defaultYourCampaign =
-            SelectList.singleton
-                { id = ""
-                , currentFunding = 0.0
-                , shortDescription = ""
-                , longDescription = ""
-                , fundingGoal = 0.0
-                , fundingEndDate =
-                    DateTime.dateTime
-                        { year = 1992
-                        , month = 5
-                        , day = 29
-                        , hour = 0
-                        , minute = 0
-                        , second = 0
-                        , millisecond = 0
-                        }
-                , userId = ""
-                , githubRepoId = ""
-                }
+            SelectList.singleton Campaign.defaultCampaign
 
         updatedYourCampaigns =
             defaultYourCampaign
@@ -125,16 +107,6 @@ validate =
         ]
 
 
-defaultCampaign : Campaign
-defaultCampaign =
-    Campaign "" 0.0 "" "" 0.0 defaultFundingEndDate "" ""
-
-
-defaultFundingEndDate : DateTime
-defaultFundingEndDate =
-    DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
-
-
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
@@ -167,7 +139,7 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model | yourCampaigns = updatedCampaigns, shortDescription = "", longDescription = "", fundingGoal = 0.0, fundingEndDate = defaultFundingEndDate }
+                    { model | yourCampaigns = updatedCampaigns, shortDescription = "", longDescription = "", fundingGoal = 0.0, fundingEndDate = Campaign.defaultDate }
                         => Cmd.none
                         => NoOp
 

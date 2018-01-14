@@ -171,9 +171,8 @@ view model =
                         )
                         persistedRewards
                     )
+                , renderStripeConnectButton persistedRewards
                 , createRewardForm model
-                , div []
-                    [ renderStripeConnectButton persistedRewards ]
                 ]
 
 
