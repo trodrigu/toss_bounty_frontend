@@ -64,7 +64,7 @@ view model =
                 [ div [ class "columns is-vcentered" ]
                     [ div [ class "column has-text-centered" ]
                         [ p [ class "title" ]
-                            [ text "For tossers" ]
+                            [ text "For Tossers" ]
                         , p [ class "subtitle" ]
                             [ text "prime the"
                             , strong [] [ text " pump" ]
