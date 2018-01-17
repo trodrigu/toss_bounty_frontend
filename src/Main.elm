@@ -11,7 +11,7 @@ import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Json.Decode as Decode exposing (Decoder, Value)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
 import Pages.BetaSignUp as BetaSignUp
@@ -62,6 +62,7 @@ type alias Model =
     , repos : WebData Repos
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
+    , stripe : Maybe Stripe
     }
 
 
@@ -78,6 +79,7 @@ type Msg
     | LogoutMsg Logout.Msg
     | NotFoundMsg NotFound.Msg
     | SetUser (Maybe User)
+    | ConsumeToken (Maybe Stripe)
     | LoginUser String String
     | SetRoute (Maybe Route)
     | JoinChannel
@@ -116,6 +118,7 @@ init val location =
         , mostBountifulIssues = Loading
         , stripeConnectUrl = Loading
         , allCampaigns = NotAsked
+        , stripe = Nothing
         }
 
 
@@ -372,6 +375,13 @@ updatePage page msg model =
             ( { model | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
     case ( msg, page ) of
+        ( ConsumeToken stripe, _ ) ->
+            let
+                _ =
+                    Debug.log "stripe" stripe
+            in
+            ( { model | stripe = stripe }, Cmd.none )
+
         ( SetRoute route, _ ) ->
             setRoute route model
 
@@ -688,6 +698,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Sub.map SetUser sessionChange
+        , Sub.map ConsumeToken consumeToken
         ]
 
 
@@ -922,3 +933,18 @@ stripeConnectUrlUrlDecoder : Decoder StripeConnectUrl
 stripeConnectUrlUrlDecoder =
     decode StripeConnectUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+
+consumeToken : Sub (Maybe Stripe)
+consumeToken =
+    Ports.consumeToken (Decode.decodeValue stripeDecoder >> Result.toMaybe)
+
+
+type alias Stripe =
+    { token : String }
+
+
+stripeDecoder : Decoder Stripe
+stripeDecoder =
+    decode Stripe
+        |> optional "token" Decode.string ""

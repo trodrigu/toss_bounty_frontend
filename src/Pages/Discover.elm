@@ -1,13 +1,14 @@
 module Pages.Discover exposing (..)
 
 import CreditCard
-import CreditCard.Config
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, defaultCampaign, defaultDate)
 import Data.Campaigns as Campaigns exposing (Campaigns)
 import Html exposing (..)
-import Html.Attributes exposing (class, src, style)
+import Html.Attributes exposing (action, class, id, method, src, style)
 import Html.Events exposing (onClick, onInput)
+import Html.Keyed as Keyed
+import Ports exposing (createStripeElement)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
@@ -41,6 +42,7 @@ init token apiUrl =
     , cvv = Nothing
     , state = CreditCard.initialState
     , isContributing = False
+    , showForm = False
     }
 
 
@@ -56,6 +58,7 @@ type alias Model =
     , cvv : Maybe String
     , state : CreditCard.State
     , isContributing : Bool
+    , showForm : Bool
     }
 
 
@@ -64,6 +67,7 @@ type Msg
     | SelectYourCampaign String
     | HandleFetchAllCampaigns (WebData Campaigns)
     | GetCampaigns
+    | Contribute
 
 
 type ExternalMsg
@@ -92,21 +96,21 @@ update msg model =
         UpdateCardData updatedModel ->
             ( updatedModel, Cmd.none ) => NoOp
 
+        Contribute ->
+            ( { model | showForm = True }, Ports.createStripeElement "#card-element" ) => NoOp
+
         SelectYourCampaign campaignId ->
             let
                 updatedCampaigns =
                     SelectList.select (\campaign -> campaign.id == campaignId) model.campaigns
 
-                selectedCampaign =
-                    SelectList.selected updatedCampaigns
+                updatedModel =
+                    { model
+                        | campaigns = updatedCampaigns
+                        , isContributing = True
+                    }
             in
-            ( { model
-                | campaigns = updatedCampaigns
-                , isContributing = True
-              }
-            , Cmd.none
-            )
-                => NoOp
+            updatedModel => Cmd.none => NoOp
 
 
 view : Model -> Html Msg
@@ -179,88 +183,63 @@ hasId campaign =
 
 paymentForm : Model -> Campaign -> Html Msg
 paymentForm model campaign =
-    section
-        [ class "section" ]
-        [ div
-            [ class "container" ]
+    if model.showForm then
+        section
+            [ class "section" ]
             [ div
-                [ class "columns" ]
+                [ class "container" ]
                 [ div
-                    [ class "column is-half is-offset-one-quarter" ]
-                    [ div [ class "card" ]
-                        [ displayFormHeader campaign
-                        , displayFormContent campaign
-                        , CreditCard.card CreditCard.Config.defaultConfig model
-                        , CreditCard.form (CreditCard.Config.defaultFormConfig UpdateCardData) model
+                    [ class "columns" ]
+                    [ div
+                        [ class "column is-half is-offset-one-quarter" ]
+                        [ div [ class "card" ]
+                            [ displayFormHeader campaign
+                            , displayFormContentWithoutButton campaign
+                            , displayStripePayment model
+                            ]
                         ]
                     ]
                 ]
             ]
+    else
+        section
+            [ class "section" ]
+            [ div
+                [ class "container" ]
+                [ div
+                    [ class "columns" ]
+                    [ div
+                        [ class "column is-half is-offset-one-quarter" ]
+                        [ div [ class "card" ]
+                            [ displayFormHeader campaign
+                            , displayFormContentWithoutButton campaign
+                            , displayStripePayment model
+                            , div [ class "card-content" ]
+                                [ button [ class "button", onClick Contribute ]
+                                    [ text "Contribute" ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+
+
+displayCardNumber : Html Msg
+displayCardNumber =
+    div [ class "field" ]
+        [ label [ class "label" ]
+            [ text "Card Number" ]
+        , p [ class "control has-icons-left" ]
+            [ input
+                [ class "input"
+                ]
+                []
+            , span [ class "icon is-left" ]
+                [ i [ class "fas fa-credit-card" ] []
+                ]
+            ]
         ]
-
-
-
--- section [ class "section" ]
---     [ div [ class "container" ]
---         [ div [ class "columns" ]
---             [ div [ class "column is-half is-offset-one-quarter" ]
---                 [ div [ class "card" ]
---                     [ div [ class "card-content" ]
---                         [ viewErrors model.errors
---                         , displayCardNumber model
---                         , displayExpiration model
---                         , displayCVC model
---                         ]
---                     ]
---                 ]
---             ]
---         ]
---     ]
--- displayCardNumber : Model -> Html Msg
--- displayCardNumber model =
---     div [ class "field" ]
---         [ label [ class "label" ]
---             [ text "Card Number" ]
---         , p [ class "control has-icons-left" ]
---             [ input
---                 [ class "input"
---                 , onInput UpdateCardNumber
---                 , Html.Attributes.value model.cardNumber
---                 ]
---                 []
---             , span [ class "icon is-left" ]
---                 [ i [ class "fas fa-credit-card" ] []
---                 ]
---             ]
---         ]
--- displayExpiration : Model -> Html Msg
--- displayExpiration model =
---     div [ class "field" ]
---         [ label [ class "label" ]
---             [ text "Expiration" ]
---         , p [ class "control" ]
---             [ input
---                 [ class "input"
---                 , onInput UpdateExpiration
---                 , Html.Attributes.value model.expiration
---                 ]
---                 []
---             ]
---         ]
--- displayCVC : Model -> Html Msg
--- displayCVC model =
---     div [ class "field" ]
---         [ label [ class "label" ]
---             [ text "CVC" ]
---         , p [ class "control" ]
---             [ input
---                 [ class "input"
---                 , onInput UpdateCVC
---                 , Html.Attributes.value model.cvc
---                 ]
---                 []
---             ]
---         ]
 
 
 showYourCampaign : Campaign -> Html Msg
@@ -291,6 +270,32 @@ displayFormHeader campaign =
         ]
 
 
+displayStripePayment : Model -> Html Msg
+displayStripePayment model =
+    let
+        formStyle =
+            if model.showForm then
+                ( "display", "block" )
+            else
+                ( "display", "none" )
+    in
+    div [ class "card-content" ]
+        [ form
+            [ action "/charge", id "payment-form", method "post", style [ formStyle ] ]
+            [ div [ class "form-row field" ]
+                [ label [ class "label" ]
+                    [ text "Credit or debit card    " ]
+                , div [ id "card-element" ]
+                    [ text "    " ]
+                , div [ id "card-errors" ]
+                    []
+                ]
+            , button [ class "button is-success" ]
+                [ text "Submit Payment" ]
+            ]
+        ]
+
+
 displayFormContent : Campaign -> Html Msg
 displayFormContent campaign =
     div [ class "card-content" ]
@@ -306,8 +311,26 @@ displayFormContent campaign =
             [ text "Funding End Date" ]
         , p []
             [ text (formatDateTime campaign) ]
-        , a [ class "", onClick (SelectYourCampaign campaign.id) ]
-            [ span [] [ text "Contribute" ] ]
+        , a [ id "card-element", class "", onClick (SelectYourCampaign campaign.id) ]
+            [ span [] [ text "Select Campaign" ] ]
+        ]
+
+
+displayFormContentWithoutButton : Campaign -> Html Msg
+displayFormContentWithoutButton campaign =
+    div [ class "card-content" ]
+        [ label [ class "label" ]
+            [ text "Long Description" ]
+        , p [ class "control" ]
+            [ text (toString campaign.longDescription) ]
+        , label [ class "label" ]
+            [ text "Funding Goal" ]
+        , p []
+            [ text (toString campaign.fundingGoal) ]
+        , label [ class "label" ]
+            [ text "Funding End Date" ]
+        , p []
+            [ text (formatDateTime campaign) ]
         ]
 
 

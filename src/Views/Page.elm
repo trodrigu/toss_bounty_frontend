@@ -3,9 +3,7 @@ module Views.Page exposing (ActivePage(..), frame)
 import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Lazy exposing (lazy2)
 import Routing.Router as Router exposing (Route(..))
-import Util exposing ((=>))
 
 
 type ActivePage
@@ -42,14 +40,28 @@ viewSignIn : ActivePage -> Maybe User -> List (Html msg)
 viewSignIn page user =
     case user of
         Nothing ->
-            [-- [ navbarHomeLink [ text "Toss Bounty" ]
-             -- , navbarRightLink (page == Home) LoginRoute [ text "Login" ]
+            [-- [ navbarLeftLinks [ text "Toss Bounty" ]
+             -- , navbarLink (page == Home) LoginRoute [ text "Login" ]
             ]
 
         Just user ->
-            [ navbarHomeLink [ text "Toss Bounty" ]
-
-            -- , navbarRightLink (page == Dash) DashRoute [ text "Dash" ]
+            [ navbarBrand
+                [ a [ class "nav-item", Router.href HomeRoute ]
+                    [ text
+                        "Toss Bounty"
+                    , button [ class "button navbar-burger" ]
+                        [ span [] []
+                        , span [] []
+                        , span [] []
+                        ]
+                    ]
+                ]
+            , navbarLeftLinks
+                [ a [ class "nav-item", Router.href DiscoverRoute ]
+                    [ text
+                        "Discover"
+                    ]
+                ]
             ]
 
 
@@ -80,9 +92,12 @@ navbarRightLink isActive route linkContent =
         ]
 
 
-navbarHomeLink : List (Html msg) -> Html msg
-navbarHomeLink linkContent =
-    div [ classList [ ( "nav-left", True ) ] ]
-        [ a [ class "nav-item", Router.href HomeRoute ]
-            linkContent
-        ]
+navbarBrand : List (Html msg) -> Html msg
+navbarBrand navItems =
+    div [ classList [ ( "navbar-brand", True ) ] ]
+        navItems
+
+
+navbarLeftLinks navItems =
+    div [ classList [ ( "navbar-menu", True ) ] ]
+        navItems
