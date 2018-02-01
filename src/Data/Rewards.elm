@@ -1,16 +1,23 @@
-module Data.Rewards exposing (Rewards, decoder)
+module Data.Rewards exposing (Rewards, decoder, default)
 
-import Data.Rewards as Rewards exposing (Rewards, decoder)
+import Data.Reward as Reward exposing (Reward, decoder, default)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
-import Json.Encode as Encode exposing (Value)
 
 
 type alias Rewards =
-    { issues : List Reward }
+    { rewards : List Reward }
 
 
 decoder : Decoder Rewards
 decoder =
     decode Rewards
         |> optionalAt [ "data" ] (Decode.list Reward.decoder) []
+
+
+default : Rewards
+default =
+    { rewards =
+        [ Reward.default
+        ]
+    }

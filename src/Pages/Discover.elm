@@ -1,17 +1,19 @@
 module Pages.Discover exposing (..)
 
-import CreditCard
 import Data.AuthToken as AuthToken exposing (AuthToken)
-import Data.Campaign as Campaign exposing (Campaign, defaultCampaign, defaultDate)
+import Data.Campaign as Campaign exposing (Campaign, default, defaultDate)
 import Data.Campaigns as Campaigns exposing (Campaigns)
+import Data.Repo as Repo exposing (Repo)
+import Data.Rewards as Rewards exposing (Rewards, decoder)
+import Data.User as User exposing (User, decoder)
 import Html exposing (..)
 import Html.Attributes exposing (action, class, id, method, src, style)
 import Html.Events exposing (onClick, onInput)
-import Html.Keyed as Keyed
 import Ports exposing (createStripeElement)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
+import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
 import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
@@ -27,47 +29,29 @@ init token apiUrl =
 
                 Just url ->
                     url
-
-        defaultCampaignInDiscover =
-            SelectList.singleton Campaign.defaultCampaign
     in
-    { campaignsWebData = NotAsked
-    , campaigns = defaultCampaignInDiscover
+    { campaigns = NotAsked
     , token = token
     , apiUrl = url
-    , number = Nothing
-    , name = Nothing
-    , month = Nothing
-    , year = Nothing
-    , cvv = Nothing
-    , state = CreditCard.initialState
-    , isContributing = False
     , showForm = False
+    , user = NotAsked
     }
 
 
 type alias Model =
-    { campaignsWebData : WebData Campaigns
-    , campaigns : SelectList Campaign
+    { campaigns : WebData Campaigns
     , token : AuthToken
     , apiUrl : String
-    , number : Maybe String
-    , name : Maybe String
-    , month : Maybe String
-    , year : Maybe String
-    , cvv : Maybe String
-    , state : CreditCard.State
-    , isContributing : Bool
     , showForm : Bool
+    , user : WebData User
     }
 
 
 type Msg
-    = UpdateCardData Model
-    | SelectYourCampaign String
+    = SelectYourCampaign String
     | HandleFetchAllCampaigns (WebData Campaigns)
     | GetCampaigns
-    | Contribute
+    | HandleFetchUser (WebData User)
 
 
 type ExternalMsg
@@ -77,40 +61,26 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        HandleFetchUser updatedUser ->
+            ( { model | user = updatedUser }, Cmd.none ) => NoOp
+
         GetCampaigns ->
-            ( { model | campaignsWebData = Loading }, fetchAllCampaigns model.apiUrl model.token ) => NoOp
+            ( { model | campaigns = Loading }, fetchAllCampaigns model.apiUrl model.token ) => NoOp
 
         HandleFetchAllCampaigns data ->
-            case data of
-                Success campaigns ->
-                    let
-                        updatedCampaigns =
-                            model.campaigns
-                                |> SelectList.append campaigns.campaigns
-                    in
-                    ( { model | campaignsWebData = data, campaigns = updatedCampaigns }, Cmd.none ) => NoOp
-
-                _ ->
-                    ( model, Cmd.none ) => NoOp
-
-        UpdateCardData updatedModel ->
-            ( updatedModel, Cmd.none ) => NoOp
-
-        Contribute ->
-            ( { model | showForm = True }, Ports.createStripeElement "#card-element" ) => NoOp
+            ( { model | campaigns = data }, Cmd.none ) => NoOp
 
         SelectYourCampaign campaignId ->
             let
-                updatedCampaigns =
-                    SelectList.select (\campaign -> campaign.id == campaignId) model.campaigns
+                campaignIdAsInt =
+                    case String.toInt campaignId of
+                        Ok id ->
+                            id
 
-                updatedModel =
-                    { model
-                        | campaigns = updatedCampaigns
-                        , isContributing = True
-                    }
+                        Err message ->
+                            0
             in
-            updatedModel => Cmd.none => NoOp
+            ( model, Router.modifyUrl (ContributeRoute campaignIdAsInt) ) => NoOp
 
 
 view : Model -> Html Msg
@@ -121,12 +91,8 @@ view model =
 
         allCampaigns =
             model.campaigns
-                |> SelectList.toList
-
-        persistedCampaigns =
-            filterPersistedCampaigns allCampaigns
     in
-    case model.campaignsWebData of
+    case model.campaigns of
         NotAsked ->
             section [ class "section" ]
                 [ div [ class "container" ]
@@ -146,100 +112,12 @@ view model =
             div [] [ text ("Failed" ++ toString error) ]
 
         Success campaigns ->
-            case model.isContributing of
-                True ->
-                    div [] <|
-                        List.map
-                            (\campaign ->
-                                case SelectList.selected model.campaigns == campaign of
-                                    True ->
-                                        div []
-                                            [ paymentForm model campaign
-                                            ]
-
-                                    False ->
-                                        showYourCampaign campaign
-                            )
-                            persistedCampaigns
-
-                False ->
-                    div [] <|
-                        List.map
-                            (\campaign ->
-                                showYourCampaign campaign
-                            )
-                            persistedCampaigns
-
-
-filterPersistedCampaigns : List Campaign -> List Campaign
-filterPersistedCampaigns campaignList =
-    List.filter hasId campaignList
-
-
-hasId : Campaign -> Bool
-hasId campaign =
-    not (campaign.id == "")
-
-
-paymentForm : Model -> Campaign -> Html Msg
-paymentForm model campaign =
-    if model.showForm then
-        section
-            [ class "section" ]
-            [ div
-                [ class "container" ]
-                [ div
-                    [ class "columns" ]
-                    [ div
-                        [ class "column is-half is-offset-one-quarter" ]
-                        [ div [ class "card" ]
-                            [ displayFormHeader campaign
-                            , displayFormContentWithoutButton campaign
-                            , displayStripePayment model
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-    else
-        section
-            [ class "section" ]
-            [ div
-                [ class "container" ]
-                [ div
-                    [ class "columns" ]
-                    [ div
-                        [ class "column is-half is-offset-one-quarter" ]
-                        [ div [ class "card" ]
-                            [ displayFormHeader campaign
-                            , displayFormContentWithoutButton campaign
-                            , displayStripePayment model
-                            , div [ class "card-content" ]
-                                [ button [ class "button", onClick Contribute ]
-                                    [ text "Contribute" ]
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-
-
-displayCardNumber : Html Msg
-displayCardNumber =
-    div [ class "field" ]
-        [ label [ class "label" ]
-            [ text "Card Number" ]
-        , p [ class "control has-icons-left" ]
-            [ input
-                [ class "input"
-                ]
-                []
-            , span [ class "icon is-left" ]
-                [ i [ class "fas fa-credit-card" ] []
-                ]
-            ]
-        ]
+            div [] <|
+                List.map
+                    (\campaign ->
+                        showYourCampaign campaign
+                    )
+                    campaigns.campaigns
 
 
 showYourCampaign : Campaign -> Html Msg

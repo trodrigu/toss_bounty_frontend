@@ -1,4 +1,4 @@
-module Data.Reward exposing (Reward, decoder, encode)
+module Data.Reward exposing (Reward, decoder, default, encode)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
@@ -50,3 +50,11 @@ decoder =
         |> requiredAt [ "data", "id" ] Decode.string
         |> requiredAt [ "data", "attributes", "description" ] Decode.string
         |> requiredAt [ "data", "attributes", "donation-level" ] Decode.float
+
+
+default : Reward
+default =
+    { id = ""
+    , donationLevel = 100.0
+    , description = ""
+    }

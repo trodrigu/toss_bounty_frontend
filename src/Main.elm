@@ -4,7 +4,9 @@ import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
 import Data.Campaigns as Campaigns exposing (Campaigns, decoder)
 import Data.Issues as Issues exposing (Issues)
+import Data.Repo as Repo exposing (Repo)
 import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
+import Data.Rewards as Rewards exposing (Rewards)
 import Data.Session as Session exposing (Session)
 import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Data.User as User exposing (User)
@@ -15,6 +17,7 @@ import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, 
 import Json.Encode as Encode exposing (Value)
 import Navigation exposing (Location)
 import Pages.BetaSignUp as BetaSignUp
+import Pages.Contribute as Contribute
 import Pages.CreateCampaign as CreateCampaign
 import Pages.CreateRewards as CreateRewards
 import Pages.Dash as Dash
@@ -39,6 +42,7 @@ import Views.Page as Page exposing (frame)
 type Page
     = Home Home.Model
     | TosserSignUp TosserSignUp.Model
+    | Contribute Contribute.Model
     | Dash Dash.Model
     | Login Login.Model
     | BetaSignUp BetaSignUp.Model
@@ -63,12 +67,16 @@ type alias Model =
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
     , stripe : Maybe Stripe
+    , campaignOfInterest : WebData Campaign
+    , repoOfInterest : WebData Repo
+    , rewardsOfInterest : WebData Rewards
     }
 
 
 type Msg
     = HomeMsg Home.Msg
     | TosserSignUpMsg TosserSignUp.Msg
+    | ContributeMsg Contribute.Msg
     | DiscoverMsg Discover.Msg
     | DashMsg Dash.Msg
     | LoginMsg Login.Msg
@@ -94,6 +102,9 @@ type Msg
     | FetchStripeConnectUrl (WebData StripeConnectUrl)
     | HandleStripeIdUpdate (WebData User)
     | HandleFetchAllCampaigns (WebData Campaigns)
+    | HandleFetchRewards (WebData Rewards)
+    | HandleFetchCampaign (WebData Campaign)
+    | HandleFetchRepo (WebData Repo)
 
 
 decodeUserFromJson : Decode.Value -> Maybe User
@@ -119,6 +130,9 @@ init val location =
         , stripeConnectUrl = Loading
         , allCampaigns = NotAsked
         , stripe = Nothing
+        , campaignOfInterest = NotAsked
+        , repoOfInterest = NotAsked
+        , rewardsOfInterest = NotAsked
         }
 
 
@@ -201,6 +215,75 @@ setRoute maybeRoute model =
                     [ Ports.storeSession Nothing
                     , Router.modifyUrl Router.HomeRoute
                     ]
+
+        Just (Router.ContributeRoute campaignId) ->
+            case model.session.user of
+                Just user ->
+                    let
+                        _ =
+                            Debug.log "model.campaignOfInterest" model.campaignOfInterest
+                    in
+                    case model.campaignOfInterest of
+                        Success campaign ->
+                            if toString campaignId == campaign.id then
+                                let
+                                    token =
+                                        user.token
+
+                                    apiUrl =
+                                        model.apiUrl
+
+                                    campaign =
+                                        model.campaignOfInterest
+
+                                    repo =
+                                        model.repoOfInterest
+
+                                    rewards =
+                                        model.rewardsOfInterest
+
+                                    updatedPage =
+                                        Contribute (Contribute.init token apiUrl campaign repo rewards)
+                                in
+                                { model | page = updatedPage } => Cmd.none
+                            else
+                                let
+                                    token =
+                                        user.token
+
+                                    apiUrl =
+                                        case model.apiUrl of
+                                            Nothing ->
+                                                ""
+
+                                            Just url ->
+                                                url
+                                in
+                                model => getCampaign apiUrl token (toString campaignId)
+
+                        Loading ->
+                            model => Cmd.none
+
+                        Failure _ ->
+                            model => Cmd.none
+
+                        NotAsked ->
+                            let
+                                token =
+                                    user.token
+
+                                apiUrl =
+                                    case model.apiUrl of
+                                        Nothing ->
+                                            ""
+
+                                        Just url ->
+                                            url
+                            in
+                            model => getCampaign apiUrl token (toString campaignId)
+
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
 
         Just Router.TosserSignUpRoute ->
             let
@@ -375,6 +458,104 @@ updatePage page msg model =
             ( { model | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
     case ( msg, page ) of
+        ( HandleFetchRepo data, _ ) ->
+            let
+                session =
+                    model.session
+
+                user =
+                    session.user
+
+                updatedUser =
+                    case user of
+                        Just user ->
+                            user
+
+                        Nothing ->
+                            User "" (Data.AuthToken.init "") "" "" ""
+
+                token =
+                    updatedUser.token
+
+                campaignId =
+                    case model.campaignOfInterest of
+                        Success campaign ->
+                            campaign.id
+
+                        _ ->
+                            "0"
+
+                apiUrl =
+                    case model.apiUrl of
+                        Nothing ->
+                            ""
+
+                        Just url ->
+                            url
+            in
+            ( { model | repoOfInterest = data }
+            , getRewards apiUrl token campaignId
+            )
+
+        ( HandleFetchCampaign data, _ ) ->
+            let
+                session =
+                    model.session
+
+                user =
+                    session.user
+
+                updatedUser =
+                    case user of
+                        Just user ->
+                            user
+
+                        Nothing ->
+                            User "" (Data.AuthToken.init "") "" "" ""
+
+                token =
+                    updatedUser.token
+
+                githubRepoId =
+                    case data of
+                        Success campaign ->
+                            campaign.githubRepoId
+
+                        _ ->
+                            "0"
+
+                apiUrl =
+                    case model.apiUrl of
+                        Nothing ->
+                            ""
+
+                        Just url ->
+                            url
+            in
+            ( { model | campaignOfInterest = data }
+            , getRepo apiUrl token githubRepoId
+            )
+
+        ( HandleFetchRewards updatedRewards, _ ) ->
+            let
+                campaignId =
+                    case model.campaignOfInterest of
+                        Success campaign ->
+                            campaign.id
+
+                        _ ->
+                            "0"
+
+                campaignIdAsInt =
+                    case String.toInt campaignId of
+                        Ok id ->
+                            id
+
+                        Err message ->
+                            0
+            in
+            ( { model | rewardsOfInterest = updatedRewards }, Router.modifyUrl (ContributeRoute campaignIdAsInt) )
+
         ( ConsumeToken stripe, _ ) ->
             let
                 _ =
@@ -409,6 +590,13 @@ updatePage page msg model =
                     Home.update subMsg newSubModel
             in
             { model | page = Home pageModel } => Cmd.map HomeMsg cmd
+
+        ( ContributeMsg subMsg, Contribute subModel ) ->
+            let
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    Contribute.update subMsg subModel
+            in
+            { model | page = Contribute pageModel } => Cmd.map ContributeMsg cmd
 
         ( DashMsg subMsg, Dash subModel ) ->
             let
@@ -752,6 +940,11 @@ pageView session page =
                     |> frame Page.Discover
                     |> Html.map DiscoverMsg
 
+            Contribute subModel ->
+                Contribute.view subModel
+                    |> frame Page.Contribute
+                    |> Html.map ContributeMsg
+
             Dash subModel ->
                 Dash.view subModel
                     |> frame Page.Dash
@@ -948,3 +1141,30 @@ stripeDecoder : Decoder Stripe
 stripeDecoder =
     decode Stripe
         |> optional "token" Decode.string ""
+
+
+getRewards : String -> AuthToken -> String -> Cmd Msg
+getRewards apiUrl token campaignId =
+    let
+        updatedUrl =
+            apiUrl ++ "/rewards/?campaign_id=" ++ campaignId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchRewards Rewards.decoder
+
+
+getCampaign : String -> AuthToken -> String -> Cmd Msg
+getCampaign apiUrl token campaignId =
+    let
+        campaignUrl =
+            apiUrl ++ "/campaigns/" ++ campaignId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaign Campaign.showDecoder
+
+
+getRepo : String -> AuthToken -> String -> Cmd Msg
+getRepo apiUrl token githubRepoId =
+    let
+        reposUrl =
+            apiUrl ++ "/github_repos/" ++ githubRepoId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchRepo Repo.decoder

@@ -6,7 +6,7 @@ import Html.Attributes as Attributes exposing (class, style)
 import Json.Decode as Decode exposing (Value)
 import Navigation exposing (Location)
 import Ports
-import UrlParser exposing (..)
+import UrlParser as UrlParser exposing (..)
 
 
 type Route
@@ -21,6 +21,7 @@ type Route
     | SaveTokenRoute (Maybe String) (Maybe String) (Maybe String)
     | SaveStripeRoute (Maybe String)
     | DiscoverRoute
+    | ContributeRoute Int
     | LogoutRoute
     | NotFoundRoute
 
@@ -95,6 +96,9 @@ routeToString page =
                 DiscoverRoute ->
                     [ "discover" ]
 
+                ContributeRoute campaignId ->
+                    [ "contribute/" ++ toString campaignId ]
+
                 NotFoundRoute ->
                     []
     in
@@ -117,6 +121,7 @@ routeParser =
         , UrlParser.map LoginRoute (UrlParser.s "login")
         , UrlParser.map BetaSignUpRoute (UrlParser.s "beta-sign-up")
         , UrlParser.map DiscoverRoute (UrlParser.s "discover")
+        , UrlParser.map ContributeRoute (UrlParser.s "contribute" </> UrlParser.int)
         ]
 
 

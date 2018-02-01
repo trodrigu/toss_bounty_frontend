@@ -1,7 +1,7 @@
 module Pages.Dash exposing (..)
 
 import Data.AuthToken exposing (AuthToken)
-import Data.Campaign as Campaign exposing (Campaign, defaultCampaign, defaultDate, encode, showDecoder)
+import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style)
 import Html.Events exposing (onClick, onInput)
@@ -53,7 +53,7 @@ init apiUrl token yourCampaigns campaignsContributedTo =
                     url
 
         defaultYourCampaign =
-            SelectList.singleton Campaign.defaultCampaign
+            SelectList.singleton Campaign.default
 
         updatedYourCampaigns =
             defaultYourCampaign
@@ -129,7 +129,7 @@ update msg model =
                         defaultSelectedCampaign =
                             List.filter (\campaign -> not (hasId campaign)) beforesAndAfters
                                 |> List.head
-                                |> Maybe.withDefault defaultCampaign
+                                |> Maybe.withDefault default
 
                         campaignAsSelectList =
                             SelectList.singleton defaultSelectedCampaign

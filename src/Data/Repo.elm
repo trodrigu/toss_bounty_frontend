@@ -1,4 +1,4 @@
-module Data.Repo exposing (Repo, decoder)
+module Data.Repo exposing (Repo, decoder, default)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
@@ -21,3 +21,13 @@ decoder =
         |> optionalAt [ "attributes", "image" ] Decode.string ""
         |> optionalAt [ "attributes", "bountiful-score" ] Decode.int 0
         |> optionalAt [ "attributes", "owner" ] Decode.string ""
+
+
+default : Repo
+default =
+    { id = "0"
+    , name = ""
+    , image = ""
+    , bountifulScore = 0
+    , owner = ""
+    }

@@ -17,6 +17,7 @@ type ActivePage
     | CreateRewards
     | TosserSignUp
     | Discover
+    | Contribute
 
 
 frame : Maybe User -> ActivePage -> Html msg -> Html msg

@@ -1,4 +1,4 @@
-module Data.Campaign exposing (Campaign, defaultCampaign, defaultDate, encode, indexDecoder, showDecoder)
+module Data.Campaign exposing (Campaign, default, defaultDate, encode, indexDecoder, showDecoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
@@ -121,8 +121,8 @@ showDecoder =
         |> optionalAt [ "data", "relationships", "github-repo", "data", "id" ] Decode.string ""
 
 
-defaultCampaign : Campaign
-defaultCampaign =
+default : Campaign
+default =
     Campaign "" 0.0 "" "" 0.0 defaultDate "" ""
 
 
