@@ -8,6 +8,7 @@ import Data.Repo as Repo exposing (Repo)
 import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
 import Data.Rewards as Rewards exposing (Rewards)
 import Data.Session as Session exposing (Session)
+import Data.Stripe as Stripe exposing (Stripe, decoder)
 import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Data.User as User exposing (User)
 import Html exposing (..)
@@ -219,10 +220,6 @@ setRoute maybeRoute model =
         Just (Router.ContributeRoute campaignId) ->
             case model.session.user of
                 Just user ->
-                    let
-                        _ =
-                            Debug.log "model.campaignOfInterest" model.campaignOfInterest
-                    in
                     case model.campaignOfInterest of
                         Success campaign ->
                             if toString campaignId == campaign.id then
@@ -242,8 +239,11 @@ setRoute maybeRoute model =
                                     rewards =
                                         model.rewardsOfInterest
 
+                                    _ =
+                                        Debug.log "rewards" rewards
+
                                     updatedPage =
-                                        Contribute (Contribute.init token apiUrl campaign repo rewards)
+                                        Contribute (Contribute.init token apiUrl campaign repo rewards user)
                                 in
                                 { model | page = updatedPage } => Cmd.none
                             else
@@ -538,6 +538,9 @@ updatePage page msg model =
 
         ( HandleFetchRewards updatedRewards, _ ) ->
             let
+                _ =
+                    Debug.log "updatedRewards" updatedRewards
+
                 campaignId =
                     case model.campaignOfInterest of
                         Success campaign ->
@@ -556,12 +559,15 @@ updatePage page msg model =
             in
             ( { model | rewardsOfInterest = updatedRewards }, Router.modifyUrl (ContributeRoute campaignIdAsInt) )
 
-        ( ConsumeToken stripe, _ ) ->
+        ( ConsumeToken stripe, Contribute subModel ) ->
             let
-                _ =
-                    Debug.log "stripe" stripe
+                newSubModel =
+                    { subModel | stripe = stripe, isPaying = False }
+
+                ( ( pageModel, cmdFromPage ), msgFromPage ) =
+                    Contribute.update Contribute.MakeSubscription newSubModel
             in
-            ( { model | stripe = stripe }, Cmd.none )
+            { model | stripe = stripe, page = Contribute newSubModel } => Cmd.map ContributeMsg cmdFromPage
 
         ( SetRoute route, _ ) ->
             setRoute route model
@@ -1130,17 +1136,7 @@ stripeConnectUrlUrlDecoder =
 
 consumeToken : Sub (Maybe Stripe)
 consumeToken =
-    Ports.consumeToken (Decode.decodeValue stripeDecoder >> Result.toMaybe)
-
-
-type alias Stripe =
-    { token : String }
-
-
-stripeDecoder : Decoder Stripe
-stripeDecoder =
-    decode Stripe
-        |> optional "token" Decode.string ""
+    Ports.consumeToken (Decode.decodeValue Stripe.decoder >> Result.toMaybe)
 
 
 getRewards : String -> AuthToken -> String -> Cmd Msg

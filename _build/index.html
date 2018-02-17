@@ -78,7 +78,7 @@
        }, false);
 
        function stripeTokenHandler(token) {
-           app.ports.consumeToken.send({token: token.id});
+           app.ports.consumeToken.send({uuid: token.id});
        }
       </script>
   </body>

@@ -1,4 +1,4 @@
-module Data.Reward exposing (Reward, decoder, default, encode)
+module Data.Reward exposing (Reward, default, encode, indexDecoder, showDecoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
@@ -9,6 +9,7 @@ type alias Reward =
     { id : String
     , description : String
     , donationLevel : Float
+    , planId : String
     }
 
 
@@ -44,12 +45,22 @@ encode reward =
     Encode.object [ ( "data", data_attributes ) ]
 
 
-decoder : Decoder Reward
-decoder =
+showDecoder : Decoder Reward
+showDecoder =
     decode Reward
         |> requiredAt [ "data", "id" ] Decode.string
         |> requiredAt [ "data", "attributes", "description" ] Decode.string
         |> requiredAt [ "data", "attributes", "donation-level" ] Decode.float
+        |> optionalAt [ "data", "relationships", "plan", "data", "id" ] Decode.string ""
+
+
+indexDecoder : Decoder Reward
+indexDecoder =
+    decode Reward
+        |> requiredAt [ "id" ] Decode.string
+        |> requiredAt [ "attributes", "description" ] Decode.string
+        |> requiredAt [ "attributes", "donation-level" ] Decode.float
+        |> optionalAt [ "relationships", "data", "plan", "id" ] Decode.string ""
 
 
 default : Reward
@@ -57,4 +68,5 @@ default =
     { id = ""
     , donationLevel = 100.0
     , description = ""
+    , planId = ""
     }

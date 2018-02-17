@@ -1,6 +1,7 @@
 module Pages.CreateRewards exposing (..)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
+import Data.Plan as Plan exposing (Plan)
 import Data.Reward as Reward exposing (Reward)
 import Html exposing (..)
 import Html.Attributes exposing (class, style, value)
@@ -26,7 +27,8 @@ init apiUrl token campaignId =
                 Just url ->
                     url
     in
-    { rewards = SelectList.singleton { id = "", donationLevel = 100.0, description = "" }
+    { rewards = SelectList.singleton Reward.default
+    , plans = SelectList.singleton Plan.default
     , rewardId = ""
     , description = ""
     , donationLevel = 0.0
@@ -43,6 +45,7 @@ type alias Model =
     , description : String
     , donationLevel : Float
     , rewards : SelectList Reward
+    , plans : SelectList Plan
     , apiUrl : String
     , token : AuthToken
     , campaignId : String
@@ -51,17 +54,24 @@ type alias Model =
     }
 
 
+
+-- All Msg
+
+
 type Msg
     = SaveRewardForm
     | SaveUpdateForm
     | UpdateDescriptionField String
     | UpdateDonateLevelField String
+    | HandlePlan (WebData Plan)
     | HandleReward (WebData Reward)
     | HandlePutReward (WebData Reward)
     | HandleDeleteReward (WebData String)
+    | HandleDeletePlan (WebData String)
     | SelectReward String
-    | DeleteReward String
+    | DeletePlan String
     | StripePage
+    | HandlePutPlan (WebData Plan)
 
 
 type ExternalMsg
@@ -104,7 +114,7 @@ view model =
                                                                         [ text ("Reward #" ++ toString (index + 1)) ]
                                                                     , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
                                                                         [ span [] [ text "edit" ] ]
-                                                                    , a [ class "card-header-icon", onClick (DeleteReward reward.id) ]
+                                                                    , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
                                                                         [ span [] [ text "delete" ] ]
                                                                     ]
                                                                 , div [ class "card-content" ]
@@ -131,7 +141,8 @@ view model =
 
         False ->
             div []
-                [ div
+                [ createRewardForm model
+                , div
                     []
                     (List.indexedMap
                         (\index reward ->
@@ -148,7 +159,7 @@ view model =
                                                                 [ text ("Reward #" ++ toString (index + 1)) ]
                                                             , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
                                                                 [ span [] [ text "edit" ] ]
-                                                            , a [ class "card-header-icon", onClick (DeleteReward reward.id) ]
+                                                            , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
                                                                 [ span [] [ text "delete" ] ]
                                                             ]
                                                         , div [ class "card-content" ]
@@ -172,7 +183,6 @@ view model =
                         persistedRewards
                     )
                 , renderStripeConnectButton persistedRewards
-                , createRewardForm model
                 ]
 
 
@@ -203,11 +213,16 @@ renderStripeConnectButton rewards =
 
 filterPersistedRewards : List Reward -> List Reward
 filterPersistedRewards rewardList =
-    List.filter hasId rewardList
+    List.filter rewardHasId rewardList
 
 
-hasId : Reward -> Bool
-hasId reward =
+planHasId : Plan -> Bool
+planHasId plan =
+    not (plan.id == "")
+
+
+rewardHasId : Reward -> Bool
+rewardHasId reward =
     not (reward.id == "")
 
 
@@ -329,11 +344,60 @@ update msg model =
 
                 selectedReward =
                     SelectList.selected updatedRewards
+
+                updatedPlans =
+                    SelectList.select (\u -> u.rewardId == rewardId) model.plans
+
+                selectedPlan =
+                    SelectList.selected updatedPlans
             in
-            ( { model | rewards = updatedRewards, isEditing = True, description = selectedReward.description, donationLevel = selectedReward.donationLevel }, Cmd.none ) => NoOp
+            ( { model
+                | rewards = updatedRewards
+                , isEditing = True
+                , description = selectedReward.description
+                , donationLevel = selectedReward.donationLevel
+                , plans = updatedPlans
+              }
+            , Cmd.none
+            )
+                => NoOp
 
         UpdateDescriptionField str ->
             ( { model | description = str }, Cmd.none ) => NoOp
+
+        HandlePutPlan data ->
+            case data of
+                Success plan ->
+                    let
+                        currentSelectedPlan =
+                            SelectList.selected model.plans
+
+                        updatedPlan =
+                            { currentSelectedPlan
+                                | amount = plan.amount
+                                , name = plan.name
+                            }
+
+                        befores =
+                            SelectList.before model.plans
+
+                        afters =
+                            SelectList.after model.plans
+
+                        updatedPlans =
+                            SelectList.singleton updatedPlan
+                                |> SelectList.prepend befores
+                                |> SelectList.append afters
+
+                        updatedModel =
+                            { model | plans = updatedPlans }
+                    in
+                    ( updatedModel, putReward updatedModel )
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
 
         HandlePutReward data ->
             case data of
@@ -359,8 +423,56 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
-                        => Cmd.none
+                    ( { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }, Cmd.none )
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        HandleDeletePlan data ->
+            case data of
+                Success _ ->
+                    let
+                        selectedPlan =
+                            SelectList.selected model.plans
+
+                        planBefores =
+                            SelectList.before model.plans
+
+                        planAfters =
+                            SelectList.after model.plans
+
+                        planBeforesAndAfters =
+                            planBefores ++ planAfters
+
+                        defaultPlan =
+                            List.filter (\plan -> not (planHasId plan)) planBeforesAndAfters
+                                |> List.head
+
+                        plan =
+                            case defaultPlan of
+                                Just plan ->
+                                    plan
+
+                                _ ->
+                                    Plan.default
+
+                        planAsSelectList =
+                            SelectList.singleton plan
+
+                        updatedPlans =
+                            planAsSelectList
+                                |> SelectList.prepend planBefores
+                                |> SelectList.append planAfters
+
+                        updatedModel =
+                            { model
+                                | plans = updatedPlans
+                            }
+                    in
+                    updatedModel
+                        => deleteReward updatedModel
                         => NoOp
 
                 _ ->
@@ -374,17 +486,17 @@ update msg model =
                         selectedReward =
                             SelectList.selected model.rewards
 
-                        befores =
+                        rewardBefores =
                             SelectList.before model.rewards
 
-                        afters =
+                        rewardAfters =
                             SelectList.after model.rewards
 
-                        beforesAndAfters =
-                            befores ++ afters
+                        rewardBeforesAndAfters =
+                            rewardBefores ++ rewardAfters
 
                         defaultReward =
-                            List.filter (\reward -> not (hasId reward)) beforesAndAfters
+                            List.filter (\reward -> not (rewardHasId reward)) rewardBeforesAndAfters
                                 |> List.head
 
                         reward =
@@ -393,21 +505,70 @@ update msg model =
                                     reward
 
                                 _ ->
-                                    Reward "" "" 0.0
+                                    Reward.default
 
                         rewardAsSelectList =
                             SelectList.singleton reward
 
                         updatedRewards =
                             rewardAsSelectList
-                                |> SelectList.prepend befores
-                                |> SelectList.append afters
+                                |> SelectList.prepend rewardBefores
+                                |> SelectList.append rewardAfters
+
+                        updatedModel =
+                            { model
+                                | rewards = updatedRewards
+                                , description = ""
+                                , donationLevel = 0.0
+                                , isEditing = False
+                            }
                     in
-                    { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
+                    updatedModel
                         => Cmd.none
                         => NoOp
 
                 _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        HandlePlan data ->
+            case data of
+                Success plan ->
+                    let
+                        currentSelectedPlan =
+                            SelectList.selected model.plans
+
+                        newPlan =
+                            SelectList.singleton plan
+
+                        befores =
+                            SelectList.before model.plans
+
+                        afters =
+                            SelectList.after model.plans
+
+                        aftersWithCurrentSelectedPlan =
+                            case planHasId currentSelectedPlan of
+                                True ->
+                                    currentSelectedPlan :: afters
+
+                                False ->
+                                    afters
+
+                        updatedPlans =
+                            newPlan
+                                |> SelectList.prepend befores
+                                |> SelectList.append aftersWithCurrentSelectedPlan
+                    in
+                    { model | plans = updatedPlans }
+                        => Cmd.none
+                        => NoOp
+
+                error ->
+                    let
+                        _ =
+                            Debug.log "error" error
+                    in
                     ( model, Cmd.none )
                         => NoOp
 
@@ -428,7 +589,7 @@ update msg model =
                             SelectList.after model.rewards
 
                         aftersWithCurrentSelectedReward =
-                            case hasId currentSelectedReward of
+                            case rewardHasId currentSelectedReward of
                                 True ->
                                     currentSelectedReward :: afters
 
@@ -439,9 +600,12 @@ update msg model =
                             newReward
                                 |> SelectList.prepend befores
                                 |> SelectList.append aftersWithCurrentSelectedReward
+
+                        updatedModel =
+                            { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
                     in
-                    { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
-                        => Cmd.none
+                    updatedModel
+                        => postPlan updatedModel
                         => NoOp
 
                 _ ->
@@ -455,22 +619,26 @@ update msg model =
                         newModel =
                             { model | errors = [] }
                     in
-                    ( model, putReward model ) => NoOp
+                    ( model, putPlan model ) => NoOp
 
                 errors ->
                     { model | errors = errors }
                         => Cmd.none
                         => NoOp
 
-        DeleteReward rewardId ->
+        DeletePlan rewardId ->
             let
-                updatedRewards =
-                    SelectList.select (\u -> u.id == rewardId) model.rewards
+                updatedPlans =
+                    SelectList.select (\u -> u.rewardId == rewardId) model.plans
 
                 updatedModel =
-                    { model | rewards = updatedRewards }
+                    { model
+                        | plans = updatedPlans
+                    }
             in
-            ( updatedModel, deleteReward updatedModel ) => NoOp
+            updatedModel
+                => deletePlan updatedModel
+                => NoOp
 
         SaveRewardForm ->
             case validate model of
@@ -502,7 +670,30 @@ postReward model =
             , campaignId = model.campaignId
             }
     in
-    RemoteData.Http.postWithConfig (Auth.config model.token) rewardUrl HandleReward Reward.decoder (Reward.encode data)
+    RemoteData.Http.postWithConfig (Auth.config model.token) rewardUrl HandleReward Reward.showDecoder (Reward.encode data)
+
+
+putPlan : Model -> Cmd Msg
+putPlan model =
+    let
+        selectedReward =
+            SelectList.selected model.rewards
+
+        selectedPlan =
+            SelectList.selected model.plans
+
+        planUrl =
+            model.apiUrl ++ "/plans/" ++ selectedPlan.id
+
+        data =
+            { amount = selectedReward.donationLevel
+            , interval = "month"
+            , name = selectedReward.description
+            , currency = "usd"
+            , rewardId = selectedReward.id
+            }
+    in
+    RemoteData.Http.putWithConfig (Auth.config model.token) planUrl HandlePutPlan Plan.decoder (Plan.encode data)
 
 
 putReward : Model -> Cmd Msg
@@ -520,7 +711,7 @@ putReward model =
             , campaignId = model.campaignId
             }
     in
-    RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutReward Reward.decoder (Reward.encode data)
+    RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutReward Reward.showDecoder (Reward.encode data)
 
 
 deleteReward : Model -> Cmd Msg
@@ -539,6 +730,51 @@ deleteReward model =
             }
     in
     RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteReward (Reward.encode data)
+
+
+postPlan : Model -> Cmd Msg
+postPlan model =
+    let
+        planUrl =
+            model.apiUrl ++ "/plans"
+
+        selectedReward =
+            model.rewards
+                |> SelectList.selected
+
+        data =
+            { amount = selectedReward.donationLevel
+            , interval = "month"
+            , name = selectedReward.description
+            , currency = "usd"
+            , rewardId = selectedReward.id
+            }
+    in
+    RemoteData.Http.postWithConfig (Auth.config model.token) planUrl HandlePlan Plan.decoder (Plan.encode data)
+
+
+deletePlan : Model -> Cmd Msg
+deletePlan model =
+    let
+        selectedPlan =
+            SelectList.selected model.plans
+
+        planUrl =
+            model.apiUrl ++ "/plans/" ++ selectedPlan.id
+
+        selectedReward =
+            model.rewards
+                |> SelectList.selected
+
+        data =
+            { amount = model.donationLevel
+            , interval = "month"
+            , name = model.description
+            , currency = "usd"
+            , rewardId = selectedReward.id
+            }
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) planUrl HandleDeletePlan (Plan.encode data)
 
 
 type Field
