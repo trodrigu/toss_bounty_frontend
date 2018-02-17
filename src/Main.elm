@@ -63,7 +63,6 @@ type alias Model =
     , apiUrl : Maybe String
     , yourCampaigns : WebData Campaigns
     , campaignsContributedTo : List Campaign
-    , allCampaigns : WebData Campaigns
     , repos : WebData Repos
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
@@ -71,6 +70,7 @@ type alias Model =
     , campaignOfInterest : WebData Campaign
     , repoOfInterest : WebData Repo
     , rewardsOfInterest : WebData Rewards
+    , allCampaigns : WebData Campaigns
     }
 
 
@@ -96,16 +96,16 @@ type Msg
     | ShowLeftMessage String
     | ReceiveMessage Encode.Value
     | FetchGitHubUrl (WebData GitHubUrl)
-    | HandleFetchCampaigns (WebData Campaigns)
+    | HandleFetchYourCampaigns (WebData Campaigns)
     | HandleFetchCampaignsForRewards (WebData Campaigns)
     | FetchRepos (WebData Repos)
     | HandleFetchIssues (WebData Issues)
     | FetchStripeConnectUrl (WebData StripeConnectUrl)
     | HandleStripeIdUpdate (WebData User)
-    | HandleFetchAllCampaigns (WebData Campaigns)
     | HandleFetchRewards (WebData Rewards)
     | HandleFetchCampaign (WebData Campaign)
     | HandleFetchRepo (WebData Repo)
+    | HandleFetchAllCampaigns (WebData Campaigns)
 
 
 decodeUserFromJson : Decode.Value -> Maybe User
@@ -129,11 +129,11 @@ init val location =
         , repos = Loading
         , mostBountifulIssues = Loading
         , stripeConnectUrl = Loading
-        , allCampaigns = NotAsked
         , stripe = Nothing
         , campaignOfInterest = NotAsked
         , repoOfInterest = NotAsked
         , rewardsOfInterest = NotAsked
+        , allCampaigns = NotAsked
         }
 
 
@@ -238,9 +238,6 @@ setRoute maybeRoute model =
 
                                     rewards =
                                         model.rewardsOfInterest
-
-                                    _ =
-                                        Debug.log "rewards" rewards
 
                                     updatedPage =
                                         Contribute (Contribute.init token apiUrl campaign repo rewards user)
@@ -358,10 +355,31 @@ setRoute maybeRoute model =
                         token =
                             user.token
 
+                        apiUrl =
+                            model.apiUrl
+
+                        cmd =
+                            case model.allCampaigns of
+                                Success campaigns ->
+                                    Cmd.none
+
+                                Failure error ->
+                                    let
+                                        _ =
+                                            Debug.log "error" error
+                                    in
+                                    Cmd.none
+
+                                Loading ->
+                                    Cmd.none
+
+                                NotAsked ->
+                                    getCampaigns apiUrl token
+
                         updatedPage =
-                            Discover (Discover.init token model.apiUrl)
+                            Discover (Discover.init token apiUrl model.allCampaigns)
                     in
-                    { model | page = updatedPage } => Cmd.none
+                    { model | page = updatedPage } => cmd
 
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
@@ -880,7 +898,7 @@ updatePage page msg model =
         ( HandleFetchCampaignsForRewards data, _ ) ->
             ( { model | yourCampaigns = data }, Router.modifyUrl Router.CreateRewardsRoute )
 
-        ( HandleFetchCampaigns data, _ ) ->
+        ( HandleFetchYourCampaigns data, _ ) ->
             ( { model | yourCampaigns = data }, Router.modifyUrl Router.DashRoute )
 
         ( _, _ ) ->
@@ -1018,7 +1036,7 @@ fetchYourCampaigns apiUrl token userId =
                 Just url ->
                     url ++ "/campaigns?user_id=" ++ userId
     in
-    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaigns Campaigns.decoder
+    RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchYourCampaigns Campaigns.decoder
 
 
 fetchYourCampaignsForRewards : Maybe String -> AuthToken -> String -> Cmd Msg
@@ -1086,20 +1104,6 @@ githubUrlDecoder =
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
 
 
-fetchAllCampaigns : Maybe String -> AuthToken -> Cmd Msg
-fetchAllCampaigns apiUrl token =
-    let
-        updatedUrl =
-            case apiUrl of
-                Nothing ->
-                    ""
-
-                Just url ->
-                    url
-    in
-    RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchAllCampaigns Campaigns.decoder
-
-
 updateUserWithStripeInfo : Maybe String -> AuthToken -> String -> String -> Cmd Msg
 updateUserWithStripeInfo apiUrl token stripeExternalId userId =
     let
@@ -1160,6 +1164,23 @@ getCampaign apiUrl token campaignId =
             apiUrl ++ "/campaigns/" ++ campaignId
     in
     RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaign Campaign.showDecoder
+
+
+getCampaigns : Maybe String -> AuthToken -> Cmd Msg
+getCampaigns apiUrl token =
+    let
+        updatedApiUrl =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url
+
+        campaignsUrl =
+            updatedApiUrl ++ "/campaigns/"
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) campaignsUrl HandleFetchAllCampaigns Campaigns.decoder
 
 
 getRepo : String -> AuthToken -> String -> Cmd Msg

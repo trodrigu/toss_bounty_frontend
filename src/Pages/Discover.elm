@@ -19,8 +19,8 @@ import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 
 
-init : AuthToken -> Maybe String -> Model
-init token apiUrl =
+init : AuthToken -> Maybe String -> WebData Campaigns -> Model
+init token apiUrl campaigns =
     let
         url =
             case apiUrl of
@@ -30,7 +30,7 @@ init token apiUrl =
                 Just url ->
                     url
     in
-    { campaigns = NotAsked
+    { campaigns = campaigns
     , token = token
     , apiUrl = url
     , showForm = False
