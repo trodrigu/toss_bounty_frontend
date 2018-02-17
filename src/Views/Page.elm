@@ -62,6 +62,10 @@ viewSignIn page user =
                     [ text
                         "Discover"
                     ]
+                , a [ class "nav-item", Router.href DashRoute ]
+                    [ text
+                        "Dash"
+                    ]
                 ]
             ]
 
