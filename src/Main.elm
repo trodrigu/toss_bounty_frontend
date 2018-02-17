@@ -562,7 +562,12 @@ updatePage page msg model =
         ( ConsumeToken stripe, Contribute subModel ) ->
             let
                 newSubModel =
-                    { subModel | stripe = stripe, isPaying = False }
+                    { subModel
+                        | stripe = stripe
+                        , isPaying = False
+                        , paid = True
+                        , subscription = Loading
+                    }
 
                 ( ( pageModel, cmdFromPage ), msgFromPage ) =
                     Contribute.update Contribute.MakeSubscription newSubModel

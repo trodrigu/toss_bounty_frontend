@@ -20,6 +20,7 @@ import Ports exposing (createStripeElement)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
+import Routing.Router as Router exposing (Route, modifyUrl)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
 import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
@@ -71,6 +72,7 @@ init token apiUrl campaign repo rewards user =
     , customer = NotAsked
     , subscription = NotAsked
     , isPaying = False
+    , paid = False
     , stripe = Nothing
     , apiUrl = url
     , token = token
@@ -87,6 +89,7 @@ type alias Model =
     , customer : WebData Customer
     , subscription : WebData Subscription
     , isPaying : Bool
+    , paid : Bool
     , stripe : Maybe Stripe
     , apiUrl : String
     , token : AuthToken
@@ -97,8 +100,6 @@ type alias Model =
 
 type Msg
     = Pay
-    | HandleCreateCustomer (WebData Customer)
-    | HandleCreateSubscription (WebData Subscription)
     | SelectReward (Maybe Int)
     | HandleFetchPlan (WebData Plan)
     | HandleCustomer (WebData Customer)
@@ -106,6 +107,7 @@ type Msg
     | MakeSubscription
     | HandleSubscription (WebData Subscription)
     | HandleFetchReward (WebData Reward)
+    | RedirectDiscover
 
 
 type ExternalMsg
@@ -115,6 +117,9 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        RedirectDiscover ->
+            ( model, Router.modifyUrl Router.DiscoverRoute ) => NoOp
+
         MakeSubscription ->
             ( model, postToken model ) => NoOp
 
@@ -127,12 +132,6 @@ update msg model =
 
         Pay ->
             ( { model | isPaying = True }, Ports.createStripeElement "placeholder" ) => NoOp
-
-        HandleCreateCustomer customer ->
-            ( model, Cmd.none ) => NoOp
-
-        HandleCreateSubscription subscription ->
-            ( model, Cmd.none ) => NoOp
 
         HandleStripe data ->
             let
@@ -152,7 +151,9 @@ update msg model =
         HandleCustomer data ->
             let
                 updatedModel =
-                    { model | customer = data }
+                    { model
+                        | customer = data
+                    }
             in
             ( updatedModel, postSubscription updatedModel ) => NoOp
 
@@ -170,9 +171,6 @@ update msg model =
             let
                 updatedModel =
                     { model | rewardOfInterest = data }
-
-                _ =
-                    Debug.log "data" data
             in
             ( updatedModel, getPlan updatedModel ) => NoOp
 
@@ -221,11 +219,44 @@ view model =
 
         name =
             model.repo.name
+
+        subscriptionResult =
+            case model.subscription of
+                Success subscription ->
+                    let
+                        selectedReward =
+                            SelectList.selected model.rewards
+
+                        description =
+                            selectedReward.description
+
+                        fullMessage =
+                            "You have just subscribed to " ++ description ++ "!"
+                    in
+                    div [ class "has-text-centered notification is-success" ]
+                        [ text fullMessage
+                        ]
+
+                Failure error ->
+                    let
+                        fullMessage =
+                            "The interwebs had an accident :("
+                    in
+                    div [ class "has-text-centered notification is-danger" ]
+                        [ text fullMessage
+                        ]
+
+                NotAsked ->
+                    div [] []
+
+                Loading ->
+                    div [] []
     in
     div []
         [ section [ class "section" ]
             [ div [ class "container" ]
-                [ div [ class "columns" ]
+                [ subscriptionResult
+                , div [ class "columns" ]
                     [ div [ class "column is-half is-offset-one-quarter" ]
                         [ h1 [ class "title" ] [ text name ]
                         , div [ class "field" ]
@@ -249,21 +280,49 @@ view model =
                                 [ text model.campaign.longDescription
                                 ]
                             ]
-                        , div [ class "feild" ]
-                            [ label [ class "label" ] [ text "Pick your level" ]
-                            , div [ class "control" ]
-                                [ div [ class "select" ]
-                                    [ Html.select [ onChange ] (List.map (\el -> makeOption el.description) rewards)
-                                    ]
-                                ]
-                            ]
+                        , renderPaySetup model rewards
                         , renderPay model
+                        , renderRedirect model
                         ]
                     ]
                 , paymentForm model
                 ]
             ]
         ]
+
+
+renderRedirect : Model -> Html Msg
+renderRedirect model =
+    case model.subscription of
+        Success subscription ->
+            div []
+                [ a [ onClick RedirectDiscover ] [ text "Go Back" ] ]
+
+        Failure error ->
+            div [] []
+
+        NotAsked ->
+            div [] []
+
+        Loading ->
+            div [] []
+
+
+renderPaySetup : Model -> List Reward -> Html Msg
+renderPaySetup model rewards =
+    case model.paid of
+        True ->
+            div [] []
+
+        False ->
+            div [ class "field" ]
+                [ label [ class "label" ] [ text "Pick your level" ]
+                , div [ class "control" ]
+                    [ div [ class "select" ]
+                        [ Html.select [ onChange ] (List.map (\el -> makeOption el.description) rewards)
+                        ]
+                    ]
+                ]
 
 
 makeOption : String -> Html Msg
@@ -283,12 +342,17 @@ renderPay model =
             div [] []
 
         False ->
-            div [ class "field is-grouped" ]
-                [ p [ class "control" ]
-                    [ button [ class "button is-primary", onClick Pay ]
-                        [ text "Pay" ]
-                    ]
-                ]
+            case model.subscription of
+                NotAsked ->
+                    div [ class "field is-grouped" ]
+                        [ p [ class "control" ]
+                            [ button [ class "button is-primary", onClick Pay ]
+                                [ text "Pay" ]
+                            ]
+                        ]
+
+                _ ->
+                    div [] []
 
 
 paymentForm : Model -> Html Msg
@@ -310,26 +374,6 @@ paymentForm model =
             [ div
                 [ class "column is-half is-offset-one-quarter", styles ]
                 [ displayStripePayment model
-                ]
-            ]
-        ]
-
-
-showYourCampaign : Campaign -> Html Msg
-showYourCampaign campaign =
-    section
-        [ class "section" ]
-        [ div
-            [ class "container" ]
-            [ div
-                [ class "columns" ]
-                [ div
-                    [ class "column is-half is-offset-one-quarter" ]
-                    [ div [ class "card" ]
-                        [ displayFormHeader campaign
-                        , displayFormContent campaign
-                        ]
-                    ]
                 ]
             ]
         ]
@@ -357,44 +401,6 @@ displayStripePayment model =
             ]
         , button [ class "button is-success" ]
             [ text "Submit Payment" ]
-        ]
-
-
-displayFormContent : Campaign -> Html Msg
-displayFormContent campaign =
-    div [ class "card-content" ]
-        [ label [ class "label" ]
-            [ text "Long Description" ]
-        , p [ class "control" ]
-            [ text (toString campaign.longDescription) ]
-        , label [ class "label" ]
-            [ text "Funding Goal" ]
-        , p []
-            [ text (toString campaign.fundingGoal) ]
-        , label [ class "label" ]
-            [ text "Funding End Date" ]
-        , p []
-            [ text (formatDateTime campaign) ]
-        , a [ id "card-element", class "", onClick Pay ]
-            [ span [] [ text "Select Campaign" ] ]
-        ]
-
-
-displayFormContentWithoutButton : Campaign -> Html Msg
-displayFormContentWithoutButton campaign =
-    div [ class "card-content" ]
-        [ label [ class "label" ]
-            [ text "Long Description" ]
-        , p [ class "control" ]
-            [ text (toString campaign.longDescription) ]
-        , label [ class "label" ]
-            [ text "Funding Goal" ]
-        , p []
-            [ text (toString campaign.fundingGoal) ]
-        , label [ class "label" ]
-            [ text "Funding End Date" ]
-        , p []
-            [ text (formatDateTime campaign) ]
         ]
 
 
@@ -484,9 +490,6 @@ postSubscription model =
                 _ ->
                     Plan.default
 
-        _ =
-            Debug.log "planFromModel" planFromModel
-
         data =
             { customerId = customerFromModel.id
             , planId = planFromModel.id
@@ -497,10 +500,6 @@ postSubscription model =
 
 getPlan : Model -> Cmd Msg
 getPlan model =
-    let
-        _ =
-            Debug.log "model.rewardOfInterest" model.rewardOfInterest
-    in
     let
         apiUrl =
             model.apiUrl
