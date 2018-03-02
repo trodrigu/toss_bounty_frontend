@@ -1,4 +1,4 @@
-module Data.User exposing (User, decoder, encode, encodeLogin, encodeStripeUserUpdate, returnToSessionDecoder)
+module Data.User exposing (User, decoder, default, encode, encodeLogin, encodeStripeUserUpdate, encodeUserRoleUpdate, returnToSessionDecoder)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback)
 import Html exposing (Html)
@@ -16,6 +16,7 @@ type alias User =
     , userId : String
     , stripeExternalId : String
     , stripeAccessToken : String
+    , role : Int
     }
 
 
@@ -31,6 +32,7 @@ returnToSessionDecoder =
         |> optional "userId" Decode.string ""
         |> optional "stripeExternalId" Decode.string ""
         |> optional "stripeAccessToken" Decode.string ""
+        |> optional "role" Decode.int 0
 
 
 decoder : Decoder User
@@ -41,6 +43,7 @@ decoder =
         |> optionalAt [ "data", "attributes", "user_id" ] Decode.string ""
         |> optionalAt [ "data", "attributes", "stripe-external-id" ] Decode.string ""
         |> optionalAt [ "data", "attributes", "stripe-access-token" ] Decode.string ""
+        |> optionalAt [ "data", "attributes", "role" ] Decode.int 0
 
 
 encode : { r | email : String, password : String, stripeExternalId : String, stripeAccessToken : String } -> Encode.Value
@@ -77,6 +80,22 @@ encodeStripeUserUpdate user =
     Encode.object [ ( "data", data_attributes ) ]
 
 
+encodeUserRoleUpdate : { r | role : Int } -> Encode.Value
+encodeUserRoleUpdate user =
+    let
+        user_attributes =
+            Encode.object
+                [ ( "role", Encode.int user.role )
+                ]
+
+        data_attributes =
+            Encode.object
+                [ ( "attributes", user_attributes )
+                ]
+    in
+    Encode.object [ ( "data", data_attributes ) ]
+
+
 encodeLogin : { r | email : String, password : String } -> Encode.Value
 encodeLogin user =
     let
@@ -87,3 +106,8 @@ encodeLogin user =
                 ]
     in
     user_attributes
+
+
+default : User
+default =
+    User "" (AuthToken.init "") "" "" "" 0

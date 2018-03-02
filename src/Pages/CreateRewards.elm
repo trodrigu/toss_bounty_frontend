@@ -693,7 +693,7 @@ putPlan model =
             , rewardId = selectedReward.id
             }
     in
-    RemoteData.Http.putWithConfig (Auth.config model.token) planUrl HandlePutPlan Plan.decoder (Plan.encode data)
+    RemoteData.Http.putWithConfig (Auth.config model.token) planUrl HandlePutPlan Plan.showDecoder (Plan.encode data)
 
 
 putReward : Model -> Cmd Msg
@@ -750,7 +750,7 @@ postPlan model =
             , rewardId = selectedReward.id
             }
     in
-    RemoteData.Http.postWithConfig (Auth.config model.token) planUrl HandlePlan Plan.decoder (Plan.encode data)
+    RemoteData.Http.postWithConfig (Auth.config model.token) planUrl HandlePlan Plan.showDecoder (Plan.encode data)
 
 
 deletePlan : Model -> Cmd Msg

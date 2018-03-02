@@ -3,7 +3,7 @@ module Pages.Contribute exposing (..)
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default)
 import Data.Customer as Customer exposing (Customer, encode)
-import Data.Plan as Plan exposing (Plan, decoder)
+import Data.Plan as Plan exposing (Plan, showDecoder)
 import Data.Repo as Repo exposing (Repo)
 import Data.Reward as Reward exposing (Reward, default)
 import Data.Rewards as Rewards exposing (Rewards)
@@ -112,6 +112,7 @@ type Msg
 
 type ExternalMsg
     = NoOp
+    | SyncSubscriptions
 
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
@@ -162,7 +163,7 @@ update msg model =
                 updatedModel =
                     { model | subscription = data }
             in
-            ( updatedModel, Cmd.none ) => NoOp
+            ( updatedModel, Cmd.none ) => SyncSubscriptions
 
         SelectReward Nothing ->
             ( model, Cmd.none ) => NoOp
@@ -495,7 +496,7 @@ postSubscription model =
             , planId = planFromModel.id
             }
     in
-    RemoteData.Http.postWithConfig (Auth.config model.token) subscriptionUrl HandleSubscription Stripe.decoder (Subscription.encode data)
+    RemoteData.Http.postWithConfig (Auth.config model.token) subscriptionUrl HandleSubscription Subscription.showDecoder (Subscription.encode data)
 
 
 getPlan : Model -> Cmd Msg
@@ -521,7 +522,7 @@ getPlan model =
         planId =
             rewardOfInterest.planId
     in
-    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchPlan Plan.decoder
+    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchPlan Plan.showDecoder
 
 
 getReward : Model -> String -> Cmd Msg

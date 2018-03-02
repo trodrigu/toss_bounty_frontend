@@ -58,16 +58,22 @@ viewButton model =
 
 view : Model -> Html Msg
 view model =
-    section [ class "hero is-primary" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+    section [ class "hero is-primary is-bold is-large" ]
+        [ div [ class "hero-body" ]
             [ div [ class "container" ]
                 [ div [ class "columns is-vcentered" ]
                     [ div [ class "column has-text-centered" ]
                         [ p [ class "title" ]
-                            [ text "For Tossers" ]
-                        , p [ class "subtitle" ]
-                            [ text "prime the"
-                            , strong [] [ text " pump" ]
+                            [ text "For the godmode Maintainer" ]
+                        , p [ class "title" ]
+                            [ text "...get some "
+                            , strong [] [ text " cash" ]
+                            ]
+                        , p [ class "title" ]
+                            [ text "For the super duper supporter" ]
+                        , p [ class "title" ]
+                            [ text "...keep those projects "
+                            , strong [] [ text " alive" ]
                             ]
                         , viewButton model
                         ]

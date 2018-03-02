@@ -2,12 +2,16 @@ module Pages.Dash exposing (..)
 
 import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
+import Data.Plan as Plan exposing (Plan)
+import Data.Subscription as Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style)
 import Html.Events exposing (onClick, onInput)
+import List.Extra as ListExtra exposing (greedyGroupsOf)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
+import Routing.Router as Router exposing (href)
 import SelectList exposing (SelectList, fromLists, select, selected, singleton)
 import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
@@ -25,6 +29,18 @@ type alias Error =
     ( Field, String )
 
 
+type alias SubscriptionWrapper =
+    { subscription : Subscription
+    , showConfirmation : Bool
+    }
+
+
+subscriptionWrapperDefault =
+    { subscription = Subscription.default
+    , showConfirmation = False
+    }
+
+
 type alias Model =
     { campaignId : String
     , currentFunding : Float
@@ -33,16 +49,23 @@ type alias Model =
     , longDescription : String
     , shortDescription : String
     , yourCampaigns : SelectList Campaign
-    , campaignsContributedTo : List Campaign
+    , yourSubscriptions : SelectList SubscriptionWrapper
+    , yourSubscribedPlans : SelectList Plan
     , apiUrl : String
     , token : AuthToken
     , errors : List Error
     , isEditingYourCampaigns : Bool
+    , showConfirmation : Bool
     }
 
 
-init : Maybe String -> AuthToken -> List Campaign -> List Campaign -> Model
-init apiUrl token yourCampaigns campaignsContributedTo =
+wrapSubscriptions : List Subscription -> List SubscriptionWrapper
+wrapSubscriptions subscriptions =
+    List.map (\subscription -> { subscription = subscription, showConfirmation = False }) subscriptions
+
+
+init : Maybe String -> AuthToken -> List Campaign -> List Subscription -> List Plan -> Model
+init apiUrl token yourCampaigns yourSubscriptions yourSubscribedPlans =
     let
         url =
             case apiUrl of
@@ -58,6 +81,23 @@ init apiUrl token yourCampaigns campaignsContributedTo =
         updatedYourCampaigns =
             defaultYourCampaign
                 |> SelectList.append yourCampaigns
+
+        defaultYourSubscription =
+            SelectList.singleton { subscription = Subscription.default, showConfirmation = False }
+
+        wrappedSubscriptions =
+            wrapSubscriptions yourSubscriptions
+
+        updatedYourSubscriptions =
+            defaultYourSubscription
+                |> SelectList.append wrappedSubscriptions
+
+        defaultYourPlan =
+            SelectList.singleton Plan.default
+
+        updatedYourPlans =
+            defaultYourPlan
+                |> SelectList.append yourSubscribedPlans
     in
     { campaignId = ""
     , currentFunding = 0.0
@@ -75,16 +115,19 @@ init apiUrl token yourCampaigns campaignsContributedTo =
     , longDescription = ""
     , shortDescription = ""
     , yourCampaigns = updatedYourCampaigns
-    , campaignsContributedTo = campaignsContributedTo
+    , yourSubscriptions = updatedYourSubscriptions
+    , yourSubscribedPlans = updatedYourPlans
     , apiUrl = url
     , token = token
     , errors = []
     , isEditingYourCampaigns = False
+    , showConfirmation = False
     }
 
 
 type Msg
     = SelectYourCampaign String
+    | DeleteYourSubscription String
     | SaveUpdateCampaignForm
     | UpdateFundingGoalField String
     | UpdateLongDescriptionField String
@@ -92,6 +135,9 @@ type Msg
     | HandlePutCampaign (WebData Campaign)
     | DeleteCampaign String
     | HandleDeleteCampaign (WebData String)
+    | HandleDeleteSubscription (WebData String)
+    | ShowConfirmation String
+    | HideConfirmation
 
 
 type ExternalMsg
@@ -110,6 +156,76 @@ validate =
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        HideConfirmation ->
+            let
+                selectedSubscription =
+                    SelectList.selected model.yourSubscriptions
+
+                updatedSelectedSubscription =
+                    { selectedSubscription | showConfirmation = False }
+
+                befores =
+                    SelectList.before model.yourSubscriptions
+
+                afters =
+                    SelectList.after model.yourSubscriptions
+
+                beforesAndAfters =
+                    befores ++ afters
+
+                defaultSelectedSubscription =
+                    List.filter (\subscription -> not (hasSubscriptionId subscription)) beforesAndAfters
+                        |> List.head
+                        |> Maybe.withDefault subscriptionWrapperDefault
+
+                subscriptionAsSelectList =
+                    SelectList.singleton defaultSelectedSubscription
+
+                updatedSubscriptions =
+                    subscriptionAsSelectList
+                        |> SelectList.append [ updatedSelectedSubscription ]
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | yourSubscriptions = updatedSubscriptions }, Cmd.none ) => NoOp
+
+        HandleDeleteSubscription data ->
+            case data of
+                Success _ ->
+                    let
+                        selectedSubscription =
+                            SelectList.selected model.yourSubscriptions
+
+                        befores =
+                            SelectList.before model.yourSubscriptions
+
+                        afters =
+                            SelectList.after model.yourSubscriptions
+
+                        beforesAndAfters =
+                            befores ++ afters
+
+                        defaultSelectedSubscription =
+                            List.filter (\subscription -> not (hasSubscriptionId subscription)) beforesAndAfters
+                                |> List.head
+                                |> Maybe.withDefault subscriptionWrapperDefault
+
+                        subscriptionAsSelectList =
+                            SelectList.singleton defaultSelectedSubscription
+
+                        updatedSubscriptions =
+                            subscriptionAsSelectList
+                                |> SelectList.prepend befores
+                                |> SelectList.append afters
+                    in
+                    { model | yourSubscriptions = updatedSubscriptions }
+                        => Cmd.none
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
         HandleDeleteCampaign data ->
             case data of
                 Success _ ->
@@ -127,7 +243,7 @@ update msg model =
                             befores ++ afters
 
                         defaultSelectedCampaign =
-                            List.filter (\campaign -> not (hasId campaign)) beforesAndAfters
+                            List.filter (\campaign -> not (hasCampaignId campaign)) beforesAndAfters
                                 |> List.head
                                 |> Maybe.withDefault default
 
@@ -170,6 +286,40 @@ update msg model =
                     { model | yourCampaigns = updatedCampaigns }
             in
             ( updatedModel, deleteCampaign updatedModel ) => NoOp
+
+        ShowConfirmation subscriptionId ->
+            let
+                updatedWrapperSubscriptions =
+                    SelectList.select (\subscriptionWrapper -> subscriptionWrapper.subscription.id == subscriptionId) model.yourSubscriptions
+
+                selectedWrapperSubscription =
+                    SelectList.selected updatedWrapperSubscriptions
+
+                updatedWrapperSubscription =
+                    { selectedWrapperSubscription | showConfirmation = True }
+
+                befores =
+                    SelectList.before updatedWrapperSubscriptions
+
+                afters =
+                    SelectList.after updatedWrapperSubscriptions
+
+                updatedSubscriptionWrappers =
+                    SelectList.singleton updatedWrapperSubscription
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | yourSubscriptions = updatedSubscriptionWrappers }, Cmd.none ) => NoOp
+
+        DeleteYourSubscription subscriptionId ->
+            let
+                updatedSubscriptions =
+                    SelectList.select (\subscriptionWrapper -> subscriptionWrapper.subscription.id == subscriptionId) model.yourSubscriptions
+
+                updatedModel =
+                    { model | yourSubscriptions = updatedSubscriptions }
+            in
+            ( updatedModel, deleteSubscription updatedModel ) => NoOp
 
         SelectYourCampaign campaignId ->
             let
@@ -286,7 +436,155 @@ view model =
     div
         []
         [ yourBounties model
-        , campaignsYouContributedTo model.campaignsContributedTo
+        , yourRenderedSubscriptions model
+        ]
+
+
+renderCampaigns : Model -> List (Html Msg)
+renderCampaigns model =
+    let
+        campaigns =
+            model.yourCampaigns
+
+        campaignsAsList =
+            SelectList.toList campaigns
+
+        persistedCampaigns =
+            filterPersistedCampaigns campaignsAsList
+    in
+    List.map
+        (\campaign ->
+            showYourCampaign campaign
+        )
+        persistedCampaigns
+
+
+renderSubscriptions : Model -> List (Html Msg)
+renderSubscriptions model =
+    let
+        subscriptions =
+            model.yourSubscriptions
+
+        subscriptionsAsList =
+            SelectList.toList subscriptions
+
+        persistedSubscriptions =
+            filterPersistedSubscriptions subscriptionsAsList
+    in
+    List.map
+        (\subscription ->
+            showYourSubscription subscription model
+        )
+        persistedSubscriptions
+
+
+columnsWrapper : List (Html Msg) -> Html Msg
+columnsWrapper campaigns =
+    let
+        ( firstCampaign, otherCampaigns ) =
+            ListExtra.uncons campaigns
+                |> Maybe.withDefault ( div [] [], [] )
+
+        ( secondCampaign, emptyCampaigns ) =
+            ListExtra.uncons otherCampaigns
+                |> Maybe.withDefault ( div [] [], [] )
+    in
+    div [ class "columns" ]
+        [ div [ class "column is-half" ]
+            [ firstCampaign
+            ]
+        , div [ class "column is-half" ]
+            [ secondCampaign
+            ]
+        ]
+
+
+renderCampaignsWhenEditing : Model -> List (Html Msg)
+renderCampaignsWhenEditing model =
+    let
+        campaigns =
+            model.yourCampaigns
+
+        campaignsAsList =
+            SelectList.toList campaigns
+
+        persistedCampaigns =
+            filterPersistedCampaigns campaignsAsList
+    in
+    List.indexedMap
+        (\index campaign ->
+            case SelectList.selected model.yourCampaigns == campaign of
+                True ->
+                    updateCampaignForm model campaign
+
+                False ->
+                    showYourCampaign campaign
+        )
+        persistedCampaigns
+
+
+campaignRows : Model -> List (Html Msg)
+campaignRows model =
+    let
+        campaigns =
+            model.yourCampaigns
+
+        campaignsAsList =
+            SelectList.toList campaigns
+
+        persistedCampaigns =
+            filterPersistedCampaigns campaignsAsList
+
+        yourRenderedCampaigns =
+            case model.isEditingYourCampaigns of
+                True ->
+                    renderCampaignsWhenEditing model
+
+                False ->
+                    renderCampaigns model
+
+        yourRenderedCampaignsAsGroups =
+            ListExtra.greedyGroupsOf 2 yourRenderedCampaigns
+    in
+    List.map (\campaign -> columnsWrapper campaign) yourRenderedCampaignsAsGroups
+
+
+subscriptionRows : Model -> List (Html Msg)
+subscriptionRows model =
+    let
+        subscriptions =
+            model.yourSubscriptions
+
+        subscriptionsAsList =
+            SelectList.toList subscriptions
+
+        yourRenderedSubscriptions =
+            renderSubscriptions model
+
+        yourRenderedSubscriptionsAsGroups =
+            ListExtra.greedyGroupsOf 2 yourRenderedSubscriptions
+    in
+    List.map (\subscription -> columnsWrapper subscription) yourRenderedSubscriptionsAsGroups
+
+
+yourRenderedSubscriptions : Model -> Html Msg
+yourRenderedSubscriptions model =
+    let
+        subscriptions =
+            model.yourSubscriptions
+
+        subscriptionsAsList =
+            SelectList.toList subscriptions
+
+        persistedSubscriptions =
+            filterPersistedSubscriptions subscriptionsAsList
+    in
+    section [ class "section" ]
+        [ div [ class "container" ]
+            ([ h1 [ class "title" ] [ text "Your Subscriptions" ]
+             ]
+                ++ subscriptionRows model
+            )
         ]
 
 
@@ -302,88 +600,94 @@ yourBounties model =
         persistedCampaigns =
             filterPersistedCampaigns campaignsAsList
     in
-    case model.isEditingYourCampaigns of
+    case List.length persistedCampaigns > 0 of
         True ->
-            div [] <|
-                List.indexedMap
-                    (\index campaign ->
-                        case SelectList.selected model.yourCampaigns == campaign of
-                            True ->
-                                div []
-                                    [ updateCampaignForm model campaign ]
-
-                            False ->
-                                showYourCampaign campaign
+            section [ class "section" ]
+                [ div [ class "container" ]
+                    ([ h1 [ class "title" ] [ text "Your Campaigns" ]
+                     ]
+                        ++ campaignRows model
                     )
-                    persistedCampaigns
+                ]
 
         False ->
-            div [] <|
-                List.map
-                    (\campaign ->
-                        showYourCampaign campaign
-                    )
-                    persistedCampaigns
+            section [ class "section" ]
+                [ div [ class "container" ]
+                    [ h1 [ class "title" ] [ text "Your Campaigns" ]
+                    , a [ class "link", Router.href Router.CreateUserRoleRoute ]
+                        [ text "Start a campaign!" ]
+                    ]
+                ]
 
 
 updateCampaignForm : Model -> Campaign -> Html Msg
 updateCampaignForm model campaign =
-    section [ class "section" ]
-        [ div [ class "container" ]
-            [ div [ class "columns" ]
-                [ div [ class "column is-half is-offset-one-quarter" ]
-                    [ div [ class "card" ]
-                        [ div [ class "card-content" ]
-                            [ viewErrors model.errors
-                            , displayUpdateShortDescription model
-                            , displayUpdateLongDescription model
-                            , displayUpdateFundingGoal model
-                            , displayUpdateButton
-                            ]
-                        ]
-                    ]
-                ]
+    div [ class "card" ]
+        [ div [ class "card-content" ]
+            [ viewErrors model.errors
+            , displayUpdateShortDescription model
+            , displayUpdateLongDescription model
+            , displayUpdateFundingGoal model
+            , displayUpdateButton
             ]
         ]
 
 
 filterPersistedCampaigns : List Campaign -> List Campaign
 filterPersistedCampaigns campaignList =
-    List.filter hasId campaignList
+    List.filter hasCampaignId campaignList
 
 
-hasId : Campaign -> Bool
-hasId campaign =
+filterPersistedSubscriptions : List SubscriptionWrapper -> List SubscriptionWrapper
+filterPersistedSubscriptions subscriptionList =
+    List.filter hasSubscriptionId subscriptionList
+
+
+hasCampaignId : Campaign -> Bool
+hasCampaignId campaign =
     not (campaign.id == "")
 
 
-campaignsYouContributedTo : List Campaign -> Html Msg
+hasSubscriptionId : SubscriptionWrapper -> Bool
+hasSubscriptionId subscriptionWrapper =
+    not (subscriptionWrapper.subscription.id == "0")
+
+
+campaignsYouContributedTo : List Campaign -> List (Html Msg)
 campaignsYouContributedTo campaigns =
-    div [] <|
-        List.map
-            (\campaign ->
-                showCampaignYouContributedTo campaign
-            )
-            campaigns
+    List.map
+        (\campaign ->
+            showCampaignYouContributedTo campaign
+        )
+        campaigns
 
 
 showYourCampaign : Campaign -> Html Msg
 showYourCampaign campaign =
-    section
-        [ class "section" ]
-        [ div
-            [ class "container" ]
-            [ div
-                [ class "columns" ]
-                [ div
-                    [ class "column is-half is-offset-one-quarter" ]
-                    [ div [ class "card" ]
-                        [ displayFormHeader campaign
-                        , displayFormContent campaign
-                        ]
-                    ]
-                ]
-            ]
+    div [ class "card" ]
+        [ displayCampaignFormHeader campaign
+        , displayCampaignFormContent campaign
+        ]
+
+
+showYourSubscription : SubscriptionWrapper -> Model -> Html Msg
+showYourSubscription subscriptionWrapper model =
+    let
+        subscription =
+            subscriptionWrapper.subscription
+
+        plans =
+            model.yourSubscribedPlans
+                |> SelectList.toList
+
+        correspondingPlan =
+            List.filter (\r -> r.id == subscription.planId) plans
+                |> List.head
+                |> Maybe.withDefault Plan.default
+    in
+    div [ class "card" ]
+        [ displaySubscriptionFormHeader correspondingPlan subscriptionWrapper
+        , displaySubscriptionFormContent correspondingPlan
         ]
 
 
@@ -446,8 +750,8 @@ displayUpdateFundingGoal model =
         ]
 
 
-displayFormHeader : Campaign -> Html Msg
-displayFormHeader campaign =
+displayCampaignFormHeader : Campaign -> Html Msg
+displayCampaignFormHeader campaign =
     div [ class "card-header" ]
         [ p [ class "card-header-title" ]
             [ text (toString campaign.shortDescription) ]
@@ -458,8 +762,46 @@ displayFormHeader campaign =
         ]
 
 
-displayFormContent : Campaign -> Html Msg
-displayFormContent campaign =
+displaySubscriptionFormHeader : Plan -> SubscriptionWrapper -> Html Msg
+displaySubscriptionFormHeader plan subscriptionWrapper =
+    let
+        subscription =
+            subscriptionWrapper.subscription
+    in
+    case subscriptionWrapper.showConfirmation of
+        True ->
+            div [ class "card-header" ]
+                [ p [ class "card-header-title" ]
+                    [ text ("$ " ++ toString plan.amount) ]
+                , label [ class "card-header-icon" ]
+                    [ span [] [ text "Are you sure?" ] ]
+                , a [ class "card-header-icon", onClick (DeleteYourSubscription subscription.id) ]
+                    [ span [] [ text "Yes" ] ]
+                , a [ class "card-header-icon", onClick HideConfirmation ]
+                    [ span [] [ text "No" ] ]
+                ]
+
+        False ->
+            div [ class "card-header" ]
+                [ p [ class "card-header-title" ]
+                    [ text ("$ " ++ toString plan.amount) ]
+                , a [ class "card-header-icon", onClick (ShowConfirmation subscription.id) ]
+                    [ span [] [ text "delete" ] ]
+                ]
+
+
+displaySubscriptionFormContent : Plan -> Html Msg
+displaySubscriptionFormContent plan =
+    div [ class "card-content" ]
+        [ label [ class "label" ]
+            [ text "Name" ]
+        , p [ class "control" ]
+            [ text (toString plan.name) ]
+        ]
+
+
+displayCampaignFormContent : Campaign -> Html Msg
+displayCampaignFormContent campaign =
     div [ class "card-content" ]
         [ label [ class "label" ]
             [ text "Long Description" ]
@@ -574,6 +916,24 @@ deleteCampaign model =
             }
     in
     RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteCampaign (Campaign.encode data)
+
+
+deleteSubscription : Model -> Cmd Msg
+deleteSubscription model =
+    let
+        selectedSubscriptionWrapper =
+            SelectList.selected model.yourSubscriptions
+
+        subscriptionUrl =
+            model.apiUrl ++ "/subscriptions/" ++ selectedSubscriptionWrapper.subscription.id
+
+        data =
+            { id = selectedSubscriptionWrapper.subscription.id
+            , uuid = selectedSubscriptionWrapper.subscription.uuid
+            , planId = selectedSubscriptionWrapper.subscription.planId
+            }
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) subscriptionUrl HandleDeleteSubscription Subscription.deleteEncode
 
 
 viewErrors : List ( a, String ) -> Html msg

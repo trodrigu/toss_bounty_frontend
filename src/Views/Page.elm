@@ -18,6 +18,7 @@ type ActivePage
     | TosserSignUp
     | Discover
     | Contribute
+    | CreateUserRole
 
 
 frame : Maybe User -> ActivePage -> Html msg -> Html msg
@@ -25,7 +26,7 @@ frame user page content =
     div [ class "page-frame" ]
         [ renderNav page user
         , content
-        , footerArea
+        , footerArea page
         ]
 
 
@@ -66,25 +67,63 @@ viewSignIn page user =
                     [ text
                         "Dash"
                     ]
+                , a [ class "nav-item", Router.href LogoutRoute ]
+                    [ text
+                        "Logout"
+                    ]
                 ]
             ]
 
 
-footerArea : Html msg
-footerArea =
-    footer [ class "footer", style [ ( "padding", "8rem 1.5rem 6rem" ), ( "background-color", "whitesmoke" ) ] ]
-        [ div [ class "container" ]
-            [ div [ class "content has-text-centered" ]
-                [ p []
-                    [ strong []
-                        [ span []
-                            [ text "Made With "
-                            , i [ class "fas fa-heart" ] []
-                            , text " in San Diego"
+footerArea : ActivePage -> Html msg
+footerArea page =
+    let
+        innerFooter =
+            case page of
+                Dash ->
+                    [ p []
+                        [ strong []
+                            [ span []
+                                [ text "Made With "
+                                , i [ class "fas fa-heart" ] []
+                                , text " in San Diego"
+                                ]
+                            ]
+                        ]
+                    , a [ class "link", Router.href CreateUserRoleRoute ]
+                        [ text "Start a campaign!" ]
+                    ]
+
+                Discover ->
+                    [ p []
+                        [ strong []
+                            [ span []
+                                [ text "Made With "
+                                , i [ class "fas fa-heart" ] []
+                                , text " in San Diego"
+                                ]
+                            ]
+                        ]
+                    , a [ class "link", Router.href CreateUserRoleRoute ]
+                        [ text "Start a campaign!" ]
+                    ]
+
+                _ ->
+                    [ p []
+                        [ strong []
+                            [ span []
+                                [ text "Made With "
+                                , i [ class "fas fa-heart" ] []
+                                , text " in San Diego"
+                                ]
                             ]
                         ]
                     ]
-                ]
+    in
+    footer [ class "footer", style [ ( "padding", "8rem 1.5rem 6rem" ), ( "background-color", "whitesmoke" ) ] ]
+        [ div [ class "container" ]
+            [ div [ class "content has-text-centered" ]
+                innerFooter
             ]
         ]
 

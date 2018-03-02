@@ -9,6 +9,7 @@ import Data.User as User exposing (User, decoder)
 import Html exposing (..)
 import Html.Attributes exposing (action, class, id, method, src, style)
 import Html.Events exposing (onClick, onInput)
+import List.Extra as ListExtra exposing (greedyGroupsOf)
 import Ports exposing (createStripeElement)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
@@ -94,49 +95,39 @@ view model =
     in
     case model.campaigns of
         NotAsked ->
-            section [ class "section" ]
-                [ div [ class "container" ]
-                    [ div [ class "columns" ]
-                        [ div [ class "column is-half is-offset-one-quarter" ]
-                            [ button [ class "button is-primary", onClick GetCampaigns ]
-                                [ text "Search Campaigns" ]
-                            ]
-                        ]
-                    ]
-                ]
+            div [ class "is-loading" ] [ text "Loading..." ]
 
         Loading ->
-            div [ class "is-loading" ] []
+            div [ class "is-loading" ] [ text "Loading..." ]
 
         Failure error ->
             div [] [ text ("Failed" ++ toString error) ]
 
         Success campaigns ->
-            div [] <|
-                List.map
-                    (\campaign ->
-                        showYourCampaign campaign
+            let
+                renderedCampaigns =
+                    List.map (\campaign -> showYourCampaign campaign) campaigns.campaigns
+
+                campaignsGrouped =
+                    ListExtra.greedyGroupsOf 2 renderedCampaigns
+
+                campaignsWithColumnsWrapper =
+                    List.map (\campaign -> columnsWrapper campaign) campaignsGrouped
+            in
+            section [ class "section" ]
+                [ div [ class "container" ]
+                    ([ h1 [ class "title" ] [ text "Discover Campaigns" ]
+                     ]
+                        ++ campaignsWithColumnsWrapper
                     )
-                    campaigns.campaigns
+                ]
 
 
 showYourCampaign : Campaign -> Html Msg
 showYourCampaign campaign =
-    section
-        [ class "section" ]
-        [ div
-            [ class "container" ]
-            [ div
-                [ class "columns" ]
-                [ div
-                    [ class "column is-half is-offset-one-quarter" ]
-                    [ div [ class "card" ]
-                        [ displayFormHeader campaign
-                        , displayFormContent campaign
-                        ]
-                    ]
-                ]
-            ]
+    div [ class "card" ]
+        [ displayFormHeader campaign
+        , displayFormContent campaign
         ]
 
 
@@ -240,3 +231,24 @@ fetchAllCampaigns apiUrl token =
             apiUrl ++ "/campaigns"
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchAllCampaigns Campaigns.decoder
+
+
+columnsWrapper : List (Html Msg) -> Html Msg
+columnsWrapper campaigns =
+    let
+        ( firstCampaign, otherCampaigns ) =
+            ListExtra.uncons campaigns
+                |> Maybe.withDefault ( div [] [], [] )
+
+        ( secondCampaign, emptyCampaigns ) =
+            ListExtra.uncons otherCampaigns
+                |> Maybe.withDefault ( div [] [], [] )
+    in
+    div [ class "columns" ]
+        [ div [ class "column is-half" ]
+            [ firstCampaign
+            ]
+        , div [ class "column is-half" ]
+            [ secondCampaign
+            ]
+        ]

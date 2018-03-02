@@ -23,6 +23,7 @@ type Route
     | DiscoverRoute
     | ContributeRoute Int
     | LogoutRoute
+    | CreateUserRoleRoute
     | NotFoundRoute
 
 
@@ -99,6 +100,9 @@ routeToString page =
                 ContributeRoute campaignId ->
                     [ "contribute/" ++ toString campaignId ]
 
+                CreateUserRoleRoute ->
+                    [ "get-user-type" ]
+
                 NotFoundRoute ->
                     []
     in
@@ -122,6 +126,8 @@ routeParser =
         , UrlParser.map BetaSignUpRoute (UrlParser.s "beta-sign-up")
         , UrlParser.map DiscoverRoute (UrlParser.s "discover")
         , UrlParser.map ContributeRoute (UrlParser.s "contribute" </> UrlParser.int)
+        , UrlParser.map CreateUserRoleRoute (UrlParser.s "get-user-type")
+        , UrlParser.map LogoutRoute (UrlParser.s "logout")
         ]
 
 

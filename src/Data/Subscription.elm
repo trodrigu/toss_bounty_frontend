@@ -1,4 +1,4 @@
-module Data.Subscription exposing (Subscription, decoder, encode)
+module Data.Subscription exposing (Subscription, default, deleteEncode, encode, indexDecoder, showDecoder)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
@@ -8,14 +8,37 @@ import Json.Encode as Encode exposing (Value)
 type alias Subscription =
     { id : String
     , uuid : String
+    , planId : String
     }
 
 
-decoder : Decoder Subscription
-decoder =
+default : Subscription
+default =
+    { id = "0"
+    , uuid = ""
+    , planId = ""
+    }
+
+
+showDecoder : Decoder Subscription
+showDecoder =
+    decode Subscription
+        |> requiredAt [ "data", "id" ] Decode.string
+        |> requiredAt [ "data", "attributes", "uuid" ] Decode.string
+        |> optionalAt [ "relationships", "plan", "data", "id" ] Decode.string ""
+
+
+indexDecoder : Decoder Subscription
+indexDecoder =
     decode Subscription
         |> requiredAt [ "id" ] Decode.string
         |> requiredAt [ "attributes", "uuid" ] Decode.string
+        |> optionalAt [ "relationships", "plan", "data", "id" ] Decode.string ""
+
+
+deleteEncode : Value
+deleteEncode =
+    Encode.object []
 
 
 encode : { r | customerId : String, planId : String } -> Value
