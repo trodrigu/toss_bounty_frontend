@@ -63,7 +63,8 @@ view model =
             [ div [ class "container" ]
                 [ div [ class "columns is-vcentered" ]
                     [ div [ class "column has-text-centered" ]
-                        [ p [ class "title" ]
+                        [ p [ class "title is-large" ] [ text "TossBounty" ]
+                        , p [ class "title" ]
                             [ text "For the godmode Maintainer" ]
                         , p [ class "title" ]
                             [ text "...get some "

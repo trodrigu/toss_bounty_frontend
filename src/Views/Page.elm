@@ -32,10 +32,13 @@ frame user page content =
 
 renderNav : ActivePage -> Maybe User -> Html msg
 renderNav page user =
-    div [ class "container" ]
-        [ nav [ class "nav" ]
-            (viewSignIn page user)
-        ]
+    if page == Home then
+        div [] []
+    else
+        div [ class "container" ]
+            [ nav [ class "nav" ]
+                (viewSignIn page user)
+            ]
 
 
 viewSignIn : ActivePage -> Maybe User -> List (Html msg)
