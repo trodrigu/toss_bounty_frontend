@@ -5,7 +5,7 @@ import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encod
 import Data.Plan as Plan exposing (Plan)
 import Data.Subscription as Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (class, src, style)
+import Html.Attributes exposing (class, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import List.Extra as ListExtra exposing (greedyGroupsOf)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -803,18 +803,22 @@ displaySubscriptionFormContent plan =
 displayCampaignFormContent : Campaign -> Html Msg
 displayCampaignFormContent campaign =
     div [ class "card-content" ]
-        [ label [ class "label" ]
-            [ text "Long Description" ]
-        , p [ class "control" ]
-            [ text (toString campaign.longDescription) ]
-        , label [ class "label" ]
-            [ text "Funding Goal" ]
-        , p []
-            [ text (toString campaign.fundingGoal) ]
-        , label [ class "label" ]
-            [ text "Funding End Date" ]
-        , p []
-            [ text (formatDateTime campaign) ]
+        [ div [ class "field" ]
+            [ label [ class "label" ]
+                [ text "Funding Goal" ]
+            , p [ class "control" ]
+                [ text (toString campaign.fundingGoal) ]
+            ]
+        , div [ class "field" ]
+            [ label [ class "label" ]
+                [ text "Funding End Date" ]
+            , p [ class "control" ]
+                [ text (formatDateTime campaign) ]
+            ]
+        , div [ class "field" ]
+            [ label [ class "label" ] [ text "Funding Progress" ]
+            , progress [ class "progress", value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
+            ]
         ]
 
 
