@@ -528,7 +528,7 @@ setRoute maybeRoute model =
                                     yourCampaigns
 
                                 _ ->
-                                    Campaigns []
+                                    Campaigns [] []
 
                         campaign =
                             case List.head yourCampaigns.campaigns of
@@ -536,7 +536,7 @@ setRoute maybeRoute model =
                                     campaign
 
                                 Nothing ->
-                                    Campaign "0" 0.0 "" "" 0.0 (DateTime.dateTime DateTime.zero) "0" "0"
+                                    Campaign "0" 0.0 "" 0.0 (DateTime.dateTime DateTime.zero) "0" "0"
 
                         updatedPage =
                             CreateRewards (CreateRewards.init apiUrl token campaign.id)

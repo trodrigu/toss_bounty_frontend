@@ -48,7 +48,6 @@ init token userId repos apiUrl =
     , fundingEndDate = DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
     , fundingGoal = 0.0
     , longDescription = ""
-    , shortDescription = ""
     , token = token
     , userId = userId
     , bountifulRepos = reposAsSelectList
@@ -61,7 +60,6 @@ type alias Model =
     , fundingEndDate : DateTime
     , fundingGoal : Float
     , longDescription : String
-    , shortDescription : String
     , token : AuthToken
     , errors : List Error
     , userId : String
@@ -74,7 +72,6 @@ type Msg
     = SaveCampaignForm
     | UpdateFundingGoalField String
     | UpdateLongDescriptionField String
-    | UpdateShortDescriptionField String
     | HandleCampaign (WebData Campaign)
     | RequestDate
     | ReceiveDate Date.Date
@@ -246,17 +243,6 @@ createCampaignForm model =
                         ]
                     , div [ class "field" ]
                         [ label [ class "label" ]
-                            [ text "A cool headline" ]
-                        , p [ class "control" ]
-                            [ input
-                                [ class "input"
-                                , onInput UpdateShortDescriptionField
-                                ]
-                                []
-                            ]
-                        ]
-                    , div [ class "field" ]
-                        [ label [ class "label" ]
                             [ text "Summary" ]
                         , p [ class "control" ]
                             [ textarea
@@ -300,9 +286,6 @@ update msg model =
 
         UpdateLongDescriptionField updatedLongDescription ->
             ( { model | longDescription = updatedLongDescription }, Cmd.none ) => NoOp
-
-        UpdateShortDescriptionField updatedShortDescription ->
-            ( { model | shortDescription = updatedShortDescription }, Cmd.none ) => NoOp
 
         HandleCampaign data ->
             case data of
@@ -417,7 +400,6 @@ postCampaign model =
 
         data =
             { currentFunding = model.currentFunding
-            , shortDescription = model.shortDescription
             , longDescription = model.longDescription
             , fundingGoal = model.fundingGoal
             , fundingEndDate = model.fundingEndDate
@@ -431,8 +413,7 @@ postCampaign model =
 validate : Model -> List Error
 validate =
     Validate.all
-        [ .shortDescription >> ifBlank (ShortDescription => "Short Description can't be blank.")
-        , .longDescription >> ifBlank (LongDescription => "Long Description can't be blank.")
+        [ .longDescription >> ifBlank (LongDescription => "Summary can't be blank.")
         ]
 
 

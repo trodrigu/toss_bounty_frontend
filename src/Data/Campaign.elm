@@ -9,7 +9,6 @@ import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
 type alias Campaign =
     { id : String
     , currentFunding : Float
-    , shortDescription : String
     , longDescription : String
     , fundingGoal : Float
     , fundingEndDate : DateTime
@@ -23,7 +22,6 @@ decoder =
     decode Campaign
         |> requiredAt [ "data", "id" ] Decode.string
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
-        |> requiredAt [ "data", "attributes", "short-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
@@ -46,7 +44,7 @@ dateDecoder =
     Decode.string |> Decode.andThen convert
 
 
-encode : { r | shortDescription : String, longDescription : String, fundingGoal : Float, fundingEndDate : DateTime, userId : String, githubRepoId : String } -> Encode.Value
+encode : { r | longDescription : String, fundingGoal : Float, fundingEndDate : DateTime, userId : String, githubRepoId : String } -> Encode.Value
 encode campaign =
     let
         is8601DateString =
@@ -55,8 +53,7 @@ encode campaign =
 
         campaign_attributes =
             Encode.object
-                [ ( "short_description", Encode.string campaign.shortDescription )
-                , ( "long_description", Encode.string campaign.longDescription )
+                [ ( "long_description", Encode.string campaign.longDescription )
                 , ( "funding_goal", Encode.float campaign.fundingGoal )
                 , ( "funding_end_date", Encode.string is8601DateString )
                 ]
@@ -100,7 +97,6 @@ indexDecoder =
     decode Campaign
         |> requiredAt [ "id" ] Decode.string
         |> optionalAt [ "attributes", "current-funding" ] Decode.float 0
-        |> requiredAt [ "attributes", "short-description" ] Decode.string
         |> requiredAt [ "attributes", "long-description" ] Decode.string
         |> requiredAt [ "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
@@ -113,7 +109,6 @@ showDecoder =
     decode Campaign
         |> requiredAt [ "data", "id" ] Decode.string
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
-        |> requiredAt [ "data", "attributes", "short-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
@@ -123,7 +118,7 @@ showDecoder =
 
 default : Campaign
 default =
-    Campaign "" 0.0 "" "" 0.0 defaultDate "" ""
+    Campaign "" 0.0 "" 0.0 defaultDate "" ""
 
 
 defaultDate : DateTime

@@ -3,6 +3,7 @@ module Pages.Dash exposing (..)
 import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
 import Data.Plan as Plan exposing (Plan)
+import Data.Repo as Repo exposing (Repo)
 import Data.Subscription as Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style, value)
@@ -47,8 +48,8 @@ type alias Model =
     , fundingEndDate : DateTime
     , fundingGoal : Float
     , longDescription : String
-    , shortDescription : String
     , yourCampaigns : SelectList Campaign
+    , yourRepos : List Repo
     , yourSubscriptions : SelectList SubscriptionWrapper
     , yourSubscribedPlans : SelectList Plan
     , apiUrl : String
@@ -64,8 +65,8 @@ wrapSubscriptions subscriptions =
     List.map (\subscription -> { subscription = subscription, showConfirmation = False }) subscriptions
 
 
-init : Maybe String -> AuthToken -> List Campaign -> List Subscription -> List Plan -> Model
-init apiUrl token yourCampaigns yourSubscriptions yourSubscribedPlans =
+init : Maybe String -> AuthToken -> List Campaign -> List Repo -> List Subscription -> List Plan -> Model
+init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans =
     let
         url =
             case apiUrl of
@@ -113,8 +114,8 @@ init apiUrl token yourCampaigns yourSubscriptions yourSubscribedPlans =
             }
     , fundingGoal = 0.0
     , longDescription = ""
-    , shortDescription = ""
     , yourCampaigns = updatedYourCampaigns
+    , yourRepos = yourRepos
     , yourSubscriptions = updatedYourSubscriptions
     , yourSubscribedPlans = updatedYourPlans
     , apiUrl = url
@@ -131,7 +132,6 @@ type Msg
     | SaveUpdateCampaignForm
     | UpdateFundingGoalField String
     | UpdateLongDescriptionField String
-    | UpdateShortDescriptionField String
     | HandlePutCampaign (WebData Campaign)
     | DeleteCampaign String
     | HandleDeleteCampaign (WebData String)
@@ -147,8 +147,7 @@ type ExternalMsg
 validate : Model -> List Error
 validate =
     Validate.all
-        [ .shortDescription >> ifBlank (ShortDescription => "Short Description can't be blank.")
-        , .longDescription >> ifBlank (LongDescription => "Long Description can't be blank.")
+        [ .longDescription >> ifBlank (LongDescription => "Summary can't be blank.")
         , .fundingGoal >> ifZero (FundingGoal => "Funding Goal can't be zero.")
         ]
 
@@ -255,7 +254,7 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model | yourCampaigns = updatedCampaigns, shortDescription = "", longDescription = "", fundingGoal = 0.0, fundingEndDate = Campaign.defaultDate }
+                    { model | yourCampaigns = updatedCampaigns, longDescription = "", fundingGoal = 0.0, fundingEndDate = Campaign.defaultDate }
                         => Cmd.none
                         => NoOp
 
@@ -332,7 +331,6 @@ update msg model =
             ( { model
                 | yourCampaigns = updatedCampaigns
                 , isEditingYourCampaigns = True
-                , shortDescription = selectedCampaign.shortDescription
                 , longDescription = selectedCampaign.longDescription
                 , fundingGoal = selectedCampaign.fundingGoal
               }
@@ -355,9 +353,6 @@ update msg model =
         UpdateLongDescriptionField updatedLongDescription ->
             ( { model | longDescription = updatedLongDescription }, Cmd.none ) => NoOp
 
-        UpdateShortDescriptionField updatedShortDescription ->
-            ( { model | shortDescription = updatedShortDescription }, Cmd.none ) => NoOp
-
         HandlePutCampaign data ->
             case data of
                 Success campaign ->
@@ -368,7 +363,6 @@ update msg model =
                         updatedCampaign =
                             { currentSelectedCampaign
                                 | longDescription = campaign.longDescription
-                                , shortDescription = campaign.shortDescription
                                 , fundingGoal = campaign.fundingGoal
                                 , fundingEndDate = campaign.fundingEndDate
                             }
@@ -399,7 +393,6 @@ update msg model =
                                 }
                         , fundingGoal = 0.0
                         , longDescription = ""
-                        , shortDescription = ""
                         , isEditingYourCampaigns = False
                     }
                         => Cmd.none
@@ -421,7 +414,6 @@ putCampaign model =
 
         data =
             { longDescription = selectedCampaign.longDescription
-            , shortDescription = selectedCampaign.shortDescription
             , fundingEndDate = selectedCampaign.fundingEndDate
             , fundingGoal = selectedCampaign.fundingGoal
             , userId = selectedCampaign.userId
@@ -446,6 +438,9 @@ renderCampaigns model =
         campaigns =
             model.yourCampaigns
 
+        repos =
+            model.yourRepos
+
         campaignsAsList =
             SelectList.toList campaigns
 
@@ -454,7 +449,7 @@ renderCampaigns model =
     in
     List.map
         (\campaign ->
-            showYourCampaign campaign
+            showYourCampaign campaign repos
         )
         persistedCampaigns
 
@@ -505,6 +500,9 @@ renderCampaignsWhenEditing model =
         campaigns =
             model.yourCampaigns
 
+        repos =
+            model.yourRepos
+
         campaignsAsList =
             SelectList.toList campaigns
 
@@ -515,10 +513,10 @@ renderCampaignsWhenEditing model =
         (\index campaign ->
             case SelectList.selected model.yourCampaigns == campaign of
                 True ->
-                    updateCampaignForm model campaign
+                    updateCampaignForm model campaign repos
 
                 False ->
-                    showYourCampaign campaign
+                    showYourCampaign campaign repos
         )
         persistedCampaigns
 
@@ -620,12 +618,18 @@ yourBounties model =
                 ]
 
 
-updateCampaignForm : Model -> Campaign -> Html Msg
-updateCampaignForm model campaign =
+updateCampaignForm : Model -> Campaign -> List Repo -> Html Msg
+updateCampaignForm model campaign repos =
+    let
+        repoForCampaign =
+            List.filter (\repo -> campaign.githubRepoId == repo.id) repos
+                |> List.head
+                |> Maybe.withDefault Repo.default
+    in
     div [ class "card" ]
         [ div [ class "card-content" ]
-            [ viewErrors model.errors
-            , displayUpdateShortDescription model
+            [ displayCampaignUpdateFormHeader repoForCampaign
+            , viewErrors model.errors
             , displayUpdateLongDescription model
             , displayUpdateFundingGoal model
             , displayUpdateButton
@@ -662,10 +666,16 @@ campaignsYouContributedTo campaigns =
         campaigns
 
 
-showYourCampaign : Campaign -> Html Msg
-showYourCampaign campaign =
+showYourCampaign : Campaign -> List Repo -> Html Msg
+showYourCampaign campaign repos =
+    let
+        repoForCampaign =
+            List.filter (\repo -> campaign.githubRepoId == repo.id) repos
+                |> List.head
+                |> Maybe.withDefault Repo.default
+    in
     div [ class "card" ]
-        [ displayCampaignFormHeader campaign
+        [ displayCampaignFormHeader campaign repoForCampaign
         , displayCampaignFormContent campaign
         ]
 
@@ -701,27 +711,11 @@ displayUpdateButton =
         ]
 
 
-displayUpdateShortDescription : Model -> Html Msg
-displayUpdateShortDescription model =
-    div [ class "field" ]
-        [ label [ class "label" ]
-            [ text "Short Description" ]
-        , p [ class "control" ]
-            [ input
-                [ class "input"
-                , onInput UpdateShortDescriptionField
-                , Html.Attributes.value model.shortDescription
-                ]
-                []
-            ]
-        ]
-
-
 displayUpdateLongDescription : Model -> Html Msg
 displayUpdateLongDescription model =
     div [ class "field" ]
         [ label [ class "label" ]
-            [ text "Long Description" ]
+            [ text "Summary" ]
         , p [ class "control" ]
             [ input
                 [ class "input"
@@ -750,11 +744,17 @@ displayUpdateFundingGoal model =
         ]
 
 
-displayCampaignFormHeader : Campaign -> Html Msg
-displayCampaignFormHeader campaign =
+displayCampaignUpdateFormHeader : Repo -> Html Msg
+displayCampaignUpdateFormHeader repo =
     div [ class "card-header" ]
-        [ p [ class "card-header-title" ]
-            [ text (toString campaign.shortDescription) ]
+        [ p [ class "card-header-title" ] [ text repo.name ]
+        ]
+
+
+displayCampaignFormHeader : Campaign -> Repo -> Html Msg
+displayCampaignFormHeader campaign repo =
+    div [ class "card-header" ]
+        [ p [ class "card-header-title" ] [ text repo.name ]
         , a [ class "card-header-icon", onClick (SelectYourCampaign campaign.id) ]
             [ span [] [ text "edit" ] ]
         , a [ class "card-header-icon", onClick (DeleteCampaign campaign.id) ]
@@ -804,6 +804,12 @@ displayCampaignFormContent : Campaign -> Html Msg
 displayCampaignFormContent campaign =
     div [ class "card-content" ]
         [ div [ class "field" ]
+            [ label [ class "label" ]
+                [ text "Summary" ]
+            , p [ class "control" ]
+                [ text (toString campaign.longDescription) ]
+            ]
+        , div [ class "field" ]
             [ label [ class "label" ]
                 [ text "Funding Goal" ]
             , p [ class "control" ]
@@ -912,7 +918,6 @@ deleteCampaign model =
             { id = selectedCampaign.id
             , currentFunding = selectedCampaign.currentFunding
             , longDescription = selectedCampaign.longDescription
-            , shortDescription = selectedCampaign.shortDescription
             , fundingGoal = selectedCampaign.fundingGoal
             , fundingEndDate = selectedCampaign.fundingEndDate
             , userId = selectedCampaign.userId
