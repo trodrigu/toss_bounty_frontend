@@ -106,7 +106,7 @@ view model =
         Success campaigns ->
             let
                 renderedCampaigns =
-                    List.map (\campaign -> showYourCampaign campaign) campaigns.campaigns
+                    List.map (\campaign -> showYourCampaign campaign campaigns.repos) campaigns.campaigns
 
                 campaignsGrouped =
                     ListExtra.greedyGroupsOf 2 renderedCampaigns
@@ -123,19 +123,24 @@ view model =
                 ]
 
 
-showYourCampaign : Campaign -> Html Msg
-showYourCampaign campaign =
+showYourCampaign : Campaign -> List Repo -> Html Msg
+showYourCampaign campaign repos =
+    let
+        repoForCampaign =
+            List.filter (\repo -> campaign.githubRepoId == repo.id) repos
+                |> List.head
+                |> Maybe.withDefault Repo.default
+    in
     div [ class "card" ]
-        [ displayFormHeader campaign
+        [ displayCampaignFormHeader repoForCampaign
         , displayFormContent campaign
         ]
 
 
-displayFormHeader : Campaign -> Html Msg
-displayFormHeader campaign =
+displayCampaignFormHeader : Repo -> Html Msg
+displayCampaignFormHeader repo =
     div [ class "card-header" ]
-        [ p [ class "card-header-title" ]
-            [ text (toString campaign.shortDescription) ]
+        [ p [ class "card-header-title" ] [ text repo.name ]
         ]
 
 
@@ -170,7 +175,7 @@ displayFormContent campaign =
     div [ class "card-content" ]
         [ div [ class "field" ]
             [ label [ class "label" ]
-                [ text "Long Description" ]
+                [ text "Summary" ]
             , p [ class "control" ]
                 [ text (toString campaign.longDescription) ]
             ]
@@ -200,7 +205,7 @@ displayFormContentWithoutButton : Campaign -> Html Msg
 displayFormContentWithoutButton campaign =
     div [ class "card-content" ]
         [ label [ class "label" ]
-            [ text "Long Description" ]
+            [ text "Summary" ]
         , p [ class "control" ]
             [ text (toString campaign.longDescription) ]
         , label [ class "label" ]

@@ -433,7 +433,7 @@ setRoute maybeRoute model =
                                                     model => Cmd.none
 
                                                 Success plansData ->
-                                                    { model | page = Dash (Dash.init model.apiUrl token campaignsData.campaigns subscriptionsData.subscriptions plansData.plans) } => Cmd.none
+                                                    { model | page = Dash (Dash.init model.apiUrl token campaignsData.campaigns campaignsData.repos subscriptionsData.subscriptions plansData.plans) } => Cmd.none
                     in
                     updatedModelAndCmd
 

@@ -264,14 +264,7 @@ view model =
                             [ label [ class "label" ]
                                 [ text "Funding Goal" ]
                             , p [ class "control has-icons-left" ]
-                                [ text (toString model.campaign.fundingGoal)
-                                ]
-                            ]
-                        , div [ class "field" ]
-                            [ label [ class "label" ]
-                                [ text "A cool headline" ]
-                            , p [ class "control" ]
-                                [ text model.campaign.shortDescription
+                                [ text ("$ " ++ toString model.campaign.fundingGoal)
                                 ]
                             ]
                         , div [ class "field" ]
@@ -309,8 +302,22 @@ renderRedirect model =
             div [] []
 
 
+filterPersistedRewards : List Reward -> List Reward
+filterPersistedRewards rewardList =
+    List.filter hasRewardId rewardList
+
+
+hasRewardId : Reward -> Bool
+hasRewardId reward =
+    not (reward.id == "")
+
+
 renderPaySetup : Model -> List Reward -> Html Msg
 renderPaySetup model rewards =
+    let
+        persistedRewards =
+            filterPersistedRewards rewards
+    in
     case model.paid of
         True ->
             div [] []
@@ -320,15 +327,26 @@ renderPaySetup model rewards =
                 [ label [ class "label" ] [ text "Pick your level" ]
                 , div [ class "control" ]
                     [ div [ class "select" ]
-                        [ Html.select [ onChange ] (List.map (\el -> makeOption el.description) rewards)
+                        [ Html.select [ onChange ] (List.map (\el -> makeOption el) persistedRewards)
                         ]
                     ]
                 ]
 
 
-makeOption : String -> Html Msg
-makeOption description =
-    option [] [ text description ]
+makeOption : Reward -> Html Msg
+makeOption reward =
+    let
+        amount =
+            reward.donationLevel
+                |> toString
+
+        description =
+            reward.description
+
+        amountAndDescription =
+            "$ " ++ amount ++ " | " ++ description
+    in
+    option [] [ text amountAndDescription ]
 
 
 onChange : Attribute Msg
@@ -377,14 +395,6 @@ paymentForm model =
                 [ displayStripePayment model
                 ]
             ]
-        ]
-
-
-displayFormHeader : Campaign -> Html Msg
-displayFormHeader campaign =
-    div [ class "card-header" ]
-        [ p [ class "card-header-title" ]
-            [ text (toString campaign.shortDescription) ]
         ]
 
 
