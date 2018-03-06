@@ -18,6 +18,7 @@ type ActivePage
     | TosserSignUp
     | Discover
     | Contribute
+    | GithubOops
     | CreateUserRole
 
 

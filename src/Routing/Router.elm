@@ -24,6 +24,7 @@ type Route
     | ContributeRoute Int
     | LogoutRoute
     | CreateUserRoleRoute
+    | GithubOopsRoute
     | NotFoundRoute
 
 
@@ -103,6 +104,9 @@ routeToString page =
                 CreateUserRoleRoute ->
                     [ "get-user-type" ]
 
+                GithubOopsRoute ->
+                    [ "github-oops" ]
+
                 NotFoundRoute ->
                     []
     in
@@ -128,6 +132,7 @@ routeParser =
         , UrlParser.map ContributeRoute (UrlParser.s "contribute" </> UrlParser.int)
         , UrlParser.map CreateUserRoleRoute (UrlParser.s "get-user-type")
         , UrlParser.map LogoutRoute (UrlParser.s "logout")
+        , UrlParser.map GithubOopsRoute (UrlParser.s "github-oops")
         ]
 
 

@@ -25,6 +25,7 @@ import Pages.CreateRewards as CreateRewards
 import Pages.CreateUserRole as CreateUserRole
 import Pages.Dash as Dash
 import Pages.Discover as Discover
+import Pages.GithubOops as GithubOops
 import Pages.Home as Home exposing (GitHubUrl)
 import Pages.Login as Login
 import Pages.NotFound as NotFound
@@ -53,6 +54,7 @@ type Page
     | CreateRewards CreateRewards.Model
     | CreateUserRole CreateUserRole.Model
     | Discover Discover.Model
+    | GithubOops GithubOops.Model
     | NotFound NotFound.Model
 
 
@@ -83,6 +85,7 @@ type Msg
     | DiscoverMsg Discover.Msg
     | DashMsg Dash.Msg
     | LoginMsg Login.Msg
+    | GithubOopsMsg GithubOops.Msg
     | BetaSignUpMsg BetaSignUp.Msg
     | CreateCampaignMsg CreateCampaign.Msg
     | CreateRewardsMsg CreateRewards.Msg
@@ -201,6 +204,9 @@ routeToString page =
 
                 CreateUserRoleRoute ->
                     [ "get-user-type" ]
+
+                GithubOopsRoute ->
+                    [ "github-oops" ]
 
                 NotFoundRoute ->
                     []
@@ -566,6 +572,13 @@ setRoute maybeRoute model =
 
         Just Router.NotFoundRoute ->
             model => Cmd.none
+
+        Just Router.GithubOopsRoute ->
+            let
+                updatedPage =
+                    GithubOops GithubOops.init
+            in
+            { model | page = updatedPage } => Cmd.none
 
         Nothing ->
             model => Cmd.none
@@ -1122,6 +1135,13 @@ updatePage page msg model =
         ( HandleMsg (HandleFetchYourCampaigns data), _ ) ->
             ( { model | yourCampaigns = data }, Router.modifyUrl Router.DashRoute )
 
+        ( GithubOopsMsg subMsg, GithubOops subModel ) ->
+            let
+                ( ( pageModel, cmd ), msgFromPage ) =
+                    GithubOops.update subMsg subModel
+            in
+            { model | page = GithubOops pageModel } => Cmd.map GithubOopsMsg cmd
+
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
             model => Cmd.none
@@ -1224,6 +1244,11 @@ pageView session page =
                 CreateUserRole.view subModel
                     |> frame Page.CreateUserRole
                     |> Html.map CreateUserRoleMsg
+
+            GithubOops subModel ->
+                GithubOops.view subModel
+                    |> frame Page.GithubOops
+                    |> Html.map GithubOopsMsg
 
             NotFound subModel ->
                 NotFound.view
