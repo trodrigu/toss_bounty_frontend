@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
-import Data.Campaigns as Campaigns exposing (Campaigns, decoder)
+import Data.Campaigns as Campaigns exposing (Campaigns, IncludedRepo, IncludedStuff(..), decoder)
 import Data.Issues as Issues exposing (Issues)
 import Data.Plans as Plans exposing (Plans, decoder)
 import Data.Repo as Repo exposing (Repo)
@@ -424,6 +424,19 @@ setRoute maybeRoute model =
                                             model => Cmd.none
 
                                         Success subscriptionsData ->
+                                            let
+                                                repos =
+                                                    List.filter
+                                                        (\included ->
+                                                            case included of
+                                                                IncludedGithub includedRepo ->
+                                                                    True
+
+                                                                IncludedStripe _ ->
+                                                                    False
+                                                        )
+                                                        campaignsData.included
+                                            in
                                             case model.yourSubscribedPlans of
                                                 NotAsked ->
                                                     model => Cmd.map HandleMsg (fetchYourSubscribedPlans model.apiUrl user.token user.userId)
@@ -439,7 +452,7 @@ setRoute maybeRoute model =
                                                     model => Cmd.none
 
                                                 Success plansData ->
-                                                    { model | page = Dash (Dash.init model.apiUrl token campaignsData.campaigns campaignsData.repos subscriptionsData.subscriptions plansData.plans) } => Cmd.none
+                                                    { model | page = Dash (Dash.init model.apiUrl token campaignsData.campaigns repos subscriptionsData.subscriptions plansData.plans) } => Cmd.none
                     in
                     updatedModelAndCmd
 

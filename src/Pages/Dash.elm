@@ -2,6 +2,7 @@ module Pages.Dash exposing (..)
 
 import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
+import Data.Campaigns as Campaigns exposing (IncludedStuff(..))
 import Data.Plan as Plan exposing (Plan)
 import Data.Repo as Repo exposing (Repo)
 import Data.Subscription as Subscription exposing (Subscription)
@@ -49,7 +50,7 @@ type alias Model =
     , fundingGoal : Float
     , longDescription : String
     , yourCampaigns : SelectList Campaign
-    , yourRepos : List Repo
+    , yourRepos : List IncludedStuff
     , yourSubscriptions : SelectList SubscriptionWrapper
     , yourSubscribedPlans : SelectList Plan
     , apiUrl : String
@@ -65,7 +66,7 @@ wrapSubscriptions subscriptions =
     List.map (\subscription -> { subscription = subscription, showConfirmation = False }) subscriptions
 
 
-init : Maybe String -> AuthToken -> List Campaign -> List Repo -> List Subscription -> List Plan -> Model
+init : Maybe String -> AuthToken -> List Campaign -> List IncludedStuff -> List Subscription -> List Plan -> Model
 init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans =
     let
         url =
@@ -618,13 +619,22 @@ yourBounties model =
                 ]
 
 
-updateCampaignForm : Model -> Campaign -> List Repo -> Html Msg
-updateCampaignForm model campaign repos =
+updateCampaignForm : Model -> Campaign -> List IncludedStuff -> Html Msg
+updateCampaignForm model campaign included =
     let
         repoForCampaign =
-            List.filter (\repo -> campaign.githubRepoId == repo.id) repos
+            List.filter
+                (\included ->
+                    case included of
+                        IncludedGithub includedRepo ->
+                            campaign.githubRepoId == includedRepo.id
+
+                        _ ->
+                            False
+                )
+                included
                 |> List.head
-                |> Maybe.withDefault Repo.default
+                |> Maybe.withDefault Campaigns.includedRepoDefault
     in
     div [ class "card" ]
         [ div [ class "card-content" ]
@@ -666,13 +676,22 @@ campaignsYouContributedTo campaigns =
         campaigns
 
 
-showYourCampaign : Campaign -> List Repo -> Html Msg
-showYourCampaign campaign repos =
+showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
+showYourCampaign campaign included =
     let
         repoForCampaign =
-            List.filter (\repo -> campaign.githubRepoId == repo.id) repos
+            List.filter
+                (\included ->
+                    case included of
+                        IncludedGithub includedRepo ->
+                            campaign.githubRepoId == includedRepo.id
+
+                        _ ->
+                            False
+                )
+                included
                 |> List.head
-                |> Maybe.withDefault Repo.default
+                |> Maybe.withDefault Campaigns.includedRepoDefault
     in
     div [ class "card" ]
         [ displayCampaignFormHeader campaign repoForCampaign
@@ -744,15 +763,43 @@ displayUpdateFundingGoal model =
         ]
 
 
-displayCampaignUpdateFormHeader : Repo -> Html Msg
-displayCampaignUpdateFormHeader repo =
+displayCampaignUpdateFormHeader : IncludedStuff -> Html Msg
+displayCampaignUpdateFormHeader included =
+    let
+        repo =
+            case included of
+                IncludedGithub includedRepo ->
+                    includedRepo
+
+                IncludedStripe _ ->
+                    { id = ""
+                    , name = ""
+                    , image = ""
+                    , bountifulScore = 0
+                    , owner = ""
+                    }
+    in
     div [ class "card-header" ]
         [ p [ class "card-header-title" ] [ text repo.name ]
         ]
 
 
-displayCampaignFormHeader : Campaign -> Repo -> Html Msg
-displayCampaignFormHeader campaign repo =
+displayCampaignFormHeader : Campaign -> IncludedStuff -> Html Msg
+displayCampaignFormHeader campaign included =
+    let
+        repo =
+            case included of
+                IncludedGithub includedRepo ->
+                    includedRepo
+
+                IncludedStripe _ ->
+                    { id = ""
+                    , name = ""
+                    , image = ""
+                    , bountifulScore = 0
+                    , owner = ""
+                    }
+    in
     div [ class "card-header" ]
         [ p [ class "card-header-title" ] [ text repo.name ]
         , a [ class "card-header-icon", onClick (SelectYourCampaign campaign.id) ]

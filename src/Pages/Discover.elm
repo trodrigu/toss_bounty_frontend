@@ -2,7 +2,7 @@ module Pages.Discover exposing (..)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate)
-import Data.Campaigns as Campaigns exposing (Campaigns)
+import Data.Campaigns as Campaigns exposing (Campaigns, IncludedStuff(..), includedRepoDefault)
 import Data.Repo as Repo exposing (Repo)
 import Data.Rewards as Rewards exposing (Rewards, decoder)
 import Data.User as User exposing (User, decoder)
@@ -106,7 +106,7 @@ view model =
         Success campaigns ->
             let
                 renderedCampaigns =
-                    List.map (\campaign -> showYourCampaign campaign campaigns.repos) campaigns.campaigns
+                    List.map (\campaign -> showYourCampaign campaign campaigns.included) campaigns.campaigns
 
                 campaignsGrouped =
                     ListExtra.greedyGroupsOf 2 renderedCampaigns
@@ -123,13 +123,22 @@ view model =
                 ]
 
 
-showYourCampaign : Campaign -> List Repo -> Html Msg
-showYourCampaign campaign repos =
+showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
+showYourCampaign campaign included =
     let
         repoForCampaign =
-            List.filter (\repo -> campaign.githubRepoId == repo.id) repos
+            List.filter
+                (\included ->
+                    case included of
+                        IncludedGithub includedRepo ->
+                            campaign.githubRepoId == includedRepo.id
+
+                        _ ->
+                            False
+                )
+                included
                 |> List.head
-                |> Maybe.withDefault Repo.default
+                |> Maybe.withDefault Campaigns.includedRepoDefault
     in
     div [ class "card" ]
         [ displayCampaignFormHeader repoForCampaign
@@ -137,8 +146,22 @@ showYourCampaign campaign repos =
         ]
 
 
-displayCampaignFormHeader : Repo -> Html Msg
-displayCampaignFormHeader repo =
+displayCampaignFormHeader : IncludedStuff -> Html Msg
+displayCampaignFormHeader included =
+    let
+        repo =
+            case included of
+                IncludedGithub includedRepo ->
+                    includedRepo
+
+                IncludedStripe _ ->
+                    { id = ""
+                    , name = ""
+                    , image = ""
+                    , bountifulScore = 0
+                    , owner = ""
+                    }
+    in
     div [ class "card-header" ]
         [ p [ class "card-header-title" ] [ text repo.name ]
         ]
