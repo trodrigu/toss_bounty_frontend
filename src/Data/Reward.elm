@@ -66,7 +66,7 @@ indexDecoder =
 default : Reward
 default =
     { id = ""
-    , donationLevel = 100.0
-    , description = ""
+    , donationLevel = 0.0
+    , description = "Give love :)"
     , planId = ""
     }

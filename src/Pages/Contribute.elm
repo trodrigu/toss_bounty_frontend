@@ -132,7 +132,16 @@ update msg model =
             ( updatedModel, Cmd.none ) => NoOp
 
         Pay ->
-            ( { model | isPaying = True }, Ports.createStripeElement "placeholder" ) => NoOp
+            let
+                selectedReward =
+                    SelectList.selected model.rewards
+            in
+            case selectedReward.id == "" of
+                True ->
+                    ( { model | isPaying = False }, Cmd.none ) => NoOp
+
+                False ->
+                    ( { model | isPaying = True }, Ports.createStripeElement "placeholder" ) => NoOp
 
         HandleStripe data ->
             let
@@ -314,10 +323,6 @@ hasRewardId reward =
 
 renderPaySetup : Model -> List Reward -> Html Msg
 renderPaySetup model rewards =
-    let
-        persistedRewards =
-            filterPersistedRewards rewards
-    in
     case model.paid of
         True ->
             div [] []
@@ -327,7 +332,7 @@ renderPaySetup model rewards =
                 [ label [ class "label" ] [ text "Pick your level" ]
                 , div [ class "control" ]
                     [ div [ class "select" ]
-                        [ Html.select [ onChange ] (List.map (\el -> makeOption el) persistedRewards)
+                        [ Html.select [ onChange ] (List.map (\el -> makeOption el) rewards)
                         ]
                     ]
                 ]
@@ -336,15 +341,19 @@ renderPaySetup model rewards =
 makeOption : Reward -> Html Msg
 makeOption reward =
     let
-        amount =
-            reward.donationLevel
-                |> toString
-
-        description =
-            reward.description
-
         amountAndDescription =
-            "$ " ++ amount ++ " | " ++ description
+            if reward.id == "" then
+                reward.description
+            else
+                let
+                    description =
+                        reward.description
+
+                    amount =
+                        reward.donationLevel
+                            |> toString
+                in
+                "$ " ++ amount ++ " | " ++ description
     in
     option [] [ text amountAndDescription ]
 
@@ -452,6 +461,7 @@ postCustomer model =
 
         data =
             { tokenId = stripeFromModel.id
+            , campaignId = model.campaign.id
             }
     in
     RemoteData.Http.postWithConfig (Auth.config model.token) customerUrl HandleCustomer Customer.decoder (Customer.encode data)
