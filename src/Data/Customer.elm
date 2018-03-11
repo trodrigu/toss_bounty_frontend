@@ -20,7 +20,7 @@ decoder =
         |> optionalAt [ "data", "relationships", "token", "data", "id" ] Decode.string ""
 
 
-encode : { r | tokenId : String } -> Value
+encode : { r | tokenId : String, campaignId : String } -> Value
 encode customer =
     let
         token_attributes =
@@ -32,9 +32,19 @@ encode customer =
         token_data_attribute =
             Encode.object [ ( "data", token_attributes ) ]
 
+        campaign_attributes =
+            Encode.object
+                [ ( "type", Encode.string "campaign" )
+                , ( "id", Encode.string customer.campaignId )
+                ]
+
+        campaign_data_attribute =
+            Encode.object [ ( "data", campaign_attributes ) ]
+
         relationships =
             Encode.object
                 [ ( "token", token_data_attribute )
+                , ( "campaign", campaign_data_attribute )
                 ]
 
         data_attributes =
