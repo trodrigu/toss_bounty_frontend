@@ -96,10 +96,6 @@ update msg model =
             ( model, putUser model ) => NoOp
 
         SwitchTo updatedChoice ->
-            let
-                _ =
-                    Debug.log "updatedChoice" updatedChoice
-            in
             ( { model
                 | choice = updatedChoice
                 , showNext = True
@@ -155,9 +151,6 @@ putUser model =
 
         choiceAsInt =
             choiceToInt model.choice
-
-        _ =
-            Debug.log "choiceAsInt" choiceAsInt
 
         data =
             { role = choiceAsInt

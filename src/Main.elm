@@ -457,10 +457,6 @@ setRoute maybeRoute model =
                     updatedModelAndCmd
 
                 Nothing ->
-                    let
-                        _ =
-                            Debug.log "no user" model
-                    in
                     model => Router.modifyUrl Router.HomeRoute
 
         Just Router.DiscoverRoute ->
@@ -902,10 +898,6 @@ updatePage page msg model =
                             Cmd.map CreateUserRoleMsg cmd
 
                         CreateUserRole.UpdateUserWithRole user ->
-                            let
-                                _ =
-                                    Debug.log "user.role" user.role
-                            in
                             case user.role of
                                 1 ->
                                     modifyUrl DiscoverRoute
