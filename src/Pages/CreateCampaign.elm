@@ -80,7 +80,7 @@ type Msg
 
 type ExternalMsg
     = NoOp
-    | FetchCampaigns
+    | GoToStripeSignUp
 
 
 view : Model -> Html Msg
@@ -292,7 +292,7 @@ update msg model =
                 Success campaign ->
                     model
                         => Cmd.none
-                        => FetchCampaigns
+                        => GoToStripeSignUp
 
                 _ ->
                     ( model, Cmd.none )

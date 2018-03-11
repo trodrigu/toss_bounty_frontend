@@ -932,8 +932,8 @@ updatePage page msg model =
                                 CreateCampaign.NoOp ->
                                     Cmd.map CreateCampaignMsg cmd
 
-                                CreateCampaign.FetchCampaigns ->
-                                    Cmd.map HandleMsg (fetchYourCampaignsForRewards model.apiUrl user.token user.userId)
+                                CreateCampaign.GoToStripeSignUp ->
+                                    Router.modifyUrl Router.StripeConnectSignUpRoute
 
                         Nothing ->
                             Router.modifyUrl HomeRoute
@@ -1012,7 +1012,9 @@ updatePage page msg model =
                 userId =
                     updatedUser.userId
             in
-            ( model, Router.modifyUrl Router.DashRoute )
+            ( model
+            , Cmd.map HandleMsg (fetchYourCampaignsForRewards model.apiUrl token userId)
+            )
 
         ( HandleMsg (HandleGithubUrl data), _ ) ->
             let
