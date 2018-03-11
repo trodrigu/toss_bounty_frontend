@@ -95,10 +95,10 @@ view model =
     in
     case model.campaigns of
         NotAsked ->
-            div [ class "is-loading" ] [ text "Loading..." ]
+            div [ class "pageloader is-active" ] [ span [ class "title" ] [ text "Loading..." ] ]
 
         Loading ->
-            div [ class "is-loading" ] [ text "Loading..." ]
+            div [ class "pageloader is-active" ] [ span [ class "title" ] [ text "Loading..." ] ]
 
         Failure error ->
             div [] [ text ("Failed" ++ toString error) ]
