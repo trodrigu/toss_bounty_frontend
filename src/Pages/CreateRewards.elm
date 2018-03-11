@@ -70,7 +70,7 @@ type Msg
     | HandleDeletePlan (WebData String)
     | SelectReward String
     | DeletePlan String
-    | StripePage
+    | DiscoverPage
     | HandlePutPlan (WebData Plan)
 
 
@@ -182,12 +182,12 @@ view model =
                         )
                         persistedRewards
                     )
-                , renderStripeConnectButton persistedRewards
+                , renderDashButton persistedRewards
                 ]
 
 
-renderStripeConnectButton : List Reward -> Html Msg
-renderStripeConnectButton rewards =
+renderDashButton : List Reward -> Html Msg
+renderDashButton rewards =
     let
         rewardsLength =
             List.length rewards
@@ -199,7 +199,7 @@ renderStripeConnectButton rewards =
                         [ div [ class "container" ]
                             [ div [ class "level" ]
                                 [ div [ class "level-item" ]
-                                    [ button [ class "button is-success is-large", onClick StripePage ] [ text "Connect With Stripe" ]
+                                    [ button [ class "button is-success is-large", onClick DiscoverPage ] [ text "Go To Dash" ]
                                     ]
                                 ]
                             ]
@@ -654,8 +654,8 @@ update msg model =
                         => Cmd.none
                         => NoOp
 
-        StripePage ->
-            model => Router.modifyUrl Router.StripeConnectSignUpRoute => NoOp
+        DiscoverPage ->
+            model => Router.modifyUrl Router.DashRoute => NoOp
 
 
 postReward : Model -> Cmd Msg
