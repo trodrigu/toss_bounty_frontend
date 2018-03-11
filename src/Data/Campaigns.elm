@@ -49,11 +49,8 @@ includedRepoDefault =
 
 type alias IncludedUser =
     { email : String
-    , token : AuthToken
     , userId : String
     , stripeExternalId : String
-    , stripeAccessToken : String
-    , role : Int
     }
 
 
@@ -79,8 +76,5 @@ userIncludedDecoder : Decoder IncludedUser
 userIncludedDecoder =
     decode IncludedUser
         |> requiredAt [ "attributes", "email" ] Decode.string
-        |> optionalAt [ "attributes", "token" ] AuthToken.decoder AuthToken.fallback
         |> optionalAt [ "attributes", "user_id" ] Decode.string ""
         |> optionalAt [ "attributes", "stripe-external-id" ] Decode.string ""
-        |> optionalAt [ "attributes", "stripe-access-token" ] Decode.string ""
-        |> optionalAt [ "attributes", "role" ] Decode.int 0
