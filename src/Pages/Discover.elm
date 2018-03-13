@@ -49,7 +49,7 @@ type alias Model =
 
 
 type Msg
-    = SelectYourCampaign String
+    = SelectYourCampaign Int
     | HandleFetchAllCampaigns (WebData Campaigns)
     | GetCampaigns
     | HandleFetchUser (WebData User)
@@ -72,16 +72,7 @@ update msg model =
             ( { model | campaigns = data }, Cmd.none ) => NoOp
 
         SelectYourCampaign campaignId ->
-            let
-                campaignIdAsInt =
-                    case String.toInt campaignId of
-                        Ok id ->
-                            id
-
-                        Err message ->
-                            0
-            in
-            ( model, Router.modifyUrl (ContributeRoute campaignIdAsInt) ) => NoOp
+            ( model, Router.modifyUrl (ContributeRoute campaignId) ) => NoOp
 
 
 view : Model -> Html Msg

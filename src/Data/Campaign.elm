@@ -1,13 +1,13 @@
 module Data.Campaign exposing (Campaign, default, defaultDate, encode, indexDecoder, showDecoder)
 
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, map)
+import Json.Decode.Pipeline as Pipeline exposing (custom, decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
 
 
 type alias Campaign =
-    { id : String
+    { id : Int
     , currentFunding : Float
     , longDescription : String
     , fundingGoal : Float
@@ -20,13 +20,19 @@ type alias Campaign =
 decoder : Decoder Campaign
 decoder =
     decode Campaign
-        |> requiredAt [ "data", "id" ] Decode.string
+        |> requiredAt [ "data", "id" ] campaignIdDecoder
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
         |> optionalAt [ "data", "attributes", "funding-end-date" ] dateDecoder (DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 })
         |> optionalAt [ "relationships", "user", "data", "id" ] Decode.string ""
         |> optionalAt [ "relationships", "github-repo", "data", "id" ] Decode.string ""
+
+
+campaignIdDecoder : Decoder Int
+campaignIdDecoder =
+    Decode.string
+        |> map (\campaignId -> String.toInt campaignId |> Result.withDefault 0)
 
 
 dateDecoder : Decoder DateTime
@@ -95,7 +101,7 @@ encode campaign =
 indexDecoder : Decoder Campaign
 indexDecoder =
     decode Campaign
-        |> requiredAt [ "id" ] Decode.string
+        |> requiredAt [ "id" ] campaignIdDecoder
         |> optionalAt [ "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "attributes", "long-description" ] Decode.string
         |> requiredAt [ "attributes", "funding-goal" ] Decode.float
@@ -107,7 +113,7 @@ indexDecoder =
 showDecoder : Decoder Campaign
 showDecoder =
     decode Campaign
-        |> requiredAt [ "data", "id" ] Decode.string
+        |> requiredAt [ "data", "id" ] campaignIdDecoder
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
         |> requiredAt [ "data", "attributes", "funding-goal" ] Decode.float
@@ -118,7 +124,7 @@ showDecoder =
 
 default : Campaign
 default =
-    Campaign "" 0.0 "" 0.0 defaultDate "" ""
+    Campaign 0 0.0 "" 0.0 defaultDate "" ""
 
 
 defaultDate : DateTime

@@ -16,7 +16,7 @@ import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
 
-init : Maybe String -> AuthToken -> String -> Model
+init : Maybe String -> AuthToken -> Int -> Model
 init apiUrl token campaignId =
     let
         url =
@@ -48,7 +48,7 @@ type alias Model =
     , plans : SelectList Plan
     , apiUrl : String
     , token : AuthToken
-    , campaignId : String
+    , campaignId : Int
     , errors : List Error
     , isEditing : Bool
     }

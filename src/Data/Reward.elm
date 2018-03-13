@@ -13,7 +13,7 @@ type alias Reward =
     }
 
 
-encode : { r | description : String, donationLevel : Float, campaignId : String } -> Encode.Value
+encode : { r | description : String, donationLevel : Float, campaignId : Int } -> Encode.Value
 encode reward =
     let
         reward_attributes =
@@ -32,7 +32,7 @@ encode reward =
         campaign_attributes =
             Encode.object
                 [ ( "type", Encode.string "campaign" )
-                , ( "id", Encode.string reward.campaignId )
+                , ( "id", Encode.int reward.campaignId )
                 ]
 
         data_attributes =

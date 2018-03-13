@@ -291,7 +291,7 @@ setRoute maybeRoute model =
                 Just user ->
                     case model.campaignOfInterest of
                         Success campaign ->
-                            if toString campaignId == campaign.id then
+                            if campaignId == campaign.id then
                                 let
                                     token =
                                         user.token
@@ -334,6 +334,10 @@ setRoute maybeRoute model =
                             model => Cmd.none
 
                         NotAsked ->
+                            let
+                                _ =
+                                    Debug.log "campaignId" campaignId
+                            in
                             let
                                 token =
                                     user.token
@@ -545,13 +549,18 @@ setRoute maybeRoute model =
                                 _ ->
                                     Campaigns [] []
 
-                        campaign =
-                            case List.head yourCampaigns.campaigns of
-                                Just campaign ->
-                                    campaign
+                        campaignsSorted =
+                            yourCampaigns.campaigns
+                                |> List.sortBy .id
 
-                                Nothing ->
-                                    Campaign "0" 0.0 "" 0.0 (DateTime.dateTime DateTime.zero) "0" "0"
+                        campaign =
+                            campaignsSorted
+                                |> List.reverse
+                                |> List.head
+                                |> Maybe.withDefault Campaign.default
+
+                        _ =
+                            Debug.log "campaign" campaign
 
                         updatedPage =
                             CreateRewards (CreateRewards.init apiUrl token campaign.id)
@@ -661,7 +670,7 @@ updatePage page msg model =
                             campaign.id
 
                         _ ->
-                            "0"
+                            0
 
                 apiUrl =
                     case model.apiUrl of
@@ -784,17 +793,9 @@ updatePage page msg model =
                             campaign.id
 
                         _ ->
-                            "0"
-
-                campaignIdAsInt =
-                    case String.toInt campaignId of
-                        Ok id ->
-                            id
-
-                        Err message ->
                             0
             in
-            ( { model | rewardsOfInterest = updatedRewards }, modifyUrl (ContributeRoute campaignIdAsInt) )
+            ( { model | rewardsOfInterest = updatedRewards }, modifyUrl (ContributeRoute campaignId) )
 
         ( ConsumeToken stripe, Contribute subModel ) ->
             let
@@ -1430,11 +1431,11 @@ consumeToken =
     Ports.consumeToken (Decode.decodeValue Stripe.decoder >> Result.toMaybe)
 
 
-getRewards : String -> AuthToken -> String -> Cmd HandleMsg
+getRewards : String -> AuthToken -> Int -> Cmd HandleMsg
 getRewards apiUrl token campaignId =
     let
         updatedUrl =
-            apiUrl ++ "/rewards/?campaign_id=" ++ campaignId
+            apiUrl ++ "/rewards/?campaign_id=" ++ (campaignId |> toString)
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchRewards Rewards.decoder
 

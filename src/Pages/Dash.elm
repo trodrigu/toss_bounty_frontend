@@ -4,7 +4,6 @@ import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
 import Data.Campaigns as Campaigns exposing (IncludedStuff(..))
 import Data.Plan as Plan exposing (Plan)
-import Data.Repo as Repo exposing (Repo)
 import Data.Subscription as Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style, value)
@@ -128,13 +127,13 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
 
 
 type Msg
-    = SelectYourCampaign String
+    = SelectYourCampaign Int
     | DeleteYourSubscription String
     | SaveUpdateCampaignForm
     | UpdateFundingGoalField String
     | UpdateLongDescriptionField String
     | HandlePutCampaign (WebData Campaign)
-    | DeleteCampaign String
+    | DeleteCampaign Int
     | HandleDeleteCampaign (WebData String)
     | HandleDeleteSubscription (WebData String)
     | ShowConfirmation String
@@ -410,8 +409,13 @@ putCampaign model =
         selectedCampaign =
             SelectList.selected model.yourCampaigns
 
+        selectedCampaignId =
+            selectedCampaign
+                |> .id
+                |> toString
+
         rewardUrl =
-            model.apiUrl ++ "/campaigns/" ++ selectedCampaign.id
+            model.apiUrl ++ "/campaigns/" ++ selectedCampaignId
 
         data =
             { longDescription = selectedCampaign.longDescription
@@ -659,7 +663,7 @@ filterPersistedSubscriptions subscriptionList =
 
 hasCampaignId : Campaign -> Bool
 hasCampaignId campaign =
-    not (campaign.id == "")
+    not (campaign.id == 0)
 
 
 hasSubscriptionId : SubscriptionWrapper -> Bool
@@ -958,8 +962,13 @@ deleteCampaign model =
         selectedCampaign =
             SelectList.selected model.yourCampaigns
 
+        selectedCampaignId =
+            selectedCampaign
+                |> .id
+                |> toString
+
         rewardUrl =
-            model.apiUrl ++ "/campaigns/" ++ selectedCampaign.id
+            model.apiUrl ++ "/campaigns/" ++ selectedCampaignId
 
         data =
             { id = selectedCampaign.id
