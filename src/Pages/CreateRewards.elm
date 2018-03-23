@@ -68,8 +68,8 @@ type Msg
     | HandlePutReward (WebData Reward)
     | HandleDeleteReward (WebData String)
     | HandleDeletePlan (WebData String)
-    | SelectReward String
-    | DeletePlan String
+    | SelectReward Int
+    | DeletePlan Int
     | DiscoverPage
     | HandlePutPlan (WebData Plan)
 
@@ -223,7 +223,7 @@ planHasId plan =
 
 rewardHasId : Reward -> Bool
 rewardHasId reward =
-    not (reward.id == "")
+    not (reward.id == 0)
 
 
 updateRewardForm : Model -> Html Msg
@@ -573,6 +573,10 @@ update msg model =
                         => NoOp
 
         HandleReward data ->
+            let
+                _ =
+                    Debug.log "data" data
+            in
             case data of
                 Success reward ->
                     let
@@ -703,7 +707,7 @@ putReward model =
             SelectList.selected model.rewards
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
 
         data =
             { description = model.description
@@ -721,7 +725,7 @@ deleteReward model =
             SelectList.selected model.rewards
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
 
         data =
             { description = model.description

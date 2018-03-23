@@ -1,11 +1,11 @@
-module Data.Plan exposing (Plan, default, encode, indexDecoder, showDecoder)
+module Data.Plan exposing (Plan, default, encode, indexDecoder, showDecoder, updateEncode)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 
 
-encode : { r | amount : Float, interval : String, name : String, currency : String, rewardId : String } -> Value
+encode : { r | amount : Float, interval : String, name : String, currency : String, rewardId : Int } -> Value
 encode plan =
     let
         plan_attributes =
@@ -19,7 +19,39 @@ encode plan =
         reward_attributes =
             Encode.object
                 [ ( "type", Encode.string "reward" )
-                , ( "id", Encode.string plan.rewardId )
+                , ( "id", Encode.int plan.rewardId )
+                ]
+
+        reward_data_attribute =
+            Encode.object [ ( "data", reward_attributes ) ]
+
+        relationships =
+            Encode.object
+                [ ( "reward", reward_data_attribute )
+                ]
+
+        data_attributes =
+            Encode.object
+                [ ( "attributes", plan_attributes )
+                , ( "type", Encode.string "plan" )
+                , ( "relationships", relationships )
+                ]
+    in
+    Encode.object [ ( "data", data_attributes ) ]
+
+
+updateEncode : { r | name : String, rewardId : Int } -> Value
+updateEncode plan =
+    let
+        plan_attributes =
+            Encode.object
+                [ ( "name", Encode.string plan.name )
+                ]
+
+        reward_attributes =
+            Encode.object
+                [ ( "type", Encode.string "reward" )
+                , ( "id", Encode.int plan.rewardId )
                 ]
 
         reward_data_attribute =
@@ -47,7 +79,7 @@ type alias Plan =
     , interval : String
     , name : String
     , currency : String
-    , rewardId : String
+    , rewardId : Int
     }
 
 
@@ -60,7 +92,7 @@ showDecoder =
         |> requiredAt [ "data", "attributes", "interval" ] Decode.string
         |> requiredAt [ "data", "attributes", "name" ] Decode.string
         |> requiredAt [ "data", "attributes", "currency" ] Decode.string
-        |> optionalAt [ "data", "relationships", "reward", "data", "id" ] Decode.string ""
+        |> optionalAt [ "data", "relationships", "reward", "data", "id" ] Decode.int 0
 
 
 indexDecoder : Decoder Plan
@@ -72,7 +104,7 @@ indexDecoder =
         |> requiredAt [ "attributes", "interval" ] Decode.string
         |> requiredAt [ "attributes", "name" ] Decode.string
         |> requiredAt [ "attributes", "currency" ] Decode.string
-        |> optionalAt [ "relationships", "reward", "data", "id" ] Decode.string ""
+        |> optionalAt [ "attributes", "reward-id" ] Decode.int 0
 
 
 default : Plan
@@ -83,5 +115,5 @@ default =
     , interval = ""
     , name = ""
     , currency = ""
-    , rewardId = ""
+    , rewardId = 0
     }

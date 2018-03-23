@@ -136,7 +136,7 @@ update msg model =
                 selectedReward =
                     SelectList.selected model.rewards
             in
-            case selectedReward.id == "" of
+            case selectedReward.id == 0 of
                 True ->
                     ( { model | isPaying = False }, Cmd.none ) => NoOp
 
@@ -318,7 +318,7 @@ filterPersistedRewards rewardList =
 
 hasRewardId : Reward -> Bool
 hasRewardId reward =
-    not (reward.id == "")
+    not (reward.id == 0)
 
 
 renderPaySetup : Model -> List Reward -> Html Msg
@@ -342,7 +342,7 @@ makeOption : Reward -> Html Msg
 makeOption reward =
     let
         amountAndDescription =
-            if reward.id == "" then
+            if reward.id == 0 then
                 reward.description
             else
                 let
@@ -545,7 +545,7 @@ getPlan model =
     RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchPlan Plan.showDecoder
 
 
-getReward : Model -> String -> Cmd Msg
+getReward : Model -> Int -> Cmd Msg
 getReward model rewardId =
     let
         apiUrl =
@@ -555,6 +555,6 @@ getReward model rewardId =
             model.token
 
         updatedUrl =
-            apiUrl ++ "/rewards/" ++ rewardId
+            apiUrl ++ "/rewards/" ++ toString rewardId
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchReward Reward.showDecoder

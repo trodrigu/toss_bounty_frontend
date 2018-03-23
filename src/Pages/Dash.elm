@@ -3,17 +3,21 @@ module Pages.Dash exposing (..)
 import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
 import Data.Campaigns as Campaigns exposing (IncludedStuff(..))
-import Data.Plan as Plan exposing (Plan)
+import Data.Plan as Plan exposing (Plan, updateEncode)
+import Data.Plans as Plans exposing (Plans)
+import Data.Reward as Reward exposing (Reward, updateEncode)
+import Data.Rewards as Rewards exposing (Rewards)
 import Data.Subscription as Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style, value)
 import Html.Events exposing (onClick, onInput)
+import Json.Encode as Encode exposing (Value)
 import List.Extra as ListExtra exposing (greedyGroupsOf)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (href)
-import SelectList exposing (SelectList, fromLists, select, selected, singleton)
+import SelectList exposing (Position(..), SelectList, fromLists, select, selected, singleton)
 import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
@@ -36,6 +40,7 @@ type alias SubscriptionWrapper =
     }
 
 
+subscriptionWrapperDefault : SubscriptionWrapper
 subscriptionWrapperDefault =
     { subscription = Subscription.default
     , showConfirmation = False
@@ -43,7 +48,7 @@ subscriptionWrapperDefault =
 
 
 type alias Model =
-    { campaignId : String
+    { campaignId : Int
     , currentFunding : Float
     , fundingEndDate : DateTime
     , fundingGoal : Float
@@ -57,6 +62,14 @@ type alias Model =
     , errors : List Error
     , isEditingYourCampaigns : Bool
     , showConfirmation : Bool
+    , rewards : WebData Rewards
+    , rewardsAsSelectList : SelectList Reward
+    , plans : WebData Plan
+    , plansAsSelectList : SelectList Plan
+    , description : String
+    , isEditingReward : Bool
+    , isAddingReward : Bool
+    , donationLevel : Float
     }
 
 
@@ -99,8 +112,11 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
         updatedYourPlans =
             defaultYourPlan
                 |> SelectList.append yourSubscribedPlans
+
+        defaultRewardsAsSelectList =
+            SelectList.singleton Reward.default
     in
-    { campaignId = ""
+    { campaignId = 0
     , currentFunding = 0.0
     , fundingEndDate =
         DateTime.dateTime
@@ -123,6 +139,14 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
     , errors = []
     , isEditingYourCampaigns = False
     , showConfirmation = False
+    , rewards = NotAsked
+    , rewardsAsSelectList = defaultRewardsAsSelectList
+    , description = ""
+    , plans = NotAsked
+    , plansAsSelectList = SelectList.singleton Plan.default
+    , isEditingReward = False
+    , isAddingReward = False
+    , donationLevel = 0.0
     }
 
 
@@ -138,6 +162,21 @@ type Msg
     | HandleDeleteSubscription (WebData String)
     | ShowConfirmation String
     | HideConfirmation
+    | HandleFetchRewards (WebData Rewards)
+    | UpdateDescriptionField String
+    | SelectReward Int
+    | DeletePlan Int
+    | HandlePutPlan (WebData Plan)
+    | HandlePutReward (WebData Reward)
+    | SaveUpdateForm
+    | HandleDeletePlan (WebData String)
+    | HandleDeleteReward (WebData String)
+    | HandleFetchPlans (WebData Plans)
+    | ShowRewardForm
+    | SaveRewardForm
+    | UpdateDonateLevelField String
+    | HandleReward (WebData Reward)
+    | HandlePlan (WebData Plan)
 
 
 type ExternalMsg
@@ -155,6 +194,390 @@ validate =
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        HandlePlan data ->
+            case data of
+                Success plan ->
+                    let
+                        currentSelectedPlan =
+                            SelectList.selected model.plansAsSelectList
+
+                        newPlan =
+                            SelectList.singleton plan
+
+                        befores =
+                            SelectList.before model.plansAsSelectList
+
+                        afters =
+                            SelectList.after model.plansAsSelectList
+
+                        aftersWithCurrentSelectedPlan =
+                            case planHasId currentSelectedPlan of
+                                True ->
+                                    currentSelectedPlan :: afters
+
+                                False ->
+                                    afters
+
+                        updatedPlans =
+                            newPlan
+                                |> SelectList.prepend befores
+                                |> SelectList.append aftersWithCurrentSelectedPlan
+                    in
+                    { model
+                        | plansAsSelectList = updatedPlans
+                        , isAddingReward = False
+                    }
+                        => Cmd.none
+                        => NoOp
+
+                error ->
+                    let
+                        _ =
+                            Debug.log "error" error
+                    in
+                    ( model, Cmd.none )
+                        => NoOp
+
+        HandleReward data ->
+            case data of
+                Success reward ->
+                    let
+                        currentSelectedReward =
+                            SelectList.selected model.rewardsAsSelectList
+
+                        newReward =
+                            SelectList.singleton reward
+
+                        befores =
+                            SelectList.before model.rewardsAsSelectList
+
+                        afters =
+                            SelectList.after model.rewardsAsSelectList
+
+                        aftersWithCurrentSelectedReward =
+                            case rewardHasId currentSelectedReward of
+                                True ->
+                                    currentSelectedReward :: afters
+
+                                False ->
+                                    afters
+
+                        updatedRewards =
+                            newReward
+                                |> SelectList.prepend befores
+                                |> SelectList.append aftersWithCurrentSelectedReward
+
+                        updatedModel =
+                            { model | rewardsAsSelectList = updatedRewards, description = "", donationLevel = 0.0 }
+                    in
+                    updatedModel
+                        => postPlan updatedModel
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        SaveRewardForm ->
+            case validate model of
+                [] ->
+                    let
+                        newModel =
+                            { model | errors = [] }
+                    in
+                    ( model, postReward model ) => NoOp
+
+                errors ->
+                    { model | errors = errors }
+                        => Cmd.none
+                        => NoOp
+
+        UpdateDonateLevelField str ->
+            let
+                updatedDonateLevel =
+                    case String.toFloat str of
+                        Ok donationLevel ->
+                            donationLevel
+
+                        Err error ->
+                            0.0
+            in
+            ( { model | donationLevel = updatedDonateLevel }, Cmd.none ) => NoOp
+
+        ShowRewardForm ->
+            ( { model | isAddingReward = True }, Cmd.none ) => NoOp
+
+        HandleFetchPlans data ->
+            let
+                plansList =
+                    case data of
+                        Success plans ->
+                            plans.plans
+
+                        _ ->
+                            Plans.default
+                                |> .plans
+
+                ( headPlan, tail ) =
+                    case ListExtra.uncons plansList of
+                        Just ( headPlan, tail ) ->
+                            ( headPlan, tail )
+
+                        Nothing ->
+                            ( Plan.default, [] )
+
+                plansAsSelectList =
+                    SelectList.fromLists [] headPlan tail
+            in
+            ( { model | plansAsSelectList = plansAsSelectList }, Cmd.none ) => NoOp
+
+        HandleDeleteReward data ->
+            case data of
+                Success _ ->
+                    let
+                        befores =
+                            SelectList.before model.rewardsAsSelectList
+
+                        afters =
+                            SelectList.after model.rewardsAsSelectList
+
+                        rewards =
+                            befores ++ afters
+
+                        ( headReward, tail ) =
+                            case ListExtra.uncons rewards of
+                                Just ( headReward, tail ) ->
+                                    ( headReward, tail )
+
+                                Nothing ->
+                                    ( Reward.default, [] )
+
+                        updatedRewards =
+                            SelectList.fromLists [] headReward tail
+
+                        updatedModel =
+                            { model
+                                | rewardsAsSelectList = updatedRewards
+                                , description = ""
+                                , isEditingReward = False
+                            }
+                    in
+                    updatedModel
+                        => Cmd.none
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        SaveUpdateForm ->
+            case validate model of
+                [] ->
+                    let
+                        newModel =
+                            { model | errors = [] }
+                    in
+                    ( model, putPlan model ) => NoOp
+
+                errors ->
+                    { model | errors = errors }
+                        => Cmd.none
+                        => NoOp
+
+        HandlePutReward data ->
+            case data of
+                Success reward ->
+                    let
+                        currentSelectedReward =
+                            SelectList.selected model.rewardsAsSelectList
+
+                        updatedReward =
+                            { currentSelectedReward
+                                | description = reward.description
+                            }
+
+                        befores =
+                            SelectList.before model.rewardsAsSelectList
+
+                        afters =
+                            SelectList.after model.rewardsAsSelectList
+
+                        updatedRewards =
+                            SelectList.singleton updatedReward
+                                |> SelectList.prepend befores
+                                |> SelectList.append afters
+                    in
+                    ( { model | rewardsAsSelectList = updatedRewards, description = "", isEditingReward = False }, Cmd.none )
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        HandlePutPlan data ->
+            case data of
+                Success plan ->
+                    let
+                        currentSelectedPlan =
+                            SelectList.selected model.plansAsSelectList
+
+                        updatedPlan =
+                            { currentSelectedPlan
+                                | amount = plan.amount
+                                , name = plan.name
+                            }
+
+                        befores =
+                            SelectList.before model.plansAsSelectList
+
+                        afters =
+                            SelectList.after model.plansAsSelectList
+
+                        updatedPlans =
+                            SelectList.singleton updatedPlan
+                                |> SelectList.prepend befores
+                                |> SelectList.append afters
+
+                        updatedModel =
+                            { model | plansAsSelectList = updatedPlans }
+                    in
+                    ( updatedModel, putReward updatedModel )
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        HandleDeletePlan data ->
+            case data of
+                Success _ ->
+                    let
+                        selectedPlan =
+                            SelectList.selected model.plansAsSelectList
+
+                        befores =
+                            SelectList.before model.plansAsSelectList
+
+                        afters =
+                            SelectList.after model.plansAsSelectList
+
+                        plans =
+                            befores ++ afters
+
+                        ( headPlan, tail ) =
+                            case ListExtra.uncons plans of
+                                Just ( headPlan, tail ) ->
+                                    ( headPlan, tail )
+
+                                Nothing ->
+                                    ( Plan.default, [] )
+
+                        updatedPlans =
+                            SelectList.fromLists [] headPlan tail
+
+                        updatedModel =
+                            { model
+                                | plansAsSelectList = updatedPlans
+                            }
+                    in
+                    updatedModel
+                        => deleteReward updatedModel
+                        => NoOp
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        DeletePlan rewardId ->
+            let
+                updatedRewards =
+                    SelectList.select (\u -> u.id == rewardId) model.rewardsAsSelectList
+
+                updatedPlans =
+                    SelectList.select (\u -> u.rewardId == rewardId) model.plansAsSelectList
+
+                updatedModel =
+                    { model
+                        | plansAsSelectList = updatedPlans
+                        , rewardsAsSelectList = updatedRewards
+                    }
+            in
+            updatedModel
+                => deletePlan updatedModel
+                => NoOp
+
+        SelectReward rewardId ->
+            let
+                updatedRewards =
+                    SelectList.select (\u -> u.id == rewardId) model.rewardsAsSelectList
+
+                selectedReward =
+                    SelectList.selected updatedRewards
+
+                updatedPlans =
+                    SelectList.select (\u -> u.rewardId == rewardId) model.plansAsSelectList
+
+                selectedPlan =
+                    SelectList.selected updatedPlans
+            in
+            ( { model
+                | rewardsAsSelectList = updatedRewards
+                , isEditingReward = True
+                , description = selectedReward.description
+                , plansAsSelectList = updatedPlans
+              }
+            , Cmd.none
+            )
+                => NoOp
+
+        UpdateDescriptionField str ->
+            let
+                reward =
+                    SelectList.selected model.rewardsAsSelectList
+
+                updatedReward =
+                    { reward | description = str }
+
+                befores =
+                    SelectList.before model.rewardsAsSelectList
+
+                afters =
+                    SelectList.after model.rewardsAsSelectList
+
+                updatedRewards =
+                    SelectList.singleton updatedReward
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | rewardsAsSelectList = updatedRewards, description = str }, Cmd.none ) => NoOp
+
+        HandleFetchRewards rewards ->
+            let
+                rewardsList =
+                    case rewards of
+                        Success rewards ->
+                            rewards.rewards
+
+                        _ ->
+                            Rewards.default
+                                |> .rewards
+
+                ( headReward, tail ) =
+                    case ListExtra.uncons rewardsList of
+                        Just ( headReward, tail ) ->
+                            ( headReward, tail )
+
+                        Nothing ->
+                            ( Reward.default, [] )
+
+                rewardsAsSelectList =
+                    SelectList.fromLists [] headReward tail
+
+                updatedModel =
+                    { model | rewards = rewards, rewardsAsSelectList = rewardsAsSelectList }
+            in
+            ( updatedModel, getPlans updatedModel ) => NoOp
+
         HideConfirmation ->
             let
                 selectedSubscription =
@@ -327,14 +750,17 @@ update msg model =
 
                 selectedCampaign =
                     SelectList.selected updatedCampaigns
+
+                updatedModel =
+                    { model
+                        | yourCampaigns = updatedCampaigns
+                        , isEditingYourCampaigns = True
+                        , longDescription = selectedCampaign.longDescription
+                        , fundingGoal = selectedCampaign.fundingGoal
+                    }
             in
-            ( { model
-                | yourCampaigns = updatedCampaigns
-                , isEditingYourCampaigns = True
-                , longDescription = selectedCampaign.longDescription
-                , fundingGoal = selectedCampaign.fundingGoal
-              }
-            , Cmd.none
+            ( updatedModel
+            , getRewards updatedModel
             )
                 => NoOp
 
@@ -639,14 +1065,181 @@ updateCampaignForm model campaign included =
                 included
                 |> List.head
                 |> Maybe.withDefault Campaigns.includedRepoDefault
+
+        _ =
+            Debug.log "model in updateCampaignForm" model
+
+        displayRewards =
+            if model.isEditingReward then
+                displayUpdateRewards model |> SelectList.toList
+            else
+                displayAllRewards model
     in
+    if model.isAddingReward then
+        div [ class "card" ]
+            [ div [ class "card-content" ]
+                ([ displayCampaignUpdateFormHeader repoForCampaign
+                 , viewErrors model.errors
+                 , displayUpdateLongDescription model
+                 , displayUpdateFundingGoal model
+                 ]
+                    ++ displayRewards
+                    ++ [ displayUpdateButton ]
+                    ++ [ a [ class "link", onClick ShowRewardForm ] [ text "Add Reward" ] ]
+                    ++ [ createRewardForm model ]
+                )
+            ]
+    else
+        div [ class "card" ]
+            [ div [ class "card-content" ]
+                ([ displayCampaignUpdateFormHeader repoForCampaign
+                 , viewErrors model.errors
+                 , displayUpdateLongDescription model
+                 , displayUpdateFundingGoal model
+                 ]
+                    ++ displayRewards
+                    ++ [ displayUpdateButton ]
+                    ++ [ a [ class "link", onClick ShowRewardForm ] [ text "Add Reward" ] ]
+                )
+            ]
+
+
+filterPersistedRewards : List Reward -> List Reward
+filterPersistedRewards rewardList =
+    List.filter rewardHasId rewardList
+
+
+planHasId : Plan -> Bool
+planHasId plan =
+    not (plan.id == "")
+
+
+rewardHasId : Reward -> Bool
+rewardHasId reward =
+    not (reward.id == 0)
+
+
+renderUpdateOrShow : Position -> Reward -> Html Msg
+renderUpdateOrShow position reward =
+    if position == SelectList.Selected then
+        div [ class "card" ]
+            [ div [ class "card-content" ]
+                [ div [ class "field" ]
+                    [ label [ class "label" ]
+                        [ text "Description of reward" ]
+                    , p [ class "control" ]
+                        [ input
+                            [ class "input"
+                            , onInput UpdateDescriptionField
+                            , value reward.description
+                            ]
+                            []
+                        ]
+                    ]
+                , div [ class "field is-grouped" ]
+                    [ p [ class "control" ]
+                        [ button [ class "button is-primary", onClick SaveUpdateForm ]
+                            [ text "Update Reward" ]
+                        ]
+                    ]
+                ]
+            ]
+    else if reward.id == 0 then
+        div [] []
+    else
+        div [ class "card" ]
+            [ div [ class "card-header" ]
+                [ a [ class "card-header-icon", onClick (SelectReward reward.id) ]
+                    [ span [] [ text "edit" ] ]
+                , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
+                    [ span [] [ text "delete" ] ]
+                ]
+            , div [ class "card-content" ]
+                [ label [ class "label" ]
+                    [ text "Donation Level" ]
+                , p [ class "control" ]
+                    [ text (toString reward.donationLevel) ]
+                , label [ class "label" ]
+                    [ text "Description" ]
+                , p []
+                    [ text reward.description ]
+                ]
+            ]
+
+
+displayUpdateRewards : Model -> SelectList (Html Msg)
+displayUpdateRewards model =
+    model.rewardsAsSelectList
+        |> SelectList.mapBy renderUpdateOrShow
+
+
+showReward : Reward -> Html Msg
+showReward reward =
     div [ class "card" ]
-        [ div [ class "card-content" ]
-            [ displayCampaignUpdateFormHeader repoForCampaign
-            , viewErrors model.errors
-            , displayUpdateLongDescription model
-            , displayUpdateFundingGoal model
-            , displayUpdateButton
+        [ div [ class "card-header" ]
+            [ a [ class "card-header-icon", onClick (SelectReward reward.id) ]
+                [ span [] [ text "edit" ] ]
+            , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
+                [ span [] [ text "delete" ] ]
+            ]
+        , div [ class "card-content" ]
+            [ label [ class "label" ]
+                [ text "Donation Level" ]
+            , p [ class "control" ]
+                [ text (toString reward.donationLevel) ]
+            , label [ class "label" ]
+                [ text "Description" ]
+            , p []
+                [ text reward.description ]
+            ]
+        ]
+
+
+hasRewardId : Reward -> Bool
+hasRewardId reward =
+    not (reward.id == 0)
+
+
+displayAllRewards : Model -> List (Html Msg)
+displayAllRewards model =
+    let
+        rewards =
+            model.rewardsAsSelectList
+                |> SelectList.toList
+                |> List.filter hasRewardId
+    in
+    List.map (\reward -> showReward reward) rewards
+
+
+updateRewardForm : Reward -> List (Html Msg)
+updateRewardForm reward =
+    [ updateRewardFormDonationLevel reward
+    , updateRewardFormDescription reward
+    ]
+
+
+updateRewardFormDonationLevel : Reward -> Html Msg
+updateRewardFormDonationLevel reward =
+    div [ class "field" ]
+        [ label [ class "label" ]
+            [ text "Donation Level" ]
+        , p [ class "control" ]
+            [ text (toString reward.donationLevel) ]
+        ]
+
+
+updateRewardFormDescription : Reward -> Html Msg
+updateRewardFormDescription reward =
+    div [ class "field" ]
+        [ label [ class "label" ]
+            [ text "Description of reward" ]
+        , p [ class "control" ]
+            [ input
+                [ class "input"
+                , onInput UpdateDescriptionField
+                , value reward.description
+                ]
+                []
             ]
         ]
 
@@ -956,6 +1549,47 @@ showCampaignYouContributedTo campaign =
         ]
 
 
+createRewardForm : Model -> Html Msg
+createRewardForm model =
+    div []
+        [ viewErrors model.errors
+        , div [ class "field" ]
+            [ label [ class "label" ]
+                [ text "Donation Amount" ]
+            , p [ class "control has-icons-left" ]
+                [ input
+                    [ class "input"
+                    , Html.Attributes.type_ "number"
+                    , onInput UpdateDonateLevelField
+                    , value (toString model.donationLevel)
+                    ]
+                    []
+                , span [ class "icon is-left" ]
+                    [ i [ class "fas fa-money-bill-alt" ] []
+                    ]
+                ]
+            ]
+        , div [ class "field" ]
+            [ label [ class "label" ]
+                [ text "Description of reward" ]
+            , p [ class "control" ]
+                [ input
+                    [ class "input"
+                    , onInput UpdateDescriptionField
+                    , value model.description
+                    ]
+                    []
+                ]
+            ]
+        , div [ class "field is-grouped" ]
+            [ p [ class "control" ]
+                [ button [ class "button is-primary", onClick SaveRewardForm ]
+                    [ text "Create Reward" ]
+                ]
+            ]
+        ]
+
+
 deleteCampaign : Model -> Cmd Msg
 deleteCampaign model =
     let
@@ -1020,3 +1654,152 @@ ifZero error subject =
                     [ error ]
     in
     errors
+
+
+getRewards : Model -> Cmd Msg
+getRewards model =
+    let
+        selectedCampaign =
+            SelectList.selected model.yourCampaigns
+
+        selectedCampaignId =
+            selectedCampaign
+                |> .id
+                |> toString
+
+        updatedUrl =
+            model.apiUrl ++ "/rewards/?campaign_id=" ++ (selectedCampaign.id |> toString)
+    in
+    RemoteData.Http.getWithConfig (Auth.config model.token) updatedUrl HandleFetchRewards Rewards.decoder
+
+
+deletePlan : Model -> Cmd Msg
+deletePlan model =
+    let
+        selectedPlan =
+            SelectList.selected model.plansAsSelectList
+
+        planUrl =
+            model.apiUrl ++ "/plans/" ++ selectedPlan.id
+
+        selectedReward =
+            model.rewardsAsSelectList
+                |> SelectList.selected
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) planUrl HandleDeletePlan (Encode.object [])
+
+
+deleteReward : Model -> Cmd Msg
+deleteReward model =
+    let
+        selectedReward =
+            SelectList.selected model.rewardsAsSelectList
+
+        rewardUrl =
+            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteReward (Encode.object [])
+
+
+putReward : Model -> Cmd Msg
+putReward model =
+    let
+        selectedCampaign =
+            SelectList.selected model.yourCampaigns
+
+        selectedReward =
+            SelectList.selected model.rewardsAsSelectList
+
+        rewardUrl =
+            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+
+        data =
+            { description = model.description
+            , campaignId = selectedCampaign.id
+            }
+    in
+    RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutReward Reward.showDecoder (Reward.updateEncode data)
+
+
+putPlan : Model -> Cmd Msg
+putPlan model =
+    let
+        selectedReward =
+            SelectList.selected model.rewardsAsSelectList
+
+        selectedPlan =
+            SelectList.selected model.plansAsSelectList
+
+        planUrl =
+            model.apiUrl ++ "/plans/" ++ selectedPlan.id
+
+        data =
+            { interval = "month"
+            , name = selectedReward.description
+            , currency = "usd"
+            , rewardId = selectedReward.id
+            }
+    in
+    RemoteData.Http.putWithConfig (Auth.config model.token) planUrl HandlePutPlan Plan.showDecoder (Plan.updateEncode data)
+
+
+getPlans : Model -> Cmd Msg
+getPlans model =
+    let
+        selectedCampaign =
+            SelectList.selected model.yourCampaigns
+
+        selectedCampaignId =
+            selectedCampaign
+                |> .id
+                |> toString
+
+        apiUrl =
+            model.apiUrl
+
+        token =
+            model.token
+
+        reposUrl =
+            apiUrl ++ "/plans/" ++ "?campaign_id=" ++ selectedCampaignId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchPlans Plans.decoder
+
+
+postReward : Model -> Cmd Msg
+postReward model =
+    let
+        selectedCampaign =
+            SelectList.selected model.yourCampaigns
+
+        rewardUrl =
+            model.apiUrl ++ "/rewards"
+
+        data =
+            { description = model.description
+            , donationLevel = model.donationLevel
+            , campaignId = selectedCampaign.id
+            }
+    in
+    RemoteData.Http.postWithConfig (Auth.config model.token) rewardUrl HandleReward Reward.showDecoder (Reward.encode data)
+
+
+postPlan : Model -> Cmd Msg
+postPlan model =
+    let
+        planUrl =
+            model.apiUrl ++ "/plans"
+
+        selectedReward =
+            model.rewardsAsSelectList
+                |> SelectList.selected
+
+        data =
+            { amount = selectedReward.donationLevel
+            , interval = "month"
+            , name = selectedReward.description
+            , currency = "usd"
+            , rewardId = selectedReward.id
+            }
+    in
+    RemoteData.Http.postWithConfig (Auth.config model.token) planUrl HandlePlan Plan.showDecoder (Plan.encode data)
