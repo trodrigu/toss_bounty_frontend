@@ -699,13 +699,15 @@ update msg model =
                         => Cmd.none
                         => NoOp
 
-        DeleteCampaign rewardId ->
+        DeleteCampaign campaignId ->
             let
                 updatedCampaigns =
-                    SelectList.select (\u -> u.id == rewardId) model.yourCampaigns
+                    SelectList.select (\u -> u.id == campaignId) model.yourCampaigns
 
                 updatedModel =
-                    { model | yourCampaigns = updatedCampaigns }
+                    { model
+                        | yourCampaigns = updatedCampaigns
+                    }
             in
             ( updatedModel, deleteCampaign updatedModel ) => NoOp
 
