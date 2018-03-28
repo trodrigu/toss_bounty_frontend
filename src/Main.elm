@@ -335,10 +335,6 @@ setRoute maybeRoute model =
 
                         NotAsked ->
                             let
-                                _ =
-                                    Debug.log "campaignId" campaignId
-                            in
-                            let
                                 token =
                                     user.token
 
