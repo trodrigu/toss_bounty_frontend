@@ -177,6 +177,9 @@ type Msg
     | UpdateDonateLevelField String
     | HandleReward (WebData Reward)
     | HandlePlan (WebData Plan)
+    | HandleDeleteRewards (WebData String)
+    | HandleDeletePlans (WebData String)
+    | HandleGetPlansForDeletion (WebData Plans)
 
 
 type ExternalMsg
@@ -194,6 +197,33 @@ validate =
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        HandleGetPlansForDeletion data ->
+            let
+                plansList =
+                    case data of
+                        Success plans ->
+                            plans.plans
+
+                        _ ->
+                            Plans.default
+                                |> .plans
+
+                ( headPlan, tail ) =
+                    case ListExtra.uncons plansList of
+                        Just ( headPlan, tail ) ->
+                            ( headPlan, tail )
+
+                        Nothing ->
+                            ( Plan.default, [] )
+
+                plansAsSelectList =
+                    SelectList.fromLists [] headPlan tail
+
+                updatedModel =
+                    { model | plansAsSelectList = plansAsSelectList }
+            in
+            ( updatedModel, deletePlans updatedModel ) => NoOp
+
         HandlePlan data ->
             case data of
                 Success plan ->
@@ -448,6 +478,110 @@ update msg model =
                     ( model, Cmd.none )
                         => NoOp
 
+        HandleDeleteRewards data ->
+            case data of
+                Success _ ->
+                    let
+                        selectedReward =
+                            SelectList.selected model.rewardsAsSelectList
+
+                        befores =
+                            SelectList.before model.rewardsAsSelectList
+
+                        afters =
+                            SelectList.after model.rewardsAsSelectList
+
+                        rewards =
+                            befores ++ afters
+
+                        modelAndCmd =
+                            case ListExtra.uncons rewards of
+                                Just ( headReward, tail ) ->
+                                    let
+                                        updatedRewards =
+                                            SelectList.fromLists [] headReward tail
+
+                                        updatedModel =
+                                            { model
+                                                | rewardsAsSelectList = updatedRewards
+                                            }
+                                    in
+                                    updatedModel
+                                        => deleteRewards updatedModel
+                                        => NoOp
+
+                                Nothing ->
+                                    let
+                                        updatedRewards =
+                                            SelectList.fromLists [] Reward.default []
+
+                                        updatedModel =
+                                            { model
+                                                | rewardsAsSelectList = updatedRewards
+                                            }
+                                    in
+                                    updatedModel
+                                        => deleteCampaign updatedModel
+                                        => NoOp
+                    in
+                    modelAndCmd
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
+        HandleDeletePlans data ->
+            case data of
+                Success _ ->
+                    let
+                        selectedPlan =
+                            SelectList.selected model.plansAsSelectList
+
+                        befores =
+                            SelectList.before model.plansAsSelectList
+
+                        afters =
+                            SelectList.after model.plansAsSelectList
+
+                        plans =
+                            befores ++ afters
+
+                        modelAndCmd =
+                            case ListExtra.uncons plans of
+                                Just ( headPlan, tail ) ->
+                                    let
+                                        updatedPlans =
+                                            SelectList.fromLists [] headPlan tail
+
+                                        updatedModel =
+                                            { model
+                                                | plansAsSelectList = updatedPlans
+                                            }
+                                    in
+                                    updatedModel
+                                        => deletePlans updatedModel
+                                        => NoOp
+
+                                Nothing ->
+                                    let
+                                        updatedPlans =
+                                            SelectList.fromLists [] Plan.default []
+
+                                        updatedModel =
+                                            { model
+                                                | plansAsSelectList = updatedPlans
+                                            }
+                                    in
+                                    updatedModel
+                                        => deleteCampaign updatedModel
+                                        => NoOp
+                    in
+                    modelAndCmd
+
+                _ ->
+                    ( model, Cmd.none )
+                        => NoOp
+
         HandleDeletePlan data ->
             case data of
                 Success _ ->
@@ -490,6 +624,9 @@ update msg model =
 
         DeletePlan rewardId ->
             let
+                _ =
+                    Debug.log "rewardId in DeletePlan" rewardId
+
                 updatedRewards =
                     SelectList.select (\u -> u.id == rewardId) model.rewardsAsSelectList
 
@@ -709,7 +846,7 @@ update msg model =
                         | yourCampaigns = updatedCampaigns
                     }
             in
-            ( updatedModel, deleteCampaign updatedModel ) => NoOp
+            ( updatedModel, getPlansForDeletion updatedModel ) => NoOp
 
         ShowConfirmation subscriptionId ->
             let
@@ -1805,3 +1942,55 @@ postPlan model =
             }
     in
     RemoteData.Http.postWithConfig (Auth.config model.token) planUrl HandlePlan Plan.showDecoder (Plan.encode data)
+
+
+deletePlans : Model -> Cmd Msg
+deletePlans model =
+    let
+        plan =
+            model.plansAsSelectList
+                |> SelectList.selected
+
+        planUrl =
+            model.apiUrl ++ "/plans/" ++ plan.id
+
+        _ =
+            Debug.log "planUrl" planUrl
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) planUrl HandleDeletePlans (Encode.object [])
+
+
+deleteRewards : Model -> Cmd Msg
+deleteRewards model =
+    let
+        selectedReward =
+            model.rewardsAsSelectList
+                |> SelectList.selected
+
+        rewardUrl =
+            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+    in
+    RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteRewards (Encode.object [])
+
+
+getPlansForDeletion : Model -> Cmd Msg
+getPlansForDeletion model =
+    let
+        selectedCampaign =
+            SelectList.selected model.yourCampaigns
+
+        selectedCampaignId =
+            selectedCampaign
+                |> .id
+                |> toString
+
+        apiUrl =
+            model.apiUrl
+
+        token =
+            model.token
+
+        reposUrl =
+            apiUrl ++ "/plans/" ++ "?campaign_id=" ++ selectedCampaignId
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleGetPlansForDeletion Plans.decoder
