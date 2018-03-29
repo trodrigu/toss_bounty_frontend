@@ -119,7 +119,7 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         RedirectDiscover ->
-            ( model, Cmd.none ) => RefreshCampaigns
+            ( model, Router.modifyUrl Router.DiscoverRoute ) => NoOp
 
         MakeSubscription ->
             ( model, postToken model ) => NoOp
@@ -528,8 +528,8 @@ getPlan model =
         token =
             model.token
 
-        reposUrl =
-            apiUrl ++ "/plans/" ++ planId
+        planUrl =
+            apiUrl ++ "/plans/" ++ toString planId
 
         rewardOfInterest =
             case model.rewardOfInterest of
@@ -542,7 +542,7 @@ getPlan model =
         planId =
             rewardOfInterest.planId
     in
-    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchPlan Plan.showDecoder
+    RemoteData.Http.getWithConfig (Auth.config token) planUrl HandleFetchPlan Plan.showDecoder
 
 
 getReward : Model -> Int -> Cmd Msg

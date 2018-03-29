@@ -9,7 +9,7 @@ type alias Reward =
     { id : Int
     , description : String
     , donationLevel : Float
-    , planId : String
+    , planId : Int
     }
 
 
@@ -88,7 +88,7 @@ showDecoder =
         |> requiredAt [ "data", "id" ] rewardIdDecoder
         |> requiredAt [ "data", "attributes", "description" ] Decode.string
         |> requiredAt [ "data", "attributes", "donation-level" ] Decode.float
-        |> optionalAt [ "data", "relationships", "plan", "data", "id" ] Decode.string ""
+        |> optionalAt [ "data", "relationships", "plan", "data", "id" ] planIdDecoder 0
 
 
 indexDecoder : Decoder Reward
@@ -97,7 +97,13 @@ indexDecoder =
         |> requiredAt [ "id" ] rewardIdDecoder
         |> requiredAt [ "attributes", "description" ] Decode.string
         |> requiredAt [ "attributes", "donation-level" ] Decode.float
-        |> optionalAt [ "relationships", "data", "plan", "id" ] Decode.string ""
+        |> optionalAt [ "attributes", "plan-id" ] Decode.int 0
+
+
+planIdDecoder : Decoder Int
+planIdDecoder =
+    Decode.string
+        |> map (\planId -> String.toInt planId |> Result.withDefault 0)
 
 
 default : Reward
@@ -105,5 +111,5 @@ default =
     { id = 0
     , donationLevel = 0.0
     , description = "Give love :)"
-    , planId = ""
+    , planId = 0
     }

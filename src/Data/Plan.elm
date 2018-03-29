@@ -92,7 +92,7 @@ showDecoder =
         |> requiredAt [ "data", "attributes", "interval" ] Decode.string
         |> requiredAt [ "data", "attributes", "name" ] Decode.string
         |> requiredAt [ "data", "attributes", "currency" ] Decode.string
-        |> optionalAt [ "data", "relationships", "reward", "data", "id" ] Decode.int 0
+        |> optionalAt [ "data", "attributes", "reward-id" ] Decode.int 0
 
 
 indexDecoder : Decoder Plan
