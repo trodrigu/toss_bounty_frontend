@@ -846,8 +846,8 @@ updatePage page msg model =
                         Contribute.NoOp ->
                             { model | page = Contribute pageModel }
 
-                        Contribute.SyncSubscriptions ->
-                            { model | page = Contribute pageModel, yourSubscriptions = NotAsked, yourSubscribedPlans = NotAsked }
+                        Contribute.Sync ->
+                            { model | page = Contribute pageModel, yourSubscriptions = NotAsked, yourSubscribedPlans = NotAsked, allCampaigns = NotAsked }
             in
             newModel => Cmd.map ContributeMsg cmd
 

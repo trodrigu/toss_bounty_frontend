@@ -112,14 +112,14 @@ type Msg
 
 type ExternalMsg
     = NoOp
-    | SyncSubscriptions
+    | Sync
 
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         RedirectDiscover ->
-            ( model, Router.modifyUrl Router.DiscoverRoute ) => NoOp
+            ( model, Cmd.none ) => RefreshCampaigns
 
         MakeSubscription ->
             ( model, postToken model ) => NoOp
@@ -172,7 +172,7 @@ update msg model =
                 updatedModel =
                     { model | subscription = data }
             in
-            ( updatedModel, Cmd.none ) => SyncSubscriptions
+            ( updatedModel, Cmd.none ) => Sync
 
         SelectReward Nothing ->
             ( model, Cmd.none ) => NoOp
