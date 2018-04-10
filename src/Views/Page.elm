@@ -12,7 +12,7 @@ type ActivePage
     | StripeConnectSignUp
     | Dash
     | Login
-    | BetaSignUp
+    | About
     | CreateCampaign
     | CreateRewards
     | TosserSignUp
@@ -102,6 +102,10 @@ footerArea page =
                         ]
                     , a [ class "link", Router.href CreateUserRoleRoute ]
                         [ text "Start a campaign!" ]
+                    , p []
+                        [ a [ class "link", Router.href AboutRoute ]
+                            [ text "About" ]
+                        ]
                     ]
 
                 Discover ->
@@ -116,6 +120,10 @@ footerArea page =
                         ]
                     , a [ class "link", Router.href CreateUserRoleRoute ]
                         [ text "Start a campaign!" ]
+                    , p []
+                        [ a [ class "link", Router.href AboutRoute ]
+                            [ text "About" ]
+                        ]
                     ]
 
                 _ ->

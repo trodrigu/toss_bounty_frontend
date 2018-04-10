@@ -17,7 +17,7 @@ type Route
     | CreateCampaignRoute
     | CreateRewardsRoute
     | LoginRoute
-    | BetaSignUpRoute
+    | AboutRoute
     | SaveTokenRoute (Maybe String) (Maybe String) (Maybe String)
     | SaveStripeRoute (Maybe String)
     | DiscoverRoute
@@ -68,8 +68,8 @@ routeToString page =
                 SaveStripeRoute _ ->
                     [ "save-stripe" ]
 
-                BetaSignUpRoute ->
-                    [ "poop" ]
+                AboutRoute ->
+                    [ "about" ]
 
                 TosserSignUpRoute ->
                     [ "tosser-sign-up" ]
@@ -116,7 +116,7 @@ routeToString page =
 routeParser : UrlParser.Parser (Route -> a) a
 routeParser =
     UrlParser.oneOf
-        -- [ UrlParser.map BetaSignUpRoute UrlParser.top
+        -- [ UrlParser.map AboutRoute UrlParser.top
         -- The home route will be the base after beta
         [ UrlParser.map HomeRoute (UrlParser.s "home")
         , UrlParser.map TosserSignUpRoute (UrlParser.s "tosser-sign-up")
@@ -127,12 +127,13 @@ routeParser =
         , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" <?> UrlParser.stringParam "user_id")
         , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> UrlParser.stringParam "stripe_id")
         , UrlParser.map LoginRoute (UrlParser.s "login")
-        , UrlParser.map BetaSignUpRoute (UrlParser.s "beta-sign-up")
+        , UrlParser.map AboutRoute (UrlParser.s "about")
         , UrlParser.map DiscoverRoute (UrlParser.s "discover")
         , UrlParser.map ContributeRoute (UrlParser.s "contribute" </> UrlParser.int)
         , UrlParser.map CreateUserRoleRoute (UrlParser.s "get-user-type")
         , UrlParser.map LogoutRoute (UrlParser.s "logout")
         , UrlParser.map GithubOopsRoute (UrlParser.s "github-oops")
+        , UrlParser.map AboutRoute (UrlParser.s "about")
         ]
 
 

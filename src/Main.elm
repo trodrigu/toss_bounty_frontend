@@ -18,7 +18,7 @@ import Html.Attributes exposing (class, style)
 import Json.Decode as Decode exposing (Decoder, Value)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, requiredAt)
 import Navigation exposing (Location)
-import Pages.BetaSignUp as BetaSignUp
+import Pages.About as About
 import Pages.Contribute as Contribute
 import Pages.CreateCampaign as CreateCampaign
 import Pages.CreateRewards as CreateRewards
@@ -48,7 +48,7 @@ type Page
     | Contribute Contribute.Model
     | Dash Dash.Model
     | Login Login.Model
-    | BetaSignUp BetaSignUp.Model
+    | About About.Model
     | StripeConnectSignUp StripeConnectSignUp.Model
     | CreateCampaign CreateCampaign.Model
     | CreateRewards CreateRewards.Model
@@ -86,7 +86,7 @@ type Msg
     | DashMsg Dash.Msg
     | LoginMsg Login.Msg
     | GithubOopsMsg GithubOops.Msg
-    | BetaSignUpMsg BetaSignUp.Msg
+    | AboutMsg About.Msg
     | CreateCampaignMsg CreateCampaign.Msg
     | CreateRewardsMsg CreateRewards.Msg
     | StripeConnectSignUpMsg StripeConnectSignUp.Msg
@@ -169,8 +169,8 @@ routeToString page =
                 SaveStripeRoute _ ->
                     [ "save-stripe" ]
 
-                BetaSignUpRoute ->
-                    [ "poop" ]
+                AboutRoute ->
+                    [ "about" ]
 
                 TosserSignUpRoute ->
                     [ "tosser-sign-up" ]
@@ -224,10 +224,10 @@ modifyUrl page =
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     case maybeRoute of
-        Just Router.BetaSignUpRoute ->
+        Just Router.AboutRoute ->
             let
                 updatedPage =
-                    Home Home.init
+                    About About.init
             in
             { model | page = updatedPage } => Cmd.none
 
@@ -956,17 +956,17 @@ updatePage page msg model =
             in
             { newModel | page = TosserSignUp pageModel } => Cmd.map TosserSignUpMsg cmd
 
-        ( BetaSignUpMsg subMsg, BetaSignUp subModel ) ->
+        ( AboutMsg subMsg, About subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
-                    BetaSignUp.update subMsg subModel
+                    About.update subMsg subModel
 
                 newModel =
                     case msgFromPage of
-                        BetaSignUp.NoOp ->
+                        About.NoOp ->
                             model
             in
-            { model | page = BetaSignUp pageModel } => Cmd.map BetaSignUpMsg cmd
+            { model | page = About pageModel } => Cmd.map AboutMsg cmd
 
         ( LoginMsg subMsg, Login subModel ) ->
             let
@@ -1224,10 +1224,10 @@ pageView session page =
                     |> frame Page.Dash
                     |> Html.map DashMsg
 
-            BetaSignUp subModel ->
-                BetaSignUp.view subModel
-                    |> frame Page.BetaSignUp
-                    |> Html.map BetaSignUpMsg
+            About subModel ->
+                About.view subModel
+                    |> frame Page.About
+                    |> Html.map AboutMsg
 
             Login subModel ->
                 Login.view subModel

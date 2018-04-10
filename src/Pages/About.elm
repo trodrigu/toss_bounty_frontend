@@ -1,4 +1,4 @@
-module Pages.BetaSignUp exposing (..)
+module Pages.About exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -15,7 +15,7 @@ import Validate exposing (ifBlank)
 
 type Msg
     = UpdateEmailField String
-    | ShowBetaSignUp
+    | ShowAbout
 
 
 type ExternalMsg
@@ -33,7 +33,7 @@ type Field
 
 type alias Model =
     { subscriber : Subscriber
-    , showBetaSignUp : Bool
+    , showAbout : Bool
     , errors : List Error
     }
 
@@ -45,14 +45,14 @@ type alias Subscriber =
 init : Model
 init =
     { subscriber = { email = "" }
-    , showBetaSignUp = False
+    , showAbout = False
     , errors = []
     }
 
 
 view : Model -> Html Msg
 view model =
-    betaSignUpForm model
+    aboutForm model
 
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
@@ -61,15 +61,15 @@ update msg model =
         UpdateEmailField str ->
             ( { model | subscriber = { email = str } }, Cmd.none ) => NoOp
 
-        ShowBetaSignUp ->
-            ( { model | showBetaSignUp = True }, Cmd.none ) => NoOp
+        ShowAbout ->
+            ( { model | showAbout = True }, Cmd.none ) => NoOp
 
 
-betaSignUpForm : Model -> Html Msg
-betaSignUpForm model =
+aboutForm : Model -> Html Msg
+aboutForm model =
     let
-        betaSignUp =
-            if model.showBetaSignUp then
+        about =
+            if model.showAbout then
                 section [ class "hero" ]
                     [ div [ id "mc_embed_signup", class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
                         [ div [ class "columns" ]
@@ -112,8 +112,8 @@ betaSignUpForm model =
                 section [ class "hero" ]
                     [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
                         [ div [ class "container" ]
-                            [ div [ class "columns is-vcentered" ]
-                                [ div [ class "column has-text-centered" ]
+                            [ div [ class "columns" ]
+                                [ div [ class "column is-offset-one-third is-one-third" ]
                                     [ p [ class "title" ]
                                         [ text "For developers" ]
                                     , p [ class "subtitle" ]
@@ -131,15 +131,10 @@ betaSignUpForm model =
                                     , p []
                                         [ text "You are free to tweak this page and add rewards for your awesome donors." ]
                                     , p []
-                                        [ text "TossBounty will outline some good "
-                                        , strong [] [ text " rewards to offer!" ]
+                                        [ text "TossBounty only takes a small fee of 10% from your subscriptions."
                                         ]
-                                    , p []
-                                        [ text "It only takes "
-                                        , strong [] [ text " 30 days." ]
-                                        ]
-                                    , button [ class "button is-primary is-large", style [ ( "margin-top", "1rem" ) ], onClick ShowBetaSignUp ]
-                                        [ text "Stay Indie" ]
+                                    , button [ class "button is-primary is-large", style [ ( "margin-top", "1rem" ) ], onClick ShowAbout ]
+                                        [ text "Subscribe" ]
                                     ]
                                 ]
                             ]
@@ -147,7 +142,7 @@ betaSignUpForm model =
                     ]
     in
     div []
-        [ betaSignUp ]
+        [ about ]
 
 
 viewErrors : List ( a, String ) -> Html msg
