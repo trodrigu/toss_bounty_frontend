@@ -107,6 +107,20 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
+    let
+        radioButtons =
+            case model.user.role of
+                2 ->
+                    [ radio " I maintain projects and want to contribute money." (SwitchTo Both)
+                    , radio " I maintain projects." (SwitchTo Maintainer)
+                    ]
+
+                _ ->
+                    [ radio " I maintain projects and want to contribute money." (SwitchTo Both)
+                    , radio " I maintain projects." (SwitchTo Maintainer)
+                    , radio " I just want to contribute money." (SwitchTo Contributor)
+                    ]
+    in
     section [ class "hero is-primary is-bold is-large" ]
         [ div
             [ class "hero-body" ]
@@ -116,10 +130,7 @@ view model =
                     ]
                 , div [ class "field" ]
                     [ div [ class "control" ]
-                        [ radio " I maintain a project" (SwitchTo Maintainer)
-                        , radio " I just want to contribute money $$" (SwitchTo Contributor)
-                        , radio " Both" (SwitchTo Both)
-                        ]
+                        radioButtons
                     ]
                 , div [ class "field is-grouped" ]
                     [ p [ class "control" ]
