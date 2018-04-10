@@ -1043,7 +1043,7 @@ updatePage page msg model =
                     { model | stripeConnectUrl = data }
             in
             ( { updatedModel | page = StripeConnectSignUp { url = data } }
-            , Cmd.map HandleMsg (getRepos model.apiUrl token)
+            , Cmd.map HandleMsg (getRepos model.apiUrl token updatedUser.userId)
             )
 
         ( HandleMsg (HandleFetchRepos data), _ ) ->
@@ -1332,8 +1332,8 @@ fetchYourCampaignsForRewards apiUrl token userId =
     RemoteData.Http.getWithConfig (Auth.config token) campaignUrl HandleFetchCampaignsForRewards Campaigns.decoder
 
 
-getRepos : Maybe String -> AuthToken -> Cmd HandleMsg
-getRepos apiUrl token =
+getRepos : Maybe String -> AuthToken -> String -> Cmd HandleMsg
+getRepos apiUrl token userId =
     let
         reposUrl =
             case apiUrl of
@@ -1341,7 +1341,7 @@ getRepos apiUrl token =
                     ""
 
                 Just url ->
-                    url ++ "/github_repos"
+                    url ++ "/github_repos?user_id=" ++ userId
     in
     RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchRepos Repos.decoder
 
