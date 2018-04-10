@@ -75,6 +75,12 @@ viewSignIn page user =
                     [ text
                         "Logout"
                     ]
+                , p [ class "nav-item" ]
+                    [ text
+                        ("Hello, "
+                            ++ user.email
+                        )
+                    ]
                 ]
             ]
 
