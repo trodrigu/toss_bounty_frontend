@@ -543,7 +543,7 @@ setRoute maybeRoute model =
                                     yourCampaigns
 
                                 _ ->
-                                    Campaigns [] []
+                                    Campaigns.default
 
                         campaignsSorted =
                             yourCampaigns.campaigns
@@ -1456,8 +1456,11 @@ getCampaigns apiUrl token =
                 Just url ->
                     url
 
+        page_size = 4
+        page = 1
+
         campaignsUrl =
-            updatedApiUrl ++ "/campaigns/"
+            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ ( toString page_size ) ++ "&page=" ++ ( toString page )
     in
     RemoteData.Http.getWithConfig (Auth.config token) campaignsUrl HandleFetchAllCampaigns Campaigns.decoder
 

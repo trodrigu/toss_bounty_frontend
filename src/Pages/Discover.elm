@@ -2,7 +2,7 @@ module Pages.Discover exposing (..)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, defaultDate)
-import Data.Campaigns as Campaigns exposing (Campaigns, IncludedStuff(..), includedRepoDefault)
+import Data.Campaigns as Campaigns exposing (Campaigns, IncludedStuff(..), includedRepoDefault, default)
 import Data.Repo as Repo exposing (Repo)
 import Data.Rewards as Rewards exposing (Rewards, decoder)
 import Data.User as User exposing (User, decoder)
@@ -36,6 +36,8 @@ init token apiUrl campaigns =
     , apiUrl = url
     , showForm = False
     , user = NotAsked
+    , pageNumber = 1
+    , pageSize = 4
     }
 
 
@@ -45,6 +47,8 @@ type alias Model =
     , apiUrl : String
     , showForm : Bool
     , user : WebData User
+    , pageNumber : Int
+    , pageSize : Int
     }
 
 
@@ -53,6 +57,7 @@ type Msg
     | HandleFetchAllCampaigns (WebData Campaigns)
     | GetCampaigns
     | HandleFetchUser (WebData User)
+    | UpdatePage Int
 
 
 type ExternalMsg
@@ -62,11 +67,20 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        UpdatePage pageNumber ->
+            let
+                updatedModel = { model | pageNumber = pageNumber }
+            in
+            ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
+
         HandleFetchUser updatedUser ->
-            ( { model | user = updatedUser }, Cmd.none ) => NoOp
+            let
+                updatedModel = { model | user = updatedUser }
+            in
+            ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
 
         GetCampaigns ->
-            ( { model | campaigns = Loading }, fetchAllCampaigns model.apiUrl model.token ) => NoOp
+            ( { model | campaigns = Loading }, fetchAllCampaigns model ) => NoOp
 
         HandleFetchAllCampaigns data ->
             ( { model | campaigns = data }, Cmd.none ) => NoOp
@@ -111,7 +125,44 @@ view model =
                      ]
                         ++ campaignsWithColumnsWrapper
                     )
+                , nav [ class "pagination" ]
+                    [ a [ class "pagination-previous" ]
+                          [ text "Previous"]
+                    , a [ class "pagination-next" ]
+                        [ text "Next page"]
+                    , ul [ class "pagination-list" ]
+                        ( renderPageNumbers model )
+                    ]
                 ]
+
+renderPageNumbers : Model -> List ( Html Msg )
+renderPageNumbers model =
+    let
+        _ =
+            Debug.log "campaigns" model.campaigns
+
+        campaigns =
+            case model.campaigns of
+
+                Success campaigns ->
+                    campaigns
+
+                _ ->
+                    Campaigns.default
+
+
+        pageRange =
+            List.range 1 campaigns.total_pages
+
+    in
+    List.map ( \pageNumber -> renderPageNumber pageNumber model.pageNumber ) pageRange
+
+renderPageNumber : Int -> Int -> Html Msg
+renderPageNumber pageNumber currentPageNumber =
+    if pageNumber == currentPageNumber then
+      li [ class "pagination-link is-current" ] [ text ( toString pageNumber ) ]
+    else
+      li [ class "pagination-link", onClick ( UpdatePage pageNumber ) ] [ text ( toString pageNumber ) ]
 
 
 showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
@@ -254,11 +305,18 @@ formatDateTime campaign =
     year ++ "-" ++ month ++ "-" ++ day
 
 
-fetchAllCampaigns : String -> AuthToken -> Cmd Msg
-fetchAllCampaigns apiUrl token =
+fetchAllCampaigns : Model -> Cmd Msg
+fetchAllCampaigns model =
     let
+        pageSize = model.pageSize
+
+        pageNumber = model.pageNumber
+
         updatedUrl =
-            apiUrl ++ "/campaigns"
+            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ (toString model.pageSize ) ++ "&page=" ++ toString model.pageNumber
+
+        token =
+            model.token
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchAllCampaigns Campaigns.decoder
 

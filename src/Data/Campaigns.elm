@@ -1,4 +1,4 @@
-module Data.Campaigns exposing (Campaigns, IncludedRepo, IncludedStuff(..), decoder, includedRepoDefault)
+module Data.Campaigns exposing (Campaigns, IncludedRepo, IncludedStuff(..), decoder, includedRepoDefault, default)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, decoder, fallback, init)
 import Data.Campaign as Campaign exposing (Campaign, indexDecoder)
@@ -12,6 +12,8 @@ import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
 type alias Campaigns =
     { included : List IncludedStuff
     , campaigns : List Campaign
+    , total_pages : Int
+    , page_number : Int
     }
 
 
@@ -20,6 +22,8 @@ decoder =
     decode Campaigns
         |> optionalAt [ "included" ] (Decode.list includedDecoder) []
         |> optionalAt [ "data" ] (Decode.list Campaign.indexDecoder) []
+        |> optionalAt [ "meta", "total_pages" ] Decode.int 0
+        |> optionalAt [ "meta", "page_number" ] Decode.int 0
 
 
 type IncludedStuff
@@ -78,3 +82,7 @@ userIncludedDecoder =
         |> requiredAt [ "attributes", "email" ] Decode.string
         |> optionalAt [ "attributes", "user_id" ] Decode.string ""
         |> optionalAt [ "attributes", "stripe-external-id" ] Decode.string ""
+
+default : Campaigns
+default =
+    { included = [], campaigns = [], total_pages = 0, page_number = 0   }
