@@ -7,7 +7,7 @@ import Data.Repo as Repo exposing (Repo)
 import Data.Rewards as Rewards exposing (Rewards, decoder)
 import Data.User as User exposing (User, decoder)
 import Html exposing (..)
-import Html.Attributes exposing (action, class, id, method, src, style)
+import Html.Attributes exposing (action, class, id, method, src, style, placeholder, type_)
 import Html.Events exposing (onClick, onInput)
 import List.Extra as ListExtra exposing (greedyGroupsOf)
 import Ports exposing (createStripeElement)
@@ -167,11 +167,25 @@ view model =
             section [ class "section" ]
                 [ div [ class "container" ]
                     ([ h1 [ class "title" ] [ text "Discover Campaigns" ]
+                     , renderSearchBar model
                      ]
                         ++ campaignsWithColumnsWrapper
                         ++ navWithPageNumbers model
                     )
                 ]
+
+renderSearchBar : Model -> Html Msg
+renderSearchBar model =
+    div [ class "field has-addons" ]
+        [ div [ class "control" ]
+              [ input [ class "input", type_ "text", placeholder "Find a repository"]
+                      []
+              ]
+        , div [ class "control" ]
+              [ a [ class "button is-info" ]
+                  [ text "Search" ]
+              ]
+        ]
 
 navWithPageNumbers : Model -> List (Html Msg)
 navWithPageNumbers model =
