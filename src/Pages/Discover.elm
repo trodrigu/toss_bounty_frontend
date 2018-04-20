@@ -58,6 +58,8 @@ type Msg
     | GetCampaigns
     | HandleFetchUser (WebData User)
     | UpdatePage Int
+    | PreviousPage
+    | NextPage
 
 
 type ExternalMsg
@@ -67,6 +69,49 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        PreviousPage ->
+            let
+                campaigns =
+                    case model.campaigns of
+
+                        Success campaigns ->
+                            campaigns
+
+                        _ ->
+                            Campaigns.default
+
+                totalPages = campaigns.totalPages
+
+                previousPage =
+                    if model.pageNumber - 1 == 0 then
+                        totalPages
+                    else
+                        model.pageNumber - 1
+            in
+            update ( UpdatePage previousPage ) model
+
+        NextPage ->
+            let
+                campaigns =
+                    case model.campaigns of
+
+                        Success campaigns ->
+                            campaigns
+
+                        _ ->
+                            Campaigns.default
+
+                totalPages = campaigns.totalPages
+
+                nextPage =
+                    if model.pageNumber + 1 > totalPages then
+                        1
+                    else
+                        model.pageNumber + 1
+
+            in
+            update ( UpdatePage nextPage ) model
+
         UpdatePage pageNumber ->
             let
                 updatedModel = { model | pageNumber = pageNumber }
@@ -124,23 +169,26 @@ view model =
                     ([ h1 [ class "title" ] [ text "Discover Campaigns" ]
                      ]
                         ++ campaignsWithColumnsWrapper
+                        ++ navWithPageNumbers model
                     )
-                , nav [ class "pagination" ]
-                    [ a [ class "pagination-previous" ]
-                          [ text "Previous"]
-                    , a [ class "pagination-next" ]
-                        [ text "Next page"]
-                    , ul [ class "pagination-list" ]
-                        ( renderPageNumbers model )
-                    ]
                 ]
+
+navWithPageNumbers : Model -> List (Html Msg)
+navWithPageNumbers model =
+    [
+     nav [ class "pagination" ]
+         [ a [ class "pagination-previous", onClick PreviousPage ]
+               [ text "Previous"]
+         , a [ class "pagination-next", onClick NextPage  ]
+             [ text "Next page"]
+         , ul [ class "pagination-list" ]
+             ( renderPageNumbers model )
+         ]
+    ]
 
 renderPageNumbers : Model -> List ( Html Msg )
 renderPageNumbers model =
     let
-        _ =
-            Debug.log "campaigns" model.campaigns
-
         campaigns =
             case model.campaigns of
 
@@ -152,7 +200,7 @@ renderPageNumbers model =
 
 
         pageRange =
-            List.range 1 campaigns.total_pages
+            List.range 1 campaigns.totalPages
 
     in
     List.map ( \pageNumber -> renderPageNumber pageNumber model.pageNumber ) pageRange

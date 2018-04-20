@@ -12,8 +12,8 @@ import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
 type alias Campaigns =
     { included : List IncludedStuff
     , campaigns : List Campaign
-    , total_pages : Int
-    , page_number : Int
+    , totalPages : Int
+    , pageNumber : Int
     }
 
 
@@ -85,4 +85,4 @@ userIncludedDecoder =
 
 default : Campaigns
 default =
-    { included = [], campaigns = [], total_pages = 0, page_number = 0   }
+    { included = [], campaigns = [], totalPages = 0, pageNumber = 0   }
