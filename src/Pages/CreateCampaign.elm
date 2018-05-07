@@ -45,7 +45,6 @@ init token userId repos apiUrl =
     in
     { currentFunding = 0.0
     , errors = []
-    , fundingEndDate = DateTime.dateTime { year = 1992, month = 5, day = 29, hour = 0, minute = 0, second = 0, millisecond = 0 }
     , fundingGoal = 0.0
     , longDescription = ""
     , token = token
@@ -57,7 +56,6 @@ init token userId repos apiUrl =
 
 type alias Model =
     { currentFunding : Float
-    , fundingEndDate : DateTime
     , fundingGoal : Float
     , longDescription : String
     , token : AuthToken
@@ -73,8 +71,7 @@ type Msg
     | UpdateFundingGoalField String
     | UpdateLongDescriptionField String
     | HandleCampaign (WebData Campaign)
-    | RequestDate
-    | ReceiveDate Date.Date
+    | CreateCampaign
     | SelectRepo (Maybe Int)
 
 
@@ -254,7 +251,7 @@ createCampaignForm model =
                         ]
                     , div [ class "field is-grouped" ]
                         [ p [ class "control" ]
-                            [ button [ class "button is-primary", onClick RequestDate ]
+                            [ button [ class "button is-primary", onClick CreateCampaign ]
                                 [ text "Create Campaign" ]
                             ]
                         ]
@@ -312,9 +309,6 @@ update msg model =
                         => Cmd.none
                         => NoOp
 
-        RequestDate ->
-            ( model, Task.perform ReceiveDate now ) => NoOp
-
         SelectRepo Nothing ->
             ( model, Cmd.none ) => NoOp
 
@@ -353,38 +347,8 @@ update msg model =
             in
             ( { model | bountifulRepos = updatedRepos }, Cmd.none ) => NoOp
 
-        ReceiveDate time ->
-            let
-                year =
-                    Date.year time
-
-                monthAsInt =
-                    time
-                        |> Date.month
-                        |> monthToInt
-
-                day =
-                    Date.day time
-
-                hour =
-                    Date.hour time
-
-                minute =
-                    Date.minute time
-
-                second =
-                    Date.second time
-
-                stockDateTime =
-                    DateTime.dateTime { year = year, month = monthAsInt, day = day, hour = hour, minute = minute, second = second, millisecond = 0 }
-
-                dateTimeMonthFromNow =
-                    DateTime.addMonths 1 stockDateTime
-
-                updatedModel =
-                    { model | fundingEndDate = dateTimeMonthFromNow }
-            in
-            ( updatedModel, postCampaign updatedModel ) => NoOp
+        CreateCampaign ->
+            ( model, postCampaign model ) => NoOp
 
 
 postCampaign : Model -> Cmd Msg
@@ -402,7 +366,6 @@ postCampaign model =
             { currentFunding = model.currentFunding
             , longDescription = model.longDescription
             , fundingGoal = model.fundingGoal
-            , fundingEndDate = model.fundingEndDate
             , userId = model.userId
             , githubRepoId = githubRepoId
             }

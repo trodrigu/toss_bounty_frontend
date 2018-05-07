@@ -1,13 +1,13 @@
 module Pages.Discover exposing (..)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
-import Data.Campaign as Campaign exposing (Campaign, default, defaultDate)
-import Data.Campaigns as Campaigns exposing (Campaigns, IncludedStuff(..), includedRepoDefault, default)
+import Data.Campaign as Campaign exposing (Campaign, default)
+import Data.Campaigns as Campaigns exposing (Campaigns, IncludedStuff(..), default, includedRepoDefault)
 import Data.Repo as Repo exposing (Repo)
 import Data.Rewards as Rewards exposing (Rewards, decoder)
 import Data.User as User exposing (User, decoder)
 import Html exposing (..)
-import Html.Attributes exposing (action, class, id, method, src, style, placeholder, type_)
+import Html.Attributes exposing (action, class, id, method, placeholder, src, style, type_)
 import Html.Events exposing (onClick, onInput)
 import List.Extra as ListExtra exposing (greedyGroupsOf)
 import Ports exposing (createStripeElement)
@@ -38,6 +38,7 @@ init token apiUrl campaigns =
     , user = NotAsked
     , pageNumber = 1
     , pageSize = 4
+    , search = ""
     }
 
 
@@ -49,6 +50,7 @@ type alias Model =
     , user : WebData User
     , pageNumber : Int
     , pageSize : Int
+    , search : String
     }
 
 
@@ -60,6 +62,7 @@ type Msg
     | UpdatePage Int
     | PreviousPage
     | NextPage
+    | SendSearch String
 
 
 type ExternalMsg
@@ -69,18 +72,25 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        SendSearch searchString ->
+            let
+                updatedModel =
+                    { model | search = searchString }
+            in
+            ( updatedModel, getSearch updatedModel ) => NoOp
+
         PreviousPage ->
             let
                 campaigns =
                     case model.campaigns of
-
                         Success campaigns ->
                             campaigns
 
                         _ ->
                             Campaigns.default
 
-                totalPages = campaigns.totalPages
+                totalPages =
+                    campaigns.totalPages
 
                 previousPage =
                     if model.pageNumber - 1 == 0 then
@@ -88,39 +98,40 @@ update msg model =
                     else
                         model.pageNumber - 1
             in
-            update ( UpdatePage previousPage ) model
+            update (UpdatePage previousPage) model
 
         NextPage ->
             let
                 campaigns =
                     case model.campaigns of
-
                         Success campaigns ->
                             campaigns
 
                         _ ->
                             Campaigns.default
 
-                totalPages = campaigns.totalPages
+                totalPages =
+                    campaigns.totalPages
 
                 nextPage =
                     if model.pageNumber + 1 > totalPages then
                         1
                     else
                         model.pageNumber + 1
-
             in
-            update ( UpdatePage nextPage ) model
+            update (UpdatePage nextPage) model
 
         UpdatePage pageNumber ->
             let
-                updatedModel = { model | pageNumber = pageNumber }
+                updatedModel =
+                    { model | pageNumber = pageNumber }
             in
             ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
 
         HandleFetchUser updatedUser ->
             let
-                updatedModel = { model | user = updatedUser }
+                updatedModel =
+                    { model | user = updatedUser }
             in
             ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
 
@@ -174,57 +185,53 @@ view model =
                     )
                 ]
 
+
 renderSearchBar : Model -> Html Msg
 renderSearchBar model =
     div [ class "field has-addons" ]
         [ div [ class "control" ]
-              [ input [ class "input", type_ "text", placeholder "Find a repository"]
-                      []
-              ]
-        , div [ class "control" ]
-              [ a [ class "button is-info" ]
-                  [ text "Search" ]
-              ]
+            [ input [ class "input", type_ "text", placeholder "Find a campaign", onInput SendSearch ]
+                []
+            ]
         ]
+
 
 navWithPageNumbers : Model -> List (Html Msg)
 navWithPageNumbers model =
-    [
-     nav [ class "pagination" ]
-         [ a [ class "pagination-previous", onClick PreviousPage ]
-               [ text "Previous"]
-         , a [ class "pagination-next", onClick NextPage  ]
-             [ text "Next page"]
-         , ul [ class "pagination-list" ]
-             ( renderPageNumbers model )
-         ]
+    [ nav [ class "pagination" ]
+        [ a [ class "pagination-previous", onClick PreviousPage ]
+            [ text "Previous" ]
+        , a [ class "pagination-next", onClick NextPage ]
+            [ text "Next page" ]
+        , ul [ class "pagination-list" ]
+            (renderPageNumbers model)
+        ]
     ]
 
-renderPageNumbers : Model -> List ( Html Msg )
+
+renderPageNumbers : Model -> List (Html Msg)
 renderPageNumbers model =
     let
         campaigns =
             case model.campaigns of
-
                 Success campaigns ->
                     campaigns
 
                 _ ->
                     Campaigns.default
 
-
         pageRange =
             List.range 1 campaigns.totalPages
-
     in
-    List.map ( \pageNumber -> renderPageNumber pageNumber model.pageNumber ) pageRange
+    List.map (\pageNumber -> renderPageNumber pageNumber model.pageNumber) pageRange
+
 
 renderPageNumber : Int -> Int -> Html Msg
 renderPageNumber pageNumber currentPageNumber =
     if pageNumber == currentPageNumber then
-      li [ class "pagination-link is-current" ] [ text ( toString pageNumber ) ]
+        li [ class "pagination-link is-current" ] [ text (toString pageNumber) ]
     else
-      li [ class "pagination-link", onClick ( UpdatePage pageNumber ) ] [ text ( toString pageNumber ) ]
+        li [ class "pagination-link", onClick (UpdatePage pageNumber) ] [ text (toString pageNumber) ]
 
 
 showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
@@ -314,12 +321,6 @@ displayFormContent campaign =
             ]
         , div [ class "field" ]
             [ label [ class "label" ]
-                [ text "Funding End Date" ]
-            , p []
-                [ text (formatDateTime campaign) ]
-            ]
-        , div [ class "field" ]
-            [ label [ class "label" ]
                 [ text "Funding Progress" ]
             , progress [ class "progress", Html.Attributes.value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
             ]
@@ -339,43 +340,41 @@ displayFormContentWithoutButton campaign =
             [ text "Funding Goal" ]
         , p []
             [ text (toString campaign.fundingGoal) ]
-        , label [ class "label" ]
-            [ text "Funding End Date" ]
-        , p []
-            [ text (formatDateTime campaign) ]
         ]
-
-
-formatDateTime : Campaign -> String
-formatDateTime campaign =
-    let
-        fundingEndDate =
-            campaign.fundingEndDate
-
-        year =
-            DateTime.year fundingEndDate
-                |> toString
-
-        month =
-            DateTime.month fundingEndDate
-                |> toString
-
-        day =
-            DateTime.day fundingEndDate
-                |> toString
-    in
-    year ++ "-" ++ month ++ "-" ++ day
 
 
 fetchAllCampaigns : Model -> Cmd Msg
 fetchAllCampaigns model =
     let
-        pageSize = model.pageSize
+        pageSize =
+            model.pageSize
 
-        pageNumber = model.pageNumber
+        pageNumber =
+            model.pageNumber
 
         updatedUrl =
-            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ (toString model.pageSize ) ++ "&page=" ++ toString model.pageNumber
+            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ toString model.pageSize ++ "&page=" ++ toString model.pageNumber
+
+        token =
+            model.token
+    in
+    RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchAllCampaigns Campaigns.decoder
+
+
+getSearch : Model -> Cmd Msg
+getSearch model =
+    let
+        search =
+            model.search
+
+        pageSize =
+            model.pageSize
+
+        pageNumber =
+            model.pageNumber
+
+        updatedUrl =
+            model.apiUrl ++ "/search" ++ "?page_size=" ++ toString model.pageSize ++ "&page=" ++ toString model.pageNumber ++ "&search=" ++ search
 
         token =
             model.token

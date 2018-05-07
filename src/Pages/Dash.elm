@@ -1,7 +1,7 @@
 module Pages.Dash exposing (..)
 
 import Data.AuthToken exposing (AuthToken)
-import Data.Campaign as Campaign exposing (Campaign, default, defaultDate, encode, showDecoder)
+import Data.Campaign as Campaign exposing (Campaign, default, encode, showDecoder)
 import Data.Campaigns as Campaigns exposing (IncludedStuff(..))
 import Data.Plan as Plan exposing (Plan, updateEncode)
 import Data.Plans as Plans exposing (Plans)
@@ -50,7 +50,6 @@ subscriptionWrapperDefault =
 type alias Model =
     { campaignId : Int
     , currentFunding : Float
-    , fundingEndDate : DateTime
     , fundingGoal : Float
     , longDescription : String
     , yourCampaigns : SelectList Campaign
@@ -118,16 +117,6 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
     in
     { campaignId = 0
     , currentFunding = 0.0
-    , fundingEndDate =
-        DateTime.dateTime
-            { year = 1992
-            , month = 5
-            , day = 29
-            , hour = 0
-            , minute = 0
-            , second = 0
-            , millisecond = 0
-            }
     , fundingGoal = 0.0
     , longDescription = ""
     , yourCampaigns = updatedYourCampaigns
@@ -814,7 +803,7 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model | yourCampaigns = updatedCampaigns, longDescription = "", fundingGoal = 0.0, fundingEndDate = Campaign.defaultDate }
+                    { model | yourCampaigns = updatedCampaigns, longDescription = "", fundingGoal = 0.0 }
                         => Cmd.none
                         => NoOp
 
@@ -929,7 +918,6 @@ update msg model =
                             { currentSelectedCampaign
                                 | longDescription = campaign.longDescription
                                 , fundingGoal = campaign.fundingGoal
-                                , fundingEndDate = campaign.fundingEndDate
                             }
 
                         befores =
@@ -946,16 +934,6 @@ update msg model =
                     { model
                         | yourCampaigns = updatedCampaigns
                         , currentFunding = 0.0
-                        , fundingEndDate =
-                            DateTime.dateTime
-                                { year = 1992
-                                , month = 5
-                                , day = 29
-                                , hour = 0
-                                , minute = 0
-                                , second = 0
-                                , millisecond = 0
-                                }
                         , fundingGoal = 0.0
                         , longDescription = ""
                         , isEditingYourCampaigns = False
@@ -984,7 +962,6 @@ putCampaign model =
 
         data =
             { longDescription = selectedCampaign.longDescription
-            , fundingEndDate = selectedCampaign.fundingEndDate
             , fundingGoal = selectedCampaign.fundingGoal
             , userId = selectedCampaign.userId
             , githubRepoId = selectedCampaign.githubRepoId
@@ -1599,37 +1576,10 @@ displayCampaignFormContent campaign =
                 [ text (toString campaign.fundingGoal) ]
             ]
         , div [ class "field" ]
-            [ label [ class "label" ]
-                [ text "Funding End Date" ]
-            , p [ class "control" ]
-                [ text (formatDateTime campaign) ]
-            ]
-        , div [ class "field" ]
             [ label [ class "label" ] [ text "Funding Progress" ]
             , progress [ class "progress", value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
             ]
         ]
-
-
-formatDateTime : Campaign -> String
-formatDateTime campaign =
-    let
-        fundingEndDate =
-            campaign.fundingEndDate
-
-        year =
-            DateTime.year fundingEndDate
-                |> toString
-
-        month =
-            DateTime.month fundingEndDate
-                |> toString
-
-        day =
-            DateTime.day fundingEndDate
-                |> toString
-    in
-    year ++ "-" ++ month ++ "-" ++ day
 
 
 showCampaignYouContributedTo : Campaign -> Html Msg
@@ -1748,7 +1698,6 @@ deleteCampaign model =
             , currentFunding = selectedCampaign.currentFunding
             , longDescription = selectedCampaign.longDescription
             , fundingGoal = selectedCampaign.fundingGoal
-            , fundingEndDate = selectedCampaign.fundingEndDate
             , userId = selectedCampaign.userId
             , githubRepoId = selectedCampaign.githubRepoId
             }

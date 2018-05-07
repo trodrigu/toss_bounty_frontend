@@ -272,9 +272,7 @@ view model =
                         , div [ class "field" ]
                             [ label [ class "label" ]
                                 [ text "Funding Goal" ]
-                            , p [ class "control has-icons-left" ]
-                                [ text ("$ " ++ toString model.campaign.fundingGoal)
-                                ]
+                            , renderFundingGoal model
                             ]
                         , div [ class "field" ]
                             [ label [ class "label" ]
@@ -291,6 +289,13 @@ view model =
                 , paymentForm model
                 ]
             ]
+        ]
+
+
+renderFundingGoal : Model -> Html Msg
+renderFundingGoal model =
+    p [ class "control has-icons-left" ]
+        [ text ("$" ++ toString model.campaign.fundingGoal ++ "/month")
         ]
 
 
@@ -422,27 +427,6 @@ displayStripePayment model =
         , button [ class "button is-success" ]
             [ text "Submit Payment" ]
         ]
-
-
-formatDateTime : Campaign -> String
-formatDateTime campaign =
-    let
-        fundingEndDate =
-            campaign.fundingEndDate
-
-        year =
-            DateTime.year fundingEndDate
-                |> toString
-
-        month =
-            DateTime.month fundingEndDate
-                |> toString
-
-        day =
-            DateTime.day fundingEndDate
-                |> toString
-    in
-    year ++ "-" ++ month ++ "-" ++ day
 
 
 postCustomer : Model -> Cmd Msg
