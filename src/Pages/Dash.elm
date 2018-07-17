@@ -912,8 +912,8 @@ update msg model =
 
                         updatedCampaign =
                             { currentSelectedCampaign
-                                | longDescription = campaign.longDescription
-                                , fundingGoal = campaign.fundingGoal
+                                | longDescription = model.longDescription
+                                , fundingGoal = model.fundingGoal
                             }
 
                         befores =
