@@ -117,9 +117,3 @@ navbarBrand : List (Html msg) -> Html msg
 navbarBrand navItems =
     div [ classList [ ( "navbar-brand", True ) ] ]
         navItems
-
-
-navbarLeftLinks : List (Html msg) -> Html msg
-navbarLeftLinks navItems =
-    div [ classList [ ( "navbar-menu", True ) ] ]
-        navItems

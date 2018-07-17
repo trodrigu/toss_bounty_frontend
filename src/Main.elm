@@ -1190,30 +1190,34 @@ burgerMenuNavItems model =
     in
     if session.user == Nothing then
         div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
-            [ a [ class "navbar-item", Router.href AboutRoute ]
-                [ text
-                    "About"
+            [ div [ class "navbar-end" ]
+                [ a [ class "navbar-item", Router.href AboutRoute ]
+                    [ text
+                        "About"
+                    ]
                 ]
             ]
     else
         div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
-            [ a [ class "navbar-item", Router.href DiscoverRoute ]
-                [ text
-                    "Discover"
-                ]
-            , a [ class "navbar-item", Router.href DashRoute ]
-                [ text
-                    "Dash"
-                ]
-            , a [ class "navbar-item", Router.href LogoutRoute ]
-                [ text
-                    "Logout"
-                ]
-            , p [ class "navbar-item" ]
-                [ text
-                    ("Hello, "
-                        ++ user.email
-                    )
+            [ div [ class "navbar-end" ]
+                [ a [ class "navbar-item", Router.href DiscoverRoute ]
+                    [ text
+                        "Discover"
+                    ]
+                , a [ class "navbar-item", Router.href DashRoute ]
+                    [ text
+                        "Dash"
+                    ]
+                , a [ class "navbar-item", Router.href LogoutRoute ]
+                    [ text
+                        "Logout"
+                    ]
+                , p [ class "navbar-item" ]
+                    [ text
+                        ("Hello, "
+                            ++ user.email
+                        )
+                    ]
                 ]
             ]
 
