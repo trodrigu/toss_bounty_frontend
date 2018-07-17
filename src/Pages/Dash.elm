@@ -18,7 +18,6 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (href)
 import SelectList exposing (Position(..), SelectList, fromLists, select, selected, singleton)
-import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
@@ -613,9 +612,6 @@ update msg model =
 
         DeletePlan rewardId ->
             let
-                _ =
-                    Debug.log "rewardId in DeletePlan" rewardId
-
                 updatedRewards =
                     SelectList.select (\u -> u.id == rewardId) model.rewardsAsSelectList
 
@@ -961,8 +957,8 @@ putCampaign model =
             model.apiUrl ++ "/campaigns/" ++ selectedCampaignId
 
         data =
-            { longDescription = selectedCampaign.longDescription
-            , fundingGoal = selectedCampaign.fundingGoal
+            { longDescription = model.longDescription
+            , fundingGoal = model.fundingGoal
             , userId = selectedCampaign.userId
             , githubRepoId = selectedCampaign.githubRepoId
             }
@@ -1181,9 +1177,6 @@ updateCampaignForm model campaign included =
                 included
                 |> List.head
                 |> Maybe.withDefault Campaigns.includedRepoDefault
-
-        _ =
-            Debug.log "model in updateCampaignForm" model
 
         displayRewards =
             if model.isEditingReward then
@@ -1902,9 +1895,6 @@ deletePlans model =
 
         planUrl =
             model.apiUrl ++ "/plans/" ++ plan.id
-
-        _ =
-            Debug.log "planUrl" planUrl
     in
     RemoteData.Http.deleteWithConfig (Auth.config model.token) planUrl HandleDeletePlans (Encode.object [])
 
