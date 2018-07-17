@@ -37,7 +37,7 @@ renderNav page user =
         div [] []
     else
         div [ class "container" ]
-            [ nav [ class "nav" ]
+            [ nav [ class "navbar" ]
                 (viewSignIn page user)
             ]
 
@@ -46,36 +46,34 @@ viewSignIn : ActivePage -> Maybe User -> List (Html msg)
 viewSignIn page user =
     case user of
         Nothing ->
-            [-- [ navbarLeftLinks [ text "Toss Bounty" ]
-             -- , navbarLink (page == Home) LoginRoute [ text "Login" ]
-            ]
+            []
 
         Just user ->
             [ navbarBrand
-                [ a [ class "nav-item", Router.href HomeRoute ]
+                [ a [ class "navbar-item", Router.href HomeRoute ]
                     [ text
                         "Toss Bounty"
-                    , button [ class "button navbar-burger" ]
-                        [ span [] []
-                        , span [] []
-                        , span [] []
-                        ]
+                    ]
+                , button [ class "button navbar-burger" ]
+                    [ span [] []
+                    , span [] []
+                    , span [] []
                     ]
                 ]
             , navbarLeftLinks
-                [ a [ class "nav-item", Router.href DiscoverRoute ]
+                [ a [ class "navbar-item", Router.href DiscoverRoute ]
                     [ text
                         "Discover"
                     ]
-                , a [ class "nav-item", Router.href DashRoute ]
+                , a [ class "navbar-item", Router.href DashRoute ]
                     [ text
                         "Dash"
                     ]
-                , a [ class "nav-item", Router.href LogoutRoute ]
+                , a [ class "navbar-item", Router.href LogoutRoute ]
                     [ text
                         "Logout"
                     ]
-                , p [ class "nav-item" ]
+                , p [ class "navbar-item" ]
                     [ text
                         ("Hello, "
                             ++ user.email
@@ -146,20 +144,13 @@ footerArea page =
         ]
 
 
-navbarRightLink : Bool -> Route -> List (Html msg) -> Html msg
-navbarRightLink isActive route linkContent =
-    div [ classList [ ( "nav-right", True ), ( "active", isActive ), ( "nav-menu", True ) ] ]
-        [ a [ class "nav-item", Router.href route ]
-            linkContent
-        ]
-
-
 navbarBrand : List (Html msg) -> Html msg
 navbarBrand navItems =
     div [ classList [ ( "navbar-brand", True ) ] ]
         navItems
 
 
+navbarLeftLinks : List (Html msg) -> Html msg
 navbarLeftLinks navItems =
     div [ classList [ ( "navbar-menu", True ) ] ]
         navItems
