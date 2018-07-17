@@ -22,28 +22,25 @@ type ActivePage
     | CreateUserRole
 
 
-frame : Maybe User -> ActivePage -> Html msg -> Html msg
-frame user page content =
+frame : Html msg -> Maybe User -> ActivePage -> Html msg -> Html msg -> Html msg
+frame burgerMenuNavItems user page content burgerMenu =
     div [ class "page-frame" ]
-        [ renderNav page user
+        [ renderNav burgerMenuNavItems page user burgerMenu
         , content
         , footerArea page
         ]
 
 
-renderNav : ActivePage -> Maybe User -> Html msg
-renderNav page user =
-    if page == Home then
-        div [] []
-    else
-        div [ class "container" ]
-            [ nav [ class "navbar" ]
-                (viewSignIn page user)
-            ]
+renderNav : Html msg -> ActivePage -> Maybe User -> Html msg -> Html msg
+renderNav burgerMenuNavItems page user burgerMenu =
+    div [ class "container" ]
+        [ nav [ class "navbar" ]
+            (viewSignIn burgerMenuNavItems page user burgerMenu)
+        ]
 
 
-viewSignIn : ActivePage -> Maybe User -> List (Html msg)
-viewSignIn page user =
+viewSignIn : Html msg -> ActivePage -> Maybe User -> Html msg -> List (Html msg)
+viewSignIn burgerMenuNavItems page user burgerMenu =
     case user of
         Nothing ->
             []
@@ -54,32 +51,9 @@ viewSignIn page user =
                     [ text
                         "Toss Bounty"
                     ]
-                , button [ class "button navbar-burger" ]
-                    [ span [] []
-                    , span [] []
-                    , span [] []
-                    ]
+                , burgerMenu
                 ]
-            , navbarLeftLinks
-                [ a [ class "navbar-item", Router.href DiscoverRoute ]
-                    [ text
-                        "Discover"
-                    ]
-                , a [ class "navbar-item", Router.href DashRoute ]
-                    [ text
-                        "Dash"
-                    ]
-                , a [ class "navbar-item", Router.href LogoutRoute ]
-                    [ text
-                        "Logout"
-                    ]
-                , p [ class "navbar-item" ]
-                    [ text
-                        ("Hello, "
-                            ++ user.email
-                        )
-                    ]
-                ]
+            , burgerMenuNavItems
             ]
 
 

@@ -15,6 +15,7 @@ import Data.Subscriptions as Subscriptions exposing (Subscriptions, decoder)
 import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
+import Html.Events exposing (onClick)
 import Json.Decode as Decode exposing (Decoder, Value)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, requiredAt)
 import Navigation exposing (Location)
@@ -75,6 +76,7 @@ type alias Model =
     , repoOfInterest : WebData Repo
     , rewardsOfInterest : WebData Rewards
     , allCampaigns : WebData Campaigns
+    , showMenu : Bool
     }
 
 
@@ -96,6 +98,7 @@ type Msg
     | ConsumeToken (Maybe Stripe)
     | SetRoute (Maybe Route)
     | HandleMsg HandleMsg
+    | ToggleMenu
 
 
 type HandleMsg
@@ -142,6 +145,7 @@ init val location =
         , repoOfInterest = NotAsked
         , rewardsOfInterest = NotAsked
         , allCampaigns = NotAsked
+        , showMenu = False
         }
 
 
@@ -1146,9 +1150,86 @@ updatePage page msg model =
             in
             { model | page = GithubOops pageModel } => Cmd.map GithubOopsMsg cmd
 
+        ( ToggleMenu, _ ) ->
+            let
+                updatedMenuStatus =
+                    not model.showMenu
+            in
+            ( { model | showMenu = updatedMenuStatus }, Cmd.none )
+
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
             model => Cmd.none
+
+
+burgerMenu : Model -> Html Msg
+burgerMenu model =
+    let
+        burgerMenuClass =
+            if model.showMenu then
+                "button navbar-burger is-active"
+            else
+                "button navbar-burger"
+    in
+    button [ class burgerMenuClass, onClick ToggleMenu ]
+        [ span [] []
+        , span [] []
+        , span [] []
+        ]
+
+
+burgerMenuNavItems : Model -> Html Msg
+burgerMenuNavItems model =
+    let
+        session =
+            model.session
+
+        user =
+            session.user
+                |> Maybe.withDefault User.default
+    in
+    if model.showMenu then
+        div [ class "navbar-menu is-active" ]
+            [ a [ class "navbar-item", Router.href DiscoverRoute ]
+                [ text
+                    "Discover"
+                ]
+            , a [ class "navbar-item", Router.href DashRoute ]
+                [ text
+                    "Dash"
+                ]
+            , a [ class "navbar-item", Router.href LogoutRoute ]
+                [ text
+                    "Logout"
+                ]
+            , p [ class "navbar-item" ]
+                [ text
+                    ("Hello, "
+                        ++ user.email
+                    )
+                ]
+            ]
+    else
+        div [ class "navbar-menu" ]
+            [ a [ class "navbar-item", Router.href DiscoverRoute ]
+                [ text
+                    "Discover"
+                ]
+            , a [ class "navbar-item", Router.href DashRoute ]
+                [ text
+                    "Dash"
+                ]
+            , a [ class "navbar-item", Router.href LogoutRoute ]
+                [ text
+                    "Logout"
+                ]
+            , p [ class "navbar-item" ]
+                [ text
+                    ("Hello, "
+                        ++ user.email
+                    )
+                ]
+            ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -1186,84 +1267,202 @@ developerHeroArea =
         ]
 
 
-pageView : Session -> Page -> Html Msg
-pageView session page =
+pageView : Model -> Html Msg
+pageView model =
     let
-        frame =
-            Page.frame session.user
+        session =
+            model.session
+
+        page =
+            model.page
+
+        updatedBurgerMenuNavItems =
+            burgerMenuNavItems model
     in
     div []
         [ case page of
             Home subModel ->
-                Home.view subModel
-                    |> frame Page.Home
-                    |> Html.map HomeMsg
+                let
+                    updatedView =
+                        Home.view subModel
+                            |> Html.map HomeMsg
+
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.Home updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             StripeConnectSignUp subModel ->
-                StripeConnectSignUp.view subModel
-                    |> frame Page.StripeConnectSignUp
-                    |> Html.map StripeConnectSignUpMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        StripeConnectSignUp.view subModel
+                            |> Html.map StripeConnectSignUpMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.StripeConnectSignUp updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             TosserSignUp subModel ->
-                TosserSignUp.view subModel
-                    |> frame Page.TosserSignUp
-                    |> Html.map TosserSignUpMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        TosserSignUp.view subModel
+                            |> Html.map TosserSignUpMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.TosserSignUp updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             Discover subModel ->
-                Discover.view subModel
-                    |> frame Page.Discover
-                    |> Html.map DiscoverMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        Discover.view subModel
+                            |> Html.map DiscoverMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.Discover updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             Contribute subModel ->
-                Contribute.view subModel
-                    |> frame Page.Contribute
-                    |> Html.map ContributeMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        Contribute.view subModel
+                            |> Html.map ContributeMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.Contribute updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             Dash subModel ->
-                Dash.view subModel
-                    |> frame Page.Dash
-                    |> Html.map DashMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        Dash.view subModel
+                            |> Html.map DashMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.Dash updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             About subModel ->
-                About.view subModel
-                    |> frame Page.About
-                    |> Html.map AboutMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        About.view subModel
+                            |> Html.map AboutMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.About updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             Login subModel ->
-                Login.view subModel
-                    |> frame Page.Login
-                    |> Html.map LoginMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        Login.view subModel
+                            |> Html.map LoginMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.Login updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             CreateCampaign subModel ->
-                CreateCampaign.view subModel
-                    |> frame Page.CreateCampaign
-                    |> Html.map CreateCampaignMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        CreateCampaign.view subModel
+                            |> Html.map CreateCampaignMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.CreateCampaign updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             CreateRewards subModel ->
-                CreateRewards.view subModel
-                    |> frame Page.CreateRewards
-                    |> Html.map CreateRewardsMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        CreateRewards.view subModel
+                            |> Html.map CreateRewardsMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.CreateRewards updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             CreateUserRole subModel ->
-                CreateUserRole.view subModel
-                    |> frame Page.CreateUserRole
-                    |> Html.map CreateUserRoleMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        CreateUserRole.view subModel
+                            |> Html.map CreateUserRoleMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.CreateUserRole updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             GithubOops subModel ->
-                GithubOops.view subModel
-                    |> frame Page.GithubOops
-                    |> Html.map GithubOopsMsg
+                let
+                    updatedBurgerMenu =
+                        burgerMenu model
+
+                    updatedView =
+                        GithubOops.view subModel
+                            |> Html.map GithubOopsMsg
+
+                    updatedFrame =
+                        Page.frame updatedBurgerMenuNavItems session.user Page.GithubOops updatedView updatedBurgerMenu
+                in
+                updatedFrame
 
             NotFound subModel ->
-                NotFound.view
-                    |> Html.map NotFoundMsg
+                let
+                    updatedView =
+                        NotFound.view
+                            |> Html.map NotFoundMsg
+                in
+                updatedView
         ]
 
 
 view : Model -> Html Msg
 view model =
     div []
-        [ pageView model.session model.page ]
+        [ pageView model ]
 
 
 main : Program Decode.Value Model Msg
@@ -1456,11 +1655,14 @@ getCampaigns apiUrl token =
                 Just url ->
                     url
 
-        page_size = 4
-        page = 1
+        page_size =
+            4
+
+        page =
+            1
 
         campaignsUrl =
-            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ ( toString page_size ) ++ "&page=" ++ ( toString page )
+            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ toString page_size ++ "&page=" ++ toString page
     in
     RemoteData.Http.getWithConfig (Auth.config token) campaignsUrl HandleFetchAllCampaigns Campaigns.decoder
 
