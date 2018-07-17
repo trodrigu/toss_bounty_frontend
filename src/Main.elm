@@ -14,7 +14,7 @@ import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Data.Subscriptions as Subscriptions exposing (Subscriptions, decoder)
 import Data.User as User exposing (User)
 import Html exposing (..)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (class, classList, style)
 import Html.Events exposing (onClick)
 import Json.Decode as Decode exposing (Decoder, Value)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, requiredAt)
@@ -1188,29 +1188,15 @@ burgerMenuNavItems model =
             session.user
                 |> Maybe.withDefault User.default
     in
-    if model.showMenu then
-        div [ class "navbar-menu is-active" ]
-            [ a [ class "navbar-item", Router.href DiscoverRoute ]
+    if session.user == Nothing then
+        div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
+            [ a [ class "navbar-item", Router.href AboutRoute ]
                 [ text
-                    "Discover"
-                ]
-            , a [ class "navbar-item", Router.href DashRoute ]
-                [ text
-                    "Dash"
-                ]
-            , a [ class "navbar-item", Router.href LogoutRoute ]
-                [ text
-                    "Logout"
-                ]
-            , p [ class "navbar-item" ]
-                [ text
-                    ("Hello, "
-                        ++ user.email
-                    )
+                    "About"
                 ]
             ]
     else
-        div [ class "navbar-menu" ]
+        div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
             [ a [ class "navbar-item", Router.href DiscoverRoute ]
                 [ text
                     "Discover"

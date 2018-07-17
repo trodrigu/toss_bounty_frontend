@@ -41,20 +41,15 @@ renderNav burgerMenuNavItems page user burgerMenu =
 
 viewSignIn : Html msg -> ActivePage -> Maybe User -> Html msg -> List (Html msg)
 viewSignIn burgerMenuNavItems page user burgerMenu =
-    case user of
-        Nothing ->
-            []
-
-        Just user ->
-            [ navbarBrand
-                [ a [ class "navbar-item", Router.href HomeRoute ]
-                    [ text
-                        "Toss Bounty"
-                    ]
-                , burgerMenu
-                ]
-            , burgerMenuNavItems
+    [ navbarBrand
+        [ a [ class "navbar-item", Router.href HomeRoute ]
+            [ text
+                "Toss Bounty"
             ]
+        , burgerMenu
+        ]
+    , burgerMenuNavItems
+    ]
 
 
 footerArea : ActivePage -> Html msg
