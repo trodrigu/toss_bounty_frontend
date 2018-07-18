@@ -378,8 +378,11 @@ setRoute maybeRoute model =
 
                         token =
                             user.token
+
+                        updatedModel =
+                            { model | page = CreateRewards (CreateRewards.init Nothing Data.AuthToken.fallback 0) }
                     in
-                    model => Cmd.map HandleMsg (updateUserWithStripeInfo model.apiUrl token stripeId user.userId)
+                    updatedModel => Cmd.map HandleMsg (updateUserWithStripeInfo model.apiUrl token stripeId user.userId)
 
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
@@ -1042,11 +1045,8 @@ updatePage page msg model =
 
                 token =
                     updatedUser.token
-
-                updatedModel =
-                    { model | stripeConnectUrl = data }
             in
-            ( { updatedModel | page = StripeConnectSignUp { url = data } }
+            ( { model | stripeConnectUrl = data }
             , Cmd.map HandleMsg (getRepos model.apiUrl token updatedUser.userId)
             )
 
@@ -1224,6 +1224,10 @@ burgerMenuNavItems model =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "page in update" model.page
+    in
     updatePage model.page msg model
 
 
