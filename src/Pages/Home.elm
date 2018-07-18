@@ -36,17 +36,6 @@ update msg model =
             ( model, Cmd.none ) => ExternalNoOp
 
 
-tossBountyLogo : Html.Html msg
-tossBountyLogo =
-    svg
-        [ width "120", height "120", fill "white" ]
-        [ rect [ x (toString 10), y (toString 50), width (toString (30 * 0.5)), height (toString (0.5 * 10)) ] []
-        , rect [ x (toString 10), y (toString 50), width (toString (10 * 0.5)), height (toString (0.5 * 45)) ] []
-        , circle [ r (toString (10 * 0.5)), cx (toString 35), cy (toString 55) ] []
-        , circle [ r (toString (10 * 0.5)), cx (toString 35), cy (toString 69) ] []
-        ]
-
-
 viewButton : Model -> Html Msg
 viewButton model =
     case model.url of
