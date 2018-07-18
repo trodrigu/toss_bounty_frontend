@@ -1224,10 +1224,6 @@ burgerMenuNavItems model =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        _ =
-            Debug.log "page in update" model.page
-    in
     updatePage model.page msg model
 
 
