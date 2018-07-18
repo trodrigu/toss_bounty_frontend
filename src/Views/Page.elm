@@ -4,6 +4,8 @@ import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Routing.Router as Router exposing (Route(..))
+import Svg exposing (Svg, circle, rect, svg)
+import Svg.Attributes exposing (color, cx, cy, fill, height, r, rx, ry, viewBox, width, x, y)
 
 
 type ActivePage
@@ -43,8 +45,9 @@ viewSignIn : Html msg -> ActivePage -> Maybe User -> Html msg -> List (Html msg)
 viewSignIn burgerMenuNavItems page user burgerMenu =
     [ navbarBrand
         [ a [ class "navbar-item", Router.href HomeRoute ]
-            [ text
-                "Toss Bounty"
+            [ tossBountyLogo
+            , text
+                "TossBounty"
             ]
         , burgerMenu
         ]
@@ -117,3 +120,14 @@ navbarBrand : List (Html msg) -> Html msg
 navbarBrand navItems =
     div [ classList [ ( "navbar-brand", True ) ] ]
         navItems
+
+
+tossBountyLogo : Html.Html msg
+tossBountyLogo =
+    svg
+        [ Svg.Attributes.width "40", Svg.Attributes.height "30", fill "black" ]
+        [ rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 10), Svg.Attributes.height (toString 3) ] []
+        , rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 3), Svg.Attributes.height (toString 15) ] []
+        , circle [ r (toString 3), cx (toString 27), cy (toString 8) ] []
+        , circle [ r (toString 3), cx (toString 27), cy (toString 18) ] []
+        ]
