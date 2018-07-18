@@ -126,8 +126,8 @@ tossBountyLogo : Html.Html msg
 tossBountyLogo =
     svg
         [ Svg.Attributes.width "40", Svg.Attributes.height "30", fill "black" ]
-        [ rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 10), Svg.Attributes.height (toString 3) ] []
-        , rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 3), Svg.Attributes.height (toString 15) ] []
+        [ rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 11), Svg.Attributes.height (toString 4) ] []
+        , rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 4), Svg.Attributes.height (toString 16) ] []
         , circle [ r (toString 3), cx (toString 27), cy (toString 8) ] []
         , circle [ r (toString 3), cx (toString 27), cy (toString 18) ] []
         ]
