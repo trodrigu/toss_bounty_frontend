@@ -1,4 +1,4 @@
-# Toss Bounty Elm App
+# TossBounty Elm App
 
 # Getting started
 

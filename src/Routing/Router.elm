@@ -39,7 +39,7 @@ footerArea =
             [ div [ class "content has-text-centered" ]
                 [ p []
                     [ strong []
-                        [ text "Toss Bounty" ]
+                        [ text "TossBounty" ]
                     ]
                 ]
             ]
