@@ -1,14 +1,69 @@
-module Data.Repos exposing (Repos, decoder, mostBountifulRepo)
+module Data.Repos exposing (Repos, SelectListRepos, decoder, defaultSelectListRepos, mostBountifulRepo, selectListDecoder)
 
 import Data.Repo as Repo exposing (Repo, decoder)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
-import Json.Encode as Encode exposing (Value)
 import List exposing (head, reverse)
+import List.Extra exposing (splitAt)
+import SelectList as SelectList exposing (SelectList, singleton)
 
 
 type alias Repos =
     { repos : List Repo }
+
+
+type alias SelectListRepos =
+    { selectListRepos : SelectList Repo
+    }
+
+
+selectList : List Repo -> SelectList Repo
+selectList list =
+    let
+        splitList =
+            List.Extra.splitAt 0 list
+
+        beforesList =
+            splitList
+                |> Tuple.first
+
+        aftersList =
+            splitList
+                |> Tuple.second
+
+        foundRepo =
+            aftersList
+                |> List.head
+                |> Maybe.withDefault Repo.default
+
+        aftersWithoutFoundRepo =
+            aftersList
+                |> List.Extra.uncons
+                |> Maybe.withDefault ( Repo.default, [] )
+                |> Tuple.second
+
+        updatedRepos =
+            SelectList.singleton foundRepo
+                |> SelectList.prepend beforesList
+                |> SelectList.append aftersWithoutFoundRepo
+    in
+    updatedRepos
+
+
+selectListDecoder : Decoder SelectListRepos
+selectListDecoder =
+    decode SelectListRepos
+        |> optionalAt [ "data" ] (Decode.list Repo.decoder |> Decode.map selectList) (SelectList.singleton Repo.default)
+
+
+defaultSelectListRepos : SelectListRepos
+defaultSelectListRepos =
+    { selectListRepos = SelectList.singleton Repo.default }
+
+
+
+--{ selectListRepos = SelectList.singleton Repo.default }
+-- decode SelectListRepos
 
 
 decoder : Decoder Repos
@@ -17,11 +72,11 @@ decoder =
         |> optionalAt [ "data" ] (Decode.list Repo.decoder) []
 
 
-mostBountifulRepo : Repos -> Repo
+mostBountifulRepo : List Repo -> Repo
 mostBountifulRepo repos =
     let
         repo =
-            List.sortBy .bountifulScore repos.repos
+            List.sortBy .bountifulScore repos
                 |> reverse
                 |> head
     in

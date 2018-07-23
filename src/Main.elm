@@ -6,7 +6,7 @@ import Data.Campaigns as Campaigns exposing (Campaigns, IncludedRepo, IncludedSt
 import Data.Issues as Issues exposing (Issues)
 import Data.Plans as Plans exposing (Plans, decoder)
 import Data.Repo as Repo exposing (Repo)
-import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
+import Data.Repos as Repos exposing (Repos, SelectListRepos, defaultSelectListRepos, mostBountifulRepo, selectListDecoder)
 import Data.Rewards as Rewards exposing (Rewards)
 import Data.Session as Session exposing (Session)
 import Data.Stripe as Stripe exposing (Stripe, decoder)
@@ -38,6 +38,7 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Request.User exposing (storeSession)
 import Routing.Router as Router exposing (Route(..), fromLocation)
+import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
 import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
@@ -68,7 +69,7 @@ type alias Model =
     , yourCampaigns : WebData Campaigns
     , yourSubscriptions : WebData Subscriptions
     , yourSubscribedPlans : WebData Plans
-    , repos : WebData Repos
+    , repos : WebData SelectListRepos
     , mostBountifulIssues : WebData Issues
     , stripeConnectUrl : WebData StripeConnectUrl
     , stripe : Maybe Stripe
@@ -105,7 +106,7 @@ type HandleMsg
     = HandleGithubUrl (WebData GitHubUrl)
     | HandleFetchYourCampaigns (WebData Campaigns)
     | HandleFetchCampaignsForRewards (WebData Campaigns)
-    | HandleFetchRepos (WebData Repos)
+    | HandleFetchRepos (WebData SelectListRepos)
     | HandleFetchIssues (WebData Issues)
     | HandleStripeConnectUrl (WebData StripeConnectUrl)
     | HandleStripeIdUpdate (WebData User)
@@ -137,9 +138,9 @@ init val location =
         , yourCampaigns = NotAsked
         , yourSubscriptions = NotAsked
         , yourSubscribedPlans = NotAsked
-        , repos = Loading
+        , repos = NotAsked
         , mostBountifulIssues = Loading
-        , stripeConnectUrl = Loading
+        , stripeConnectUrl = NotAsked
         , stripe = Nothing
         , campaignOfInterest = NotAsked
         , repoOfInterest = NotAsked
@@ -363,11 +364,34 @@ setRoute maybeRoute model =
             { model | page = updatedPage } => Cmd.none
 
         Just Router.StripeConnectSignUpRoute ->
-            let
-                updatedPage =
-                    StripeConnectSignUp (StripeConnectSignUp.init model.stripeConnectUrl)
-            in
-            { model | page = updatedPage } => Cmd.none
+            case model.session.user of
+                Just user ->
+                    let
+                        cmd =
+                            case model.stripeConnectUrl of
+                                Success stripeConnectUrl ->
+                                    Cmd.none
+
+                                Failure error ->
+                                    let
+                                        _ =
+                                            Debug.log "error" error
+                                    in
+                                    Cmd.none
+
+                                Loading ->
+                                    Cmd.none
+
+                                NotAsked ->
+                                    Cmd.map HandleMsg (getStripeConnectUrl model.apiUrl)
+
+                        updatedPage =
+                            StripeConnectSignUp (StripeConnectSignUp.init model.stripeConnectUrl)
+                    in
+                    { model | page = updatedPage } => cmd
+
+                Nothing ->
+                    model => Router.modifyUrl Router.HomeRoute
 
         Just (Router.SaveStripeRoute (Just stripeId)) ->
             case model.session.user of
@@ -515,18 +539,28 @@ setRoute maybeRoute model =
                         userId =
                             user.userId
 
-                        repos =
+                        cmd =
                             case model.repos of
                                 Success repos ->
-                                    repos
+                                    Cmd.none
 
-                                _ ->
-                                    Repos []
+                                Failure error ->
+                                    let
+                                        _ =
+                                            Debug.log "error" error
+                                    in
+                                    Cmd.none
+
+                                Loading ->
+                                    Cmd.none
+
+                                NotAsked ->
+                                    Cmd.map HandleMsg (getRepos model.apiUrl token userId)
 
                         updatedPage =
-                            CreateCampaign (CreateCampaign.init token userId repos model.apiUrl)
+                            CreateCampaign (CreateCampaign.init token userId model.repos model.apiUrl)
                     in
-                    { model | page = updatedPage } => Cmd.none
+                    { model | page = updatedPage } => cmd
 
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
@@ -1047,7 +1081,7 @@ updatePage page msg model =
                     updatedUser.token
             in
             ( { model | stripeConnectUrl = data }
-            , Cmd.map HandleMsg (getRepos model.apiUrl token updatedUser.userId)
+            , Router.modifyUrl StripeConnectSignUpRoute
             )
 
         ( HandleMsg (HandleFetchRepos data), _ ) ->
@@ -1081,10 +1115,15 @@ updatePage page msg model =
                             repos
 
                         _ ->
-                            Repos []
+                            Repos.defaultSelectListRepos
+
+                reposAsList =
+                    repos
+                        |> .selectListRepos
+                        |> SelectList.toList
 
                 bountifulRepo =
-                    Repos.mostBountifulRepo repos
+                    Repos.mostBountifulRepo reposAsList
             in
             ( updatedModel
             , Cmd.map HandleMsg (getIssues model.apiUrl token bountifulRepo.id)
@@ -1119,16 +1158,8 @@ updatePage page msg model =
                 userId =
                     updatedUser.userId
 
-                repos =
-                    case model.repos of
-                        Success repos ->
-                            repos
-
-                        _ ->
-                            Repos []
-
                 updatedPage =
-                    CreateCampaign (CreateCampaign.init token userId repos model.apiUrl)
+                    CreateCampaign (CreateCampaign.init token userId model.repos model.apiUrl)
             in
             ( { model | page = updatedPage, mostBountifulIssues = data }
             , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
@@ -1532,7 +1563,7 @@ getRepos apiUrl token userId =
                 Just url ->
                     url ++ "/github_repos?user_id=" ++ userId
     in
-    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchRepos Repos.decoder
+    RemoteData.Http.getWithConfig (Auth.config token) reposUrl HandleFetchRepos Repos.selectListDecoder
 
 
 getIssues : Maybe String -> AuthToken -> String -> Cmd HandleMsg

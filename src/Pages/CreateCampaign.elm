@@ -4,7 +4,7 @@ import Data.AuthToken as AuthToken exposing (AuthToken, fallback, toString)
 import Data.Campaign as Campaign exposing (..)
 import Data.Issue as Issue exposing (Issue)
 import Data.Repo as Repo exposing (Repo)
-import Data.Repos as Repos exposing (Repos, mostBountifulRepo)
+import Data.Repos as Repos exposing (Repos, SelectListRepos, mostBountifulRepo)
 import Date exposing (Date, now)
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, datetime, href, src, style)
@@ -16,25 +16,13 @@ import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Task
-import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
 
-init : AuthToken -> String -> Repos -> Maybe String -> Model
+init : AuthToken -> String -> WebData SelectListRepos -> Maybe String -> Model
 init token userId repos apiUrl =
     let
-        bountifulRepo =
-            Repos.mostBountifulRepo repos
-
-        otherRepos =
-            List.filter (\repo -> not (repo == bountifulRepo)) repos.repos
-
-        reposAsSelectList =
-            SelectList.singleton bountifulRepo
-                |> SelectList.append otherRepos
-
         url =
             case apiUrl of
                 Nothing ->
@@ -49,7 +37,7 @@ init token userId repos apiUrl =
     , longDescription = ""
     , token = token
     , userId = userId
-    , bountifulRepos = reposAsSelectList
+    , bountifulRepos = repos
     , apiUrl = url
     }
 
@@ -61,7 +49,7 @@ type alias Model =
     , token : AuthToken
     , errors : List Error
     , userId : String
-    , bountifulRepos : SelectList Repo
+    , bountifulRepos : WebData SelectListRepos
     , apiUrl : String
     }
 
@@ -88,24 +76,32 @@ view model =
 maintainerHero : Model -> Html Msg
 maintainerHero model =
     let
-        name =
-            model.bountifulRepos
-                |> SelectList.selected
-                |> .name
+        repoList =
+            case model.bountifulRepos of
+                NotAsked ->
+                    [ div [ class "pageloader is-active" ] [] ]
 
-        imageSrc =
-            model.bountifulRepos
-                |> SelectList.selected
-                |> .image
+                Failure err ->
+                    [ div [ class "pageloader is-active" ] [] ]
 
-        owner =
-            model.bountifulRepos
-                |> SelectList.selected
-                |> .owner
+                Loading ->
+                    [ div [ class "pageloader is-active" ] [] ]
 
-        repos =
-            model.bountifulRepos
-                |> SelectList.toList
+                Success bountifulRepos ->
+                    let
+                        repos =
+                            bountifulRepos
+                                |> .selectListRepos
+                                |> SelectList.toList
+                    in
+                    [ div [ class "title" ]
+                        [ text "Pick your Github Repo" ]
+                    , div [ class "control" ]
+                        [ div [ class "select" ]
+                            [ Html.select [ onChange ] (List.map (\el -> makeOption el.name) repos)
+                            ]
+                        ]
+                    ]
     in
     div []
         [ section [ class "hero is-medium is-primary is-bold" ]
@@ -113,14 +109,7 @@ maintainerHero model =
                 [ div [ class "container" ]
                     [ div [ class "columns" ]
                         [ div [ class "column is-half is-offset-one-quarter" ]
-                            [ div [ class "title" ]
-                                [ text "Pick your Github Repo" ]
-                            , div [ class "control" ]
-                                [ div [ class "select" ]
-                                    [ Html.select [ onChange ] (List.map (\el -> makeOption el.name) repos)
-                                    ]
-                                ]
-                            ]
+                            repoList
                         ]
                     ]
                 ]
@@ -165,15 +154,59 @@ issueView issue =
 bioAndPic : Model -> Html Msg
 bioAndPic model =
     let
-        imageSrc =
-            model.bountifulRepos
-                |> SelectList.selected
-                |> .image
+        innerMedia =
+            case model.bountifulRepos of
+                NotAsked ->
+                    [ div [ class "pageloader is-active" ] [] ]
 
-        name =
-            model.bountifulRepos
-                |> SelectList.selected
-                |> .owner
+                Failure err ->
+                    [ div [ class "pageloader is-active" ] [] ]
+
+                Loading ->
+                    [ div [ class "pageloader is-active" ] [] ]
+
+                Success bountifulRepos ->
+                    let
+                        imageSrc =
+                            bountifulRepos
+                                |> .selectListRepos
+                                |> SelectList.selected
+                                |> .image
+
+                        name =
+                            bountifulRepos
+                                |> .selectListRepos
+                                |> SelectList.selected
+                                |> .owner
+                    in
+                    [ figure [ class "media-left" ]
+                        [ p [ class "image is-128x128" ]
+                            [ img [ src imageSrc ]
+                                []
+                            ]
+                        ]
+                    , div [ class "media-content" ]
+                        [ div [ class "content" ]
+                            [ p []
+                                [ strong []
+                                    [ text name ]
+                                , br []
+                                    []
+                                , text "Does code push you?"
+                                ]
+                            ]
+                        , nav [ class "level is-mobile" ]
+                            [ div [ class "level-left" ]
+                                [ a [ class "level-item" ]
+                                    [ span [ class "icon is-medium" ]
+                                        [ i [ class "fa fa-github-alt" ]
+                                            []
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
     in
     section [ class "section" ]
         [ div
@@ -181,34 +214,7 @@ bioAndPic model =
             [ div [ class "columns" ]
                 [ div [ class "column is-half is-offset-one-quarter" ]
                     [ article [ class "media" ]
-                        [ figure [ class "media-left" ]
-                            [ p [ class "image is-128x128" ]
-                                [ img [ src imageSrc ]
-                                    []
-                                ]
-                            ]
-                        , div [ class "media-content" ]
-                            [ div [ class "content" ]
-                                [ p []
-                                    [ strong []
-                                        [ text name ]
-                                    , br []
-                                        []
-                                    , text "Does code push you?"
-                                    ]
-                                ]
-                            , nav [ class "level is-mobile" ]
-                                [ div [ class "level-left" ]
-                                    [ a [ class "level-item" ]
-                                        [ span [ class "icon is-medium" ]
-                                            [ i [ class "fa fa-github-alt" ]
-                                                []
-                                            ]
-                                        ]
-                                    ]
-                                ]
-                            ]
-                        ]
+                        innerMedia
                     ]
                 ]
             ]
@@ -314,38 +320,51 @@ update msg model =
 
         SelectRepo (Just index) ->
             let
-                repos =
-                    model.bountifulRepos
-                        |> SelectList.toList
-
-                splitList =
-                    List.Extra.splitAt index repos
-
-                beforesList =
-                    splitList
-                        |> Tuple.first
-
-                aftersList =
-                    splitList
-                        |> Tuple.second
-
-                foundRepo =
-                    aftersList
-                        |> List.head
-                        |> Maybe.withDefault defaultRepo
-
-                aftersWithoutFoundRepo =
-                    aftersList
-                        |> List.Extra.uncons
-                        |> Maybe.withDefault ( defaultRepo, [] )
-                        |> Tuple.second
-
                 updatedRepos =
-                    SelectList.singleton foundRepo
-                        |> SelectList.prepend beforesList
-                        |> SelectList.append aftersWithoutFoundRepo
+                    case model.bountifulRepos of
+                        NotAsked ->
+                            SelectList.singleton Repo.default
+
+                        Failure err ->
+                            SelectList.singleton Repo.default
+
+                        Loading ->
+                            SelectList.singleton Repo.default
+
+                        Success bountifulRepos ->
+                            let
+                                repos =
+                                    bountifulRepos
+                                        |> .selectListRepos
+                                        |> SelectList.toList
+
+                                splitList =
+                                    List.Extra.splitAt index repos
+
+                                beforesList =
+                                    splitList
+                                        |> Tuple.first
+
+                                aftersList =
+                                    splitList
+                                        |> Tuple.second
+
+                                foundRepo =
+                                    aftersList
+                                        |> List.head
+                                        |> Maybe.withDefault defaultRepo
+
+                                aftersWithoutFoundRepo =
+                                    aftersList
+                                        |> List.Extra.uncons
+                                        |> Maybe.withDefault ( defaultRepo, [] )
+                                        |> Tuple.second
+                            in
+                            SelectList.singleton foundRepo
+                                |> SelectList.prepend beforesList
+                                |> SelectList.append aftersWithoutFoundRepo
             in
-            ( { model | bountifulRepos = updatedRepos }, Cmd.none ) => NoOp
+            ( { model | bountifulRepos = Success { selectListRepos = updatedRepos } }, Cmd.none ) => NoOp
 
         CreateCampaign ->
             ( model, postCampaign model ) => NoOp
@@ -358,9 +377,21 @@ postCampaign model =
             model.apiUrl ++ "/campaigns"
 
         githubRepoId =
-            model.bountifulRepos
-                |> SelectList.selected
-                |> .id
+            case model.bountifulRepos of
+                NotAsked ->
+                    "0"
+
+                Failure err ->
+                    "0"
+
+                Loading ->
+                    "0"
+
+                Success bountifulRepos ->
+                    bountifulRepos
+                        |> .selectListRepos
+                        |> SelectList.selected
+                        |> .id
 
         data =
             { currentFunding = model.currentFunding
