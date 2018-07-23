@@ -578,17 +578,15 @@ setRoute maybeRoute model =
                         apiUrl =
                             model.apiUrl
 
-                        yourCampaigns =
+                        campaignsSorted =
                             case model.yourCampaigns of
                                 Success yourCampaigns ->
                                     yourCampaigns
+                                        |> .campaigns
+                                        |> List.sortBy .id
 
                                 _ ->
-                                    Campaigns.default
-
-                        campaignsSorted =
-                            yourCampaigns.campaigns
-                                |> List.sortBy .id
+                                    []
 
                         campaign =
                             campaignsSorted
@@ -596,13 +594,32 @@ setRoute maybeRoute model =
                                 |> List.head
                                 |> Maybe.withDefault Campaign.default
 
-                        _ =
-                            Debug.log "campaign" campaign
+                        userId =
+                            user.userId
+
+
+                        cmd =
+                            case model.yourCampaigns of
+                                Success campaigns ->
+                                    Cmd.none
+
+                                Failure error ->
+                                    let
+                                        _ =
+                                            Debug.log "error" error
+                                    in
+                                    Cmd.none
+
+                                Loading ->
+                                    Cmd.none
+
+                                NotAsked ->
+                                    Cmd.map HandleMsg (fetchYourCampaignsForRewards model.apiUrl token userId)
 
                         updatedPage =
                             CreateRewards (CreateRewards.init apiUrl token campaign.id)
                     in
-                    { model | page = updatedPage } => Cmd.none
+                    { model | page = updatedPage } => cmd
 
                 Nothing ->
                     model => Router.modifyUrl Router.HomeRoute
@@ -941,10 +958,10 @@ updatePage page msg model =
                                     modifyUrl DiscoverRoute
 
                                 2 ->
-                                    Cmd.map HandleMsg (getStripeConnectUrl model.apiUrl)
+                                    modifyUrl CreateCampaignRoute
 
                                 3 ->
-                                    Cmd.map HandleMsg (getStripeConnectUrl model.apiUrl)
+                                    modifyUrl CreateCampaignRoute
 
                                 _ ->
                                     modifyUrl DiscoverRoute
