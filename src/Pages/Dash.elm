@@ -46,12 +46,25 @@ subscriptionWrapperDefault =
     }
 
 
+type alias CampaignWrapper =
+    { campaign : Campaign
+    , campaignConfirmation : Bool
+    }
+
+
+campaignWrapperDefault : CampaignWrapper
+campaignWrapperDefault =
+    { campaign = Campaign.default
+    , campaignConfirmation = False
+    }
+
+
 type alias Model =
     { campaignId : Int
     , currentFunding : Float
     , fundingGoal : Float
     , longDescription : String
-    , yourCampaigns : SelectList Campaign
+    , yourCampaigns : SelectList CampaignWrapper
     , yourRepos : List IncludedStuff
     , yourSubscriptions : SelectList SubscriptionWrapper
     , yourSubscribedPlans : SelectList Plan
@@ -76,6 +89,11 @@ wrapSubscriptions subscriptions =
     List.map (\subscription -> { subscription = subscription, showConfirmation = False }) subscriptions
 
 
+wrapCampaign : Campaign -> CampaignWrapper
+wrapCampaign campaign =
+    { campaign = campaign, campaignConfirmation = False }
+
+
 init : Maybe String -> AuthToken -> List Campaign -> List IncludedStuff -> List Subscription -> List Plan -> Model
 init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans =
     let
@@ -87,12 +105,15 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
                 Just url ->
                     url
 
+        yourCampaignsWrapped =
+            List.map (\campaign -> wrapCampaign campaign) yourCampaigns
+
         defaultYourCampaign =
-            SelectList.singleton Campaign.default
+            SelectList.singleton { campaign = Campaign.default, campaignConfirmation = False }
 
         updatedYourCampaigns =
             defaultYourCampaign
-                |> SelectList.append yourCampaigns
+                |> SelectList.append yourCampaignsWrapped
 
         defaultYourSubscription =
             SelectList.singleton { subscription = Subscription.default, showConfirmation = False }
@@ -168,6 +189,9 @@ type Msg
     | HandleDeleteRewards (WebData String)
     | HandleDeletePlans (WebData String)
     | HandleGetPlansForDeletion (WebData Plans)
+    | ShowCampaignConfirmation Int
+    | HideCampaignConfirmation
+    | Cancel
 
 
 type ExternalMsg
@@ -653,25 +677,7 @@ update msg model =
                 => NoOp
 
         UpdateDescriptionField str ->
-            let
-                reward =
-                    SelectList.selected model.rewardsAsSelectList
-
-                updatedReward =
-                    { reward | description = str }
-
-                befores =
-                    SelectList.before model.rewardsAsSelectList
-
-                afters =
-                    SelectList.after model.rewardsAsSelectList
-
-                updatedRewards =
-                    SelectList.singleton updatedReward
-                        |> SelectList.prepend befores
-                        |> SelectList.append afters
-            in
-            ( { model | rewardsAsSelectList = updatedRewards, description = str }, Cmd.none ) => NoOp
+            ( { model | description = str }, Cmd.none ) => NoOp
 
         HandleFetchRewards rewards ->
             let
@@ -699,6 +705,42 @@ update msg model =
                     { model | rewards = rewards, rewardsAsSelectList = rewardsAsSelectList }
             in
             ( updatedModel, getPlans updatedModel ) => NoOp
+
+        Cancel ->
+            ( { model | isEditingYourCampaigns = False, isEditingReward = False }, Cmd.none ) => NoOp
+
+        HideCampaignConfirmation ->
+            let
+                selectedCampaign =
+                    SelectList.selected model.yourCampaigns
+
+                updatedSelectedCampaign =
+                    { selectedCampaign | campaignConfirmation = False }
+
+                befores =
+                    SelectList.before model.yourCampaigns
+
+                afters =
+                    SelectList.after model.yourCampaigns
+
+                beforesAndAfters =
+                    befores ++ afters
+
+                defaultSelectedCampaign =
+                    List.filter (\campaign -> not (hasCampaignId campaign)) beforesAndAfters
+                        |> List.head
+                        |> Maybe.withDefault campaignWrapperDefault
+
+                campaignAsSelectList =
+                    SelectList.singleton defaultSelectedCampaign
+
+                updatedCampaigns =
+                    campaignAsSelectList
+                        |> SelectList.append [ updatedSelectedCampaign ]
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | yourCampaigns = updatedCampaigns }, Cmd.none ) => NoOp
 
         HideConfirmation ->
             let
@@ -789,7 +831,7 @@ update msg model =
                         defaultSelectedCampaign =
                             List.filter (\campaign -> not (hasCampaignId campaign)) beforesAndAfters
                                 |> List.head
-                                |> Maybe.withDefault default
+                                |> Maybe.withDefault campaignWrapperDefault
 
                         campaignAsSelectList =
                             SelectList.singleton defaultSelectedCampaign
@@ -824,7 +866,7 @@ update msg model =
         DeleteCampaign campaignId ->
             let
                 updatedCampaigns =
-                    SelectList.select (\u -> u.id == campaignId) model.yourCampaigns
+                    SelectList.select (\u -> u.campaign.id == campaignId) model.yourCampaigns
 
                 updatedModel =
                     { model
@@ -832,6 +874,30 @@ update msg model =
                     }
             in
             ( updatedModel, getPlansForDeletion updatedModel ) => NoOp
+
+        ShowCampaignConfirmation campaignId ->
+            let
+                updatedWrapperCampaigns =
+                    SelectList.select (\u -> u.campaign.id == campaignId) model.yourCampaigns
+
+                selectedWrapperCampaign =
+                    SelectList.selected updatedWrapperCampaigns
+
+                updatedWrapperCampaign =
+                    { selectedWrapperCampaign | campaignConfirmation = True }
+
+                befores =
+                    SelectList.before updatedWrapperCampaigns
+
+                afters =
+                    SelectList.after updatedWrapperCampaigns
+
+                updatedCampaignWrappers =
+                    SelectList.singleton updatedWrapperCampaign
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | yourCampaigns = updatedCampaignWrappers }, Cmd.none ) => NoOp
 
         ShowConfirmation subscriptionId ->
             let
@@ -870,7 +936,7 @@ update msg model =
         SelectYourCampaign campaignId ->
             let
                 updatedCampaigns =
-                    SelectList.select (\campaign -> campaign.id == campaignId) model.yourCampaigns
+                    SelectList.select (\u -> u.campaign.id == campaignId) model.yourCampaigns
 
                 selectedCampaign =
                     SelectList.selected updatedCampaigns
@@ -879,8 +945,8 @@ update msg model =
                     { model
                         | yourCampaigns = updatedCampaigns
                         , isEditingYourCampaigns = True
-                        , longDescription = selectedCampaign.longDescription
-                        , fundingGoal = selectedCampaign.fundingGoal
+                        , longDescription = selectedCampaign.campaign.longDescription
+                        , fundingGoal = selectedCampaign.campaign.fundingGoal
                     }
             in
             ( updatedModel
@@ -907,8 +973,12 @@ update msg model =
             case data of
                 Success campaign ->
                     let
-                        currentSelectedCampaign =
+                        currentSelectedCampaignWrapper =
                             SelectList.selected model.yourCampaigns
+
+                        currentSelectedCampaign =
+                            currentSelectedCampaignWrapper
+                                |> .campaign
 
                         updatedCampaign =
                             { currentSelectedCampaign
@@ -916,19 +986,22 @@ update msg model =
                                 , fundingGoal = model.fundingGoal
                             }
 
+                        updatedCampaignWrapper =
+                            { currentSelectedCampaignWrapper | campaign = updatedCampaign }
+
                         befores =
                             SelectList.before model.yourCampaigns
 
                         afters =
                             SelectList.after model.yourCampaigns
 
-                        updatedCampaigns =
-                            SelectList.singleton updatedCampaign
+                        updatedCampaignWrappers =
+                            SelectList.singleton updatedCampaignWrapper
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
                     { model
-                        | yourCampaigns = updatedCampaigns
+                        | yourCampaigns = updatedCampaignWrappers
                         , currentFunding = 0.0
                         , fundingGoal = 0.0
                         , longDescription = ""
@@ -950,6 +1023,7 @@ putCampaign model =
 
         selectedCampaignId =
             selectedCampaign
+                |> .campaign
                 |> .id
                 |> toString
 
@@ -959,8 +1033,8 @@ putCampaign model =
         data =
             { longDescription = model.longDescription
             , fundingGoal = model.fundingGoal
-            , userId = selectedCampaign.userId
-            , githubRepoId = selectedCampaign.githubRepoId
+            , userId = selectedCampaign.campaign.userId
+            , githubRepoId = selectedCampaign.campaign.githubRepoId
             }
     in
     RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutCampaign Campaign.showDecoder (Campaign.encode data)
@@ -1155,15 +1229,18 @@ yourBounties model =
             section [ class "section" ]
                 [ div [ class "container" ]
                     [ h1 [ class "title" ] [ text "Your Campaigns" ]
-                    , a [ class "link", Router.href Router.CreateUserRoleRoute ]
+                    , a [ class "link", Router.href Router.CreateCampaignRoute ]
                         [ text "Start a campaign!" ]
                     ]
                 ]
 
 
-updateCampaignForm : Model -> Campaign -> List IncludedStuff -> Html Msg
-updateCampaignForm model campaign included =
+updateCampaignForm : Model -> CampaignWrapper -> List IncludedStuff -> Html Msg
+updateCampaignForm model campaignWrapper included =
     let
+        campaign =
+            campaignWrapper.campaign
+
         repoForCampaign =
             List.filter
                 (\included ->
@@ -1191,11 +1268,13 @@ updateCampaignForm model campaign included =
                  , viewErrors model.errors
                  , displayUpdateLongDescription model
                  , displayUpdateFundingGoal model
+                 , hr [] []
+                 , h1 [ class "title" ] [ text "Rewards" ]
                  ]
                     ++ displayRewards
-                    ++ [ displayUpdateButton ]
                     ++ [ a [ class "link", onClick ShowRewardForm ] [ text "Add Reward" ] ]
                     ++ [ createRewardForm model ]
+                    ++ [ displayUpdateButton ]
                 )
             ]
     else
@@ -1205,10 +1284,11 @@ updateCampaignForm model campaign included =
                  , viewErrors model.errors
                  , displayUpdateLongDescription model
                  , displayUpdateFundingGoal model
+                 , hr [] []
+                 , p [ class "card-header-title" ] [ text "Rewards" ]
                  ]
                     ++ displayRewards
                     ++ [ displayUpdateButton ]
-                    ++ [ a [ class "link", onClick ShowRewardForm ] [ text "Add Reward" ] ]
                 )
             ]
 
@@ -1252,6 +1332,7 @@ renderUpdateOrShow position reward =
                         ]
                     ]
                 ]
+            , hr [] []
             ]
     else if reward.id == 0 then
         div [] []
@@ -1273,6 +1354,13 @@ renderUpdateOrShow position reward =
                 , p []
                     [ text reward.description ]
                 ]
+            , footer [ class "card-footer" ]
+                [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
+                    [ span [] [ text "edit" ] ]
+                , a [ class "card-footer-item", onClick (DeletePlan reward.id) ]
+                    [ span [] [ text "delete" ] ]
+                ]
+            , hr [] []
             ]
 
 
@@ -1285,13 +1373,7 @@ displayUpdateRewards model =
 showReward : Reward -> Html Msg
 showReward reward =
     div [ class "card" ]
-        [ div [ class "card-header" ]
-            [ a [ class "card-header-icon", onClick (SelectReward reward.id) ]
-                [ span [] [ text "edit" ] ]
-            , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
-                [ span [] [ text "delete" ] ]
-            ]
-        , div [ class "card-content" ]
+        [ div [ class "card-content" ]
             [ label [ class "label" ]
                 [ text "Donation Level" ]
             , p [ class "control" ]
@@ -1301,6 +1383,13 @@ showReward reward =
             , p []
                 [ text reward.description ]
             ]
+        , footer [ class "card-footer" ]
+            [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
+                [ span [] [ text "edit" ] ]
+            , a [ class "card-footer-item", onClick (DeletePlan reward.id) ]
+                [ span [] [ text "delete" ] ]
+            ]
+        , hr [] []
         ]
 
 
@@ -1353,7 +1442,7 @@ updateRewardFormDescription reward =
         ]
 
 
-filterPersistedCampaigns : List Campaign -> List Campaign
+filterPersistedCampaigns : List CampaignWrapper -> List CampaignWrapper
 filterPersistedCampaigns campaignList =
     List.filter hasCampaignId campaignList
 
@@ -1363,9 +1452,9 @@ filterPersistedSubscriptions subscriptionList =
     List.filter hasSubscriptionId subscriptionList
 
 
-hasCampaignId : Campaign -> Bool
-hasCampaignId campaign =
-    not (campaign.id == 0)
+hasCampaignId : CampaignWrapper -> Bool
+hasCampaignId campaignWrapper =
+    not (campaignWrapper.campaign.id == 0)
 
 
 hasSubscriptionId : SubscriptionWrapper -> Bool
@@ -1382,9 +1471,12 @@ campaignsYouContributedTo campaigns =
         campaigns
 
 
-showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
-showYourCampaign campaign included =
+showYourCampaign : CampaignWrapper -> List IncludedStuff -> Html Msg
+showYourCampaign campaignWrapper included =
     let
+        campaign =
+            campaignWrapper.campaign
+
         repoForCampaign =
             List.filter
                 (\included ->
@@ -1400,9 +1492,40 @@ showYourCampaign campaign included =
                 |> Maybe.withDefault Campaigns.includedRepoDefault
     in
     div [ class "card" ]
-        [ displayCampaignFormHeader campaign repoForCampaign
-        , displayCampaignFormContent campaign
+        [ displayCampaignFormHeader campaignWrapper repoForCampaign
+        , displayCampaignFormContent campaignWrapper
+        , showCampaignFooter campaignWrapper
         ]
+
+
+showCampaignFooter : CampaignWrapper -> Html Msg
+showCampaignFooter campaignWrapper =
+    let
+        campaign =
+            campaignWrapper.campaign
+    in
+    case campaignWrapper.campaignConfirmation of
+        True ->
+            footer [ class "card-footer" ]
+                [ div [ class "card-footer-item" ]
+                    [ label []
+                        [ span [] [ text "Are you sure?" ] ]
+                    , a [ class "card-footer-item", onClick (DeleteCampaign campaign.id) ]
+                        [ span [] [ text "Yes" ] ]
+                    , a [ class "card-footer-item", onClick HideCampaignConfirmation ]
+                        [ span [] [ text "No" ] ]
+                    ]
+                ]
+
+        False ->
+            footer [ class "card-footer" ]
+                [ div [ class "card-footer-item" ]
+                    [ a [ class "card-footer-item", onClick (ShowCampaignConfirmation campaign.id) ]
+                        [ span [] [ text "delete" ] ]
+                    , a [ class "card-footer-item", onClick (SelectYourCampaign campaign.id) ]
+                        [ span [] [ text "edit" ] ]
+                    ]
+                ]
 
 
 showYourSubscription : SubscriptionWrapper -> Model -> Html Msg
@@ -1432,6 +1555,11 @@ displayUpdateButton =
         [ p [ class "control" ]
             [ button [ class "button is-primary", onClick SaveUpdateCampaignForm ]
                 [ text "Update Campaign" ]
+            ]
+        , p [ class "control" ]
+            [ button [ class "button is-primary", onClick ShowRewardForm ] [ text "Add Reward" ] ]
+        , p [ class "control" ]
+            [ button [ class "button is-danger", onClick Cancel ] [ text "Cancel" ]
             ]
         ]
 
@@ -1490,8 +1618,8 @@ displayCampaignUpdateFormHeader included =
         ]
 
 
-displayCampaignFormHeader : Campaign -> IncludedStuff -> Html Msg
-displayCampaignFormHeader campaign included =
+displayCampaignFormHeader : CampaignWrapper -> IncludedStuff -> Html Msg
+displayCampaignFormHeader campaignWrapper included =
     let
         repo =
             case included of
@@ -1505,13 +1633,12 @@ displayCampaignFormHeader campaign included =
                     , bountifulScore = 0
                     , owner = ""
                     }
+
+        campaign =
+            campaignWrapper.campaign
     in
     div [ class "card-header" ]
         [ p [ class "card-header-title" ] [ text repo.name ]
-        , a [ class "card-header-icon", onClick (SelectYourCampaign campaign.id) ]
-            [ span [] [ text "edit" ] ]
-        , a [ class "card-header-icon", onClick (DeleteCampaign campaign.id) ]
-            [ span [] [ text "delete" ] ]
         ]
 
 
@@ -1553,8 +1680,12 @@ displaySubscriptionFormContent plan =
         ]
 
 
-displayCampaignFormContent : Campaign -> Html Msg
-displayCampaignFormContent campaign =
+displayCampaignFormContent : CampaignWrapper -> Html Msg
+displayCampaignFormContent campaignWrapper =
+    let
+        campaign =
+            campaignWrapper.campaign
+    in
     div [ class "card-content" ]
         [ div [ class "field" ]
             [ label [ class "label" ]
@@ -1680,6 +1811,7 @@ deleteCampaign model =
 
         selectedCampaignId =
             selectedCampaign
+                |> .campaign
                 |> .id
                 |> toString
 
@@ -1687,12 +1819,12 @@ deleteCampaign model =
             model.apiUrl ++ "/campaigns/" ++ selectedCampaignId
 
         data =
-            { id = selectedCampaign.id
-            , currentFunding = selectedCampaign.currentFunding
-            , longDescription = selectedCampaign.longDescription
-            , fundingGoal = selectedCampaign.fundingGoal
-            , userId = selectedCampaign.userId
-            , githubRepoId = selectedCampaign.githubRepoId
+            { id = selectedCampaignId
+            , currentFunding = selectedCampaign.campaign.currentFunding
+            , longDescription = selectedCampaign.campaign.longDescription
+            , fundingGoal = selectedCampaign.campaign.fundingGoal
+            , userId = selectedCampaign.campaign.userId
+            , githubRepoId = selectedCampaign.campaign.githubRepoId
             }
     in
     RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteCampaign (Campaign.encode data)
@@ -1745,11 +1877,12 @@ getRewards model =
 
         selectedCampaignId =
             selectedCampaign
+                |> .campaign
                 |> .id
                 |> toString
 
         updatedUrl =
-            model.apiUrl ++ "/rewards/?campaign_id=" ++ (selectedCampaign.id |> toString)
+            model.apiUrl ++ "/rewards/?campaign_id=" ++ selectedCampaignId
     in
     RemoteData.Http.getWithConfig (Auth.config model.token) updatedUrl HandleFetchRewards Rewards.decoder
 
@@ -1796,7 +1929,7 @@ putReward model =
 
         data =
             { description = model.description
-            , campaignId = selectedCampaign.id
+            , campaignId = selectedCampaign.campaign.id
             }
     in
     RemoteData.Http.putWithConfig (Auth.config model.token) rewardUrl HandlePutReward Reward.showDecoder (Reward.updateEncode data)
@@ -1832,6 +1965,7 @@ getPlans model =
 
         selectedCampaignId =
             selectedCampaign
+                |> .campaign
                 |> .id
                 |> toString
 
@@ -1859,7 +1993,7 @@ postReward model =
         data =
             { description = model.description
             , donationLevel = model.donationLevel
-            , campaignId = selectedCampaign.id
+            , campaignId = selectedCampaign.campaign.id
             }
     in
     RemoteData.Http.postWithConfig (Auth.config model.token) rewardUrl HandleReward Reward.showDecoder (Reward.encode data)
@@ -1920,6 +2054,7 @@ getPlansForDeletion model =
 
         selectedCampaignId =
             selectedCampaign
+                |> .campaign
                 |> .id
                 |> toString
 
