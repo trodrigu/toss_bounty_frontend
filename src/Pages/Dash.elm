@@ -700,7 +700,31 @@ update msg model =
                 => NoOp
 
         UpdateDescriptionField str ->
-            ( { model | description = str }, Cmd.none ) => NoOp
+            let
+                selectedRewardWrapper =
+                    SelectList.selected model.rewardsAsSelectList
+
+                selectedReward =
+                    selectedRewardWrapper.reward
+
+                updatedSelectedReward =
+                    { selectedReward | description = str }
+
+                updatedSelectedRewardWrapper =
+                    { reward = updatedSelectedReward, confirmation = False }
+
+                befores =
+                    SelectList.before model.rewardsAsSelectList
+
+                afters =
+                    SelectList.after model.rewardsAsSelectList
+
+                updatedRewardWrappers =
+                    SelectList.singleton updatedSelectedRewardWrapper
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | rewardsAsSelectList = updatedRewardWrappers }, Cmd.none ) => NoOp
 
         HandleFetchRewards rewards ->
             let
@@ -1446,9 +1470,9 @@ renderUpdateOrShow position rewardWrapper =
                     ]
                 , footer [ class "card-footer" ]
                     [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
-                        [ span [] [ text "edit" ] ]
+                        [ span [] [ text "edit reward" ] ]
                     , a [ class "card-footer-item", onClick (DeletePlan reward.id) ]
-                        [ span [] [ text "delete" ] ]
+                        [ span [] [ text "delete reward" ] ]
                     ]
                 ]
             , hr [] []
@@ -1505,9 +1529,9 @@ showReward rewardWrapper =
                     ]
                 , footer [ class "card-footer" ]
                     [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
-                        [ span [] [ text "edit" ] ]
+                        [ span [] [ text "edit reward" ] ]
                     , a [ class "card-footer-item", onClick (ShowRewardConfirmation reward.id) ]
-                        [ span [] [ text "delete" ] ]
+                        [ span [] [ text "delete reward" ] ]
                     ]
                 , hr [] []
                 ]
@@ -1645,9 +1669,9 @@ showCampaignFooter campaignWrapper =
             footer [ class "card-footer" ]
                 [ div [ class "card-footer-item" ]
                     [ a [ class "card-footer-item", onClick (ShowCampaignConfirmation campaign.id) ]
-                        [ span [] [ text "delete" ] ]
+                        [ span [] [ text "delete campaign" ] ]
                     , a [ class "card-footer-item", onClick (SelectYourCampaign campaign.id) ]
-                        [ span [] [ text "edit" ] ]
+                        [ span [] [ text "edit campaign" ] ]
                     ]
                 ]
 
@@ -1678,10 +1702,10 @@ displayUpdateButton =
     div [ class "field is-grouped" ]
         [ p [ class "control" ]
             [ button [ class "button is-primary", onClick SaveUpdateCampaignForm ]
-                [ text "Update Campaign" ]
+                [ text "Save Campaign" ]
             ]
         , p [ class "control" ]
-            [ button [ class "button is-primary", onClick ShowRewardForm ] [ text "Add Reward" ] ]
+            [ button [ class "button is-primary", onClick ShowRewardForm ] [ text "Add New Reward" ] ]
         , p [ class "control" ]
             [ button [ class "button is-danger", onClick Cancel ] [ text "Cancel" ]
             ]
@@ -2058,7 +2082,7 @@ putReward model =
             model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
 
         data =
-            { description = model.description
+            { description = selectedReward.description
             , campaignId = selectedCampaign.campaign.id
             }
     in
@@ -2123,9 +2147,15 @@ postReward model =
         rewardUrl =
             model.apiUrl ++ "/rewards"
 
+        selectedRewardWrapper =
+            SelectList.selected model.rewardsAsSelectList
+
+        selectedReward =
+            selectedRewardWrapper.reward
+
         data =
-            { description = model.description
-            , donationLevel = model.donationLevel
+            { description = selectedReward.description
+            , donationLevel = selectedReward.donationLevel
             , campaignId = selectedCampaign.campaign.id
             }
     in
