@@ -88,7 +88,7 @@ footerArea page =
                                 ]
                             ]
                         ]
-                    , a [ class "link", Router.href CreateUserRoleRoute ]
+                    , a [ class "link", Router.href CreateCampaignRoute ]
                         [ text "Start a campaign!" ]
                     , p []
                         [ a [ class "link", Router.href AboutRoute ]
