@@ -52,10 +52,23 @@ type alias CampaignWrapper =
     }
 
 
+type alias RewardWrapper =
+    { reward : Reward
+    , confirmation : Bool
+    }
+
+
 campaignWrapperDefault : CampaignWrapper
 campaignWrapperDefault =
     { campaign = Campaign.default
     , campaignConfirmation = False
+    }
+
+
+rewardWrapperDefault : RewardWrapper
+rewardWrapperDefault =
+    { reward = Reward.default
+    , confirmation = False
     }
 
 
@@ -74,7 +87,7 @@ type alias Model =
     , isEditingYourCampaigns : Bool
     , showConfirmation : Bool
     , rewards : WebData Rewards
-    , rewardsAsSelectList : SelectList Reward
+    , rewardsAsSelectList : SelectList RewardWrapper
     , plans : WebData Plan
     , plansAsSelectList : SelectList Plan
     , description : String
@@ -92,6 +105,11 @@ wrapSubscriptions subscriptions =
 wrapCampaign : Campaign -> CampaignWrapper
 wrapCampaign campaign =
     { campaign = campaign, campaignConfirmation = False }
+
+
+wrapReward : Reward -> RewardWrapper
+wrapReward reward =
+    { reward = reward, confirmation = False }
 
 
 init : Maybe String -> AuthToken -> List Campaign -> List IncludedStuff -> List Subscription -> List Plan -> Model
@@ -133,7 +151,7 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
                 |> SelectList.append yourSubscribedPlans
 
         defaultRewardsAsSelectList =
-            SelectList.singleton Reward.default
+            SelectList.singleton { reward = Reward.default, confirmation = False }
     in
     { campaignId = 0
     , currentFunding = 0.0
@@ -191,6 +209,8 @@ type Msg
     | HandleGetPlansForDeletion (WebData Plans)
     | ShowCampaignConfirmation Int
     | HideCampaignConfirmation
+    | ShowRewardConfirmation Int
+    | HideRewardConfirmation
     | Cancel
 
 
@@ -287,9 +307,6 @@ update msg model =
                         currentSelectedReward =
                             SelectList.selected model.rewardsAsSelectList
 
-                        newReward =
-                            SelectList.singleton reward
-
                         befores =
                             SelectList.before model.rewardsAsSelectList
 
@@ -305,7 +322,7 @@ update msg model =
                                     afters
 
                         updatedRewards =
-                            newReward
+                            SelectList.singleton { reward = reward, confirmation = False }
                                 |> SelectList.prepend befores
                                 |> SelectList.append aftersWithCurrentSelectedReward
 
@@ -392,7 +409,7 @@ update msg model =
                                     ( headReward, tail )
 
                                 Nothing ->
-                                    ( Reward.default, [] )
+                                    ( { reward = Reward.default, confirmation = False }, [] )
 
                         updatedRewards =
                             SelectList.fromLists [] headReward tail
@@ -430,8 +447,11 @@ update msg model =
             case data of
                 Success reward ->
                     let
-                        currentSelectedReward =
+                        currentSelectedRewardWrapper =
                             SelectList.selected model.rewardsAsSelectList
+
+                        currentSelectedReward =
+                            currentSelectedRewardWrapper.reward
 
                         updatedReward =
                             { currentSelectedReward
@@ -445,7 +465,7 @@ update msg model =
                             SelectList.after model.rewardsAsSelectList
 
                         updatedRewards =
-                            SelectList.singleton updatedReward
+                            SelectList.singleton { reward = updatedReward, confirmation = False }
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
@@ -494,7 +514,7 @@ update msg model =
             case data of
                 Success _ ->
                     let
-                        selectedReward =
+                        selectedRewardWrapper =
                             SelectList.selected model.rewardsAsSelectList
 
                         befores =
@@ -525,7 +545,7 @@ update msg model =
                                 Nothing ->
                                     let
                                         updatedRewards =
-                                            SelectList.fromLists [] Reward.default []
+                                            SelectList.fromLists [] { reward = Reward.default, confirmation = False } []
 
                                         updatedModel =
                                             { model
@@ -637,7 +657,7 @@ update msg model =
         DeletePlan rewardId ->
             let
                 updatedRewards =
-                    SelectList.select (\u -> u.id == rewardId) model.rewardsAsSelectList
+                    SelectList.select (\u -> u.reward.id == rewardId) model.rewardsAsSelectList
 
                 updatedPlans =
                     SelectList.select (\u -> u.rewardId == rewardId) model.plansAsSelectList
@@ -655,10 +675,13 @@ update msg model =
         SelectReward rewardId ->
             let
                 updatedRewards =
-                    SelectList.select (\u -> u.id == rewardId) model.rewardsAsSelectList
+                    SelectList.select (\u -> u.reward.id == rewardId) model.rewardsAsSelectList
+
+                selectedRewardWrapper =
+                    SelectList.selected updatedRewards
 
                 selectedReward =
-                    SelectList.selected updatedRewards
+                    selectedRewardWrapper.reward
 
                 updatedPlans =
                     SelectList.select (\u -> u.rewardId == rewardId) model.plansAsSelectList
@@ -698,8 +721,11 @@ update msg model =
                         Nothing ->
                             ( Reward.default, [] )
 
+                tailAsRewardWrappers =
+                    List.map (\reward -> wrapReward reward) tail
+
                 rewardsAsSelectList =
-                    SelectList.fromLists [] headReward tail
+                    SelectList.fromLists [] { reward = headReward, confirmation = False } tailAsRewardWrappers
 
                 updatedModel =
                     { model | rewards = rewards, rewardsAsSelectList = rewardsAsSelectList }
@@ -708,6 +734,39 @@ update msg model =
 
         Cancel ->
             ( { model | isEditingYourCampaigns = False, isEditingReward = False }, Cmd.none ) => NoOp
+
+        HideRewardConfirmation ->
+            let
+                selectedReward =
+                    SelectList.selected model.rewardsAsSelectList
+
+                updatedSelectedReward =
+                    { selectedReward | confirmation = False }
+
+                befores =
+                    SelectList.before model.rewardsAsSelectList
+
+                afters =
+                    SelectList.after model.rewardsAsSelectList
+
+                beforesAndAfters =
+                    befores ++ afters
+
+                defaultSelectedReward =
+                    List.filter (\reward -> not (hasRewardId reward)) beforesAndAfters
+                        |> List.head
+                        |> Maybe.withDefault rewardWrapperDefault
+
+                rewardAsSelectList =
+                    SelectList.singleton defaultSelectedReward
+
+                updatedRewards =
+                    rewardAsSelectList
+                        |> SelectList.append [ updatedSelectedReward ]
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | rewardsAsSelectList = updatedRewards }, Cmd.none ) => NoOp
 
         HideCampaignConfirmation ->
             let
@@ -874,6 +933,30 @@ update msg model =
                     }
             in
             ( updatedModel, getPlansForDeletion updatedModel ) => NoOp
+
+        ShowRewardConfirmation rewardId ->
+            let
+                updatedWrapperRewards =
+                    SelectList.select (\u -> u.reward.id == rewardId) model.rewardsAsSelectList
+
+                selectedWrapperReward =
+                    SelectList.selected updatedWrapperRewards
+
+                updatedWrapperReward =
+                    { selectedWrapperReward | confirmation = True }
+
+                befores =
+                    SelectList.before updatedWrapperRewards
+
+                afters =
+                    SelectList.after updatedWrapperRewards
+
+                updatedRewardWrappers =
+                    SelectList.singleton updatedWrapperReward
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | rewardsAsSelectList = updatedRewardWrappers }, Cmd.none ) => NoOp
 
         ShowCampaignConfirmation campaignId ->
             let
@@ -1293,9 +1376,9 @@ updateCampaignForm model campaignWrapper included =
             ]
 
 
-filterPersistedRewards : List Reward -> List Reward
-filterPersistedRewards rewardList =
-    List.filter rewardHasId rewardList
+filterPersistedRewards : List RewardWrapper -> List RewardWrapper
+filterPersistedRewards rewardWrapperList =
+    List.filter rewardHasId rewardWrapperList
 
 
 planHasId : Plan -> Bool
@@ -1303,62 +1386,70 @@ planHasId plan =
     not (plan.id == "")
 
 
-rewardHasId : Reward -> Bool
-rewardHasId reward =
+rewardHasId : RewardWrapper -> Bool
+rewardHasId rewardWrapper =
+    let
+        reward =
+            rewardWrapper.reward
+    in
     not (reward.id == 0)
 
 
-renderUpdateOrShow : Position -> Reward -> Html Msg
-renderUpdateOrShow position reward =
+renderUpdateOrShow : Position -> RewardWrapper -> Html Msg
+renderUpdateOrShow position rewardWrapper =
+    let
+        reward =
+            rewardWrapper.reward
+    in
     if position == SelectList.Selected then
-        div [ class "card" ]
-            [ div [ class "card-content" ]
-                [ div [ class "field" ]
-                    [ label [ class "label" ]
-                        [ text "Description of reward" ]
-                    , p [ class "control" ]
-                        [ input
-                            [ class "input"
-                            , onInput UpdateDescriptionField
-                            , value reward.description
+        div []
+            [ div [ class "card" ]
+                [ div [ class "card-content" ]
+                    [ div [ class "field" ]
+                        [ label [ class "label" ]
+                            [ text "Description of reward" ]
+                        , p [ class "control" ]
+                            [ input
+                                [ class "input"
+                                , onInput UpdateDescriptionField
+                                , value reward.description
+                                ]
+                                []
                             ]
-                            []
+                        ]
+                    , div [ class "field is-grouped" ]
+                        [ p [ class "control" ]
+                            [ button [ class "button is-primary", onClick SaveUpdateForm ]
+                                [ text "Update Reward" ]
+                            ]
                         ]
                     ]
-                , div [ class "field is-grouped" ]
-                    [ p [ class "control" ]
-                        [ button [ class "button is-primary", onClick SaveUpdateForm ]
-                            [ text "Update Reward" ]
-                        ]
-                    ]
+                , footer [ class "card-footer" ]
+                    []
                 ]
             , hr [] []
             ]
     else if reward.id == 0 then
         div [] []
     else
-        div [ class "card" ]
-            [ div [ class "card-header" ]
-                [ a [ class "card-header-icon", onClick (SelectReward reward.id) ]
-                    [ span [] [ text "edit" ] ]
-                , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
-                    [ span [] [ text "delete" ] ]
-                ]
-            , div [ class "card-content" ]
-                [ label [ class "label" ]
-                    [ text "Donation Level" ]
-                , p [ class "control" ]
-                    [ text (toString reward.donationLevel) ]
-                , label [ class "label" ]
-                    [ text "Description" ]
-                , p []
-                    [ text reward.description ]
-                ]
-            , footer [ class "card-footer" ]
-                [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
-                    [ span [] [ text "edit" ] ]
-                , a [ class "card-footer-item", onClick (DeletePlan reward.id) ]
-                    [ span [] [ text "delete" ] ]
+        div []
+            [ div [ class "card" ]
+                [ div [ class "card-content" ]
+                    [ label [ class "label" ]
+                        [ text "Donation Level" ]
+                    , p [ class "control" ]
+                        [ text (toString reward.donationLevel) ]
+                    , label [ class "label" ]
+                        [ text "Description" ]
+                    , p []
+                        [ text reward.description ]
+                    ]
+                , footer [ class "card-footer" ]
+                    [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
+                        [ span [] [ text "edit" ] ]
+                    , a [ class "card-footer-item", onClick (DeletePlan reward.id) ]
+                        [ span [] [ text "delete" ] ]
+                    ]
                 ]
             , hr [] []
             ]
@@ -1370,31 +1461,64 @@ displayUpdateRewards model =
         |> SelectList.mapBy renderUpdateOrShow
 
 
-showReward : Reward -> Html Msg
-showReward reward =
-    div [ class "card" ]
-        [ div [ class "card-content" ]
-            [ label [ class "label" ]
-                [ text "Donation Level" ]
-            , p [ class "control" ]
-                [ text (toString reward.donationLevel) ]
-            , label [ class "label" ]
-                [ text "Description" ]
-            , p []
-                [ text reward.description ]
-            ]
-        , footer [ class "card-footer" ]
-            [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
-                [ span [] [ text "edit" ] ]
-            , a [ class "card-footer-item", onClick (DeletePlan reward.id) ]
-                [ span [] [ text "delete" ] ]
-            ]
-        , hr [] []
-        ]
+showReward : RewardWrapper -> Html Msg
+showReward rewardWrapper =
+    let
+        reward =
+            rewardWrapper.reward
+    in
+    case rewardWrapper.confirmation of
+        True ->
+            div [ class "card" ]
+                [ div [ class "card-content" ]
+                    [ label [ class "label" ]
+                        [ text "Donation Level" ]
+                    , p [ class "control" ]
+                        [ text (toString reward.donationLevel) ]
+                    , label [ class "label" ]
+                        [ text "Description" ]
+                    , p []
+                        [ text reward.description ]
+                    ]
+                , footer [ class "card-footer" ]
+                    [ label [ class "card-header-icon" ]
+                        [ span [] [ text "Are you sure?" ] ]
+                    , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
+                        [ span [] [ text "Yes" ] ]
+                    , a [ class "card-header-icon", onClick HideRewardConfirmation ]
+                        [ span [] [ text "No" ] ]
+                    ]
+                , hr [] []
+                ]
+
+        False ->
+            div [ class "card" ]
+                [ div [ class "card-content" ]
+                    [ label [ class "label" ]
+                        [ text "Donation Level" ]
+                    , p [ class "control" ]
+                        [ text (toString reward.donationLevel) ]
+                    , label [ class "label" ]
+                        [ text "Description" ]
+                    , p []
+                        [ text reward.description ]
+                    ]
+                , footer [ class "card-footer" ]
+                    [ a [ class "card-footer-item", onClick (SelectReward reward.id) ]
+                        [ span [] [ text "edit" ] ]
+                    , a [ class "card-footer-item", onClick (ShowRewardConfirmation reward.id) ]
+                        [ span [] [ text "delete" ] ]
+                    ]
+                , hr [] []
+                ]
 
 
-hasRewardId : Reward -> Bool
-hasRewardId reward =
+hasRewardId : RewardWrapper -> Bool
+hasRewardId rewardWrapper =
+    let
+        reward =
+            rewardWrapper.reward
+    in
     not (reward.id == 0)
 
 
@@ -1906,8 +2030,11 @@ deletePlan model =
 deleteReward : Model -> Cmd Msg
 deleteReward model =
     let
-        selectedReward =
+        selectedRewardWrapper =
             SelectList.selected model.rewardsAsSelectList
+
+        selectedReward =
+            selectedRewardWrapper.reward
 
         rewardUrl =
             model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
@@ -1921,8 +2048,11 @@ putReward model =
         selectedCampaign =
             SelectList.selected model.yourCampaigns
 
-        selectedReward =
+        selectedRewardWrapper =
             SelectList.selected model.rewardsAsSelectList
+
+        selectedReward =
+            selectedRewardWrapper.reward
 
         rewardUrl =
             model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
@@ -1938,8 +2068,11 @@ putReward model =
 putPlan : Model -> Cmd Msg
 putPlan model =
     let
-        selectedReward =
+        selectedRewardWrapper =
             SelectList.selected model.rewardsAsSelectList
+
+        selectedReward =
+            selectedRewardWrapper.reward
 
         selectedPlan =
             SelectList.selected model.plansAsSelectList
@@ -2005,9 +2138,12 @@ postPlan model =
         planUrl =
             model.apiUrl ++ "/plans"
 
-        selectedReward =
+        selectedRewardWrapper =
             model.rewardsAsSelectList
                 |> SelectList.selected
+
+        selectedReward =
+            selectedRewardWrapper.reward
 
         data =
             { amount = selectedReward.donationLevel
@@ -2036,9 +2172,12 @@ deletePlans model =
 deleteRewards : Model -> Cmd Msg
 deleteRewards model =
     let
-        selectedReward =
+        selectedRewardWrapper =
             model.rewardsAsSelectList
                 |> SelectList.selected
+
+        selectedReward =
+            selectedRewardWrapper.reward
 
         rewardUrl =
             model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
