@@ -104,17 +104,7 @@ maintainerHero model =
                     ]
     in
     div []
-        [ section [ class "hero is-medium is-primary is-bold" ]
-            [ div [ class "hero-body" ]
-                [ div [ class "container" ]
-                    [ div [ class "columns" ]
-                        [ div [ class "column is-half is-offset-one-quarter" ]
-                            repoList
-                        ]
-                    ]
-                ]
-            ]
-        , createCampaignForm model
+        [ createCampaignForm model repoList
         ]
 
 
@@ -150,11 +140,15 @@ issueView issue =
         ]
 
 
-createCampaignForm : Model -> Html Msg
-createCampaignForm model =
+createCampaignForm : Model -> List (Html Msg) -> Html Msg
+createCampaignForm model repoList =
     section [ class "hero" ]
         [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
             [ div [ class "columns" ]
+                [ div [ class "column is-half is-offset-one-quarter" ]
+                    repoList
+                ]
+            , div [ class "columns" ]
                 [ div [ class "column is-half is-offset-one-quarter" ]
                     [ h1 [ class "title" ] [ text "Tell us a little about your Campaign" ]
                     , viewErrors model.errors
