@@ -291,8 +291,16 @@ update msg model =
 
                 updatedModel =
                     { model | plansAsSelectList = plansAsSelectList }
+
+                cmd =
+                    case ListExtra.uncons plansList of
+                        Just ( headPlan, tail ) ->
+                            deletePlans updatedModel
+
+                        Nothing ->
+                            deleteCampaign model
             in
-            ( updatedModel, deletePlans updatedModel ) => NoOp
+            ( updatedModel, cmd ) => NoOp
 
         HandlePlan data ->
             case data of
