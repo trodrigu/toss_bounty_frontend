@@ -55,7 +55,7 @@ viewButton model =
 
 view : Model -> Html Msg
 view model =
-    section [ class "hero is-primary" ]
+    section [ class "hero is-primary is-fullheight" ]
         [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
             [ div [ class "container" ]
                 [ div [ class "columns is-vcentered" ]
