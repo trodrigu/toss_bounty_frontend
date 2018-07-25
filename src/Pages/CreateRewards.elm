@@ -76,6 +76,7 @@ type Msg
 
 type ExternalMsg
     = NoOp
+    | MakeMainFetchCampaigns
 
 
 view : Model -> Html Msg
@@ -659,7 +660,7 @@ update msg model =
                         => NoOp
 
         DiscoverPage ->
-            model => Router.modifyUrl Router.DashRoute => NoOp
+            model => Router.modifyUrl Router.DashRoute => MakeMainFetchCampaigns
 
 
 postReward : Model -> Cmd Msg

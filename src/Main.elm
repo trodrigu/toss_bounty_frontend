@@ -945,8 +945,23 @@ updatePage page msg model =
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     CreateRewards.update subMsg subModel
+
+                newModel =
+                    case msgFromPage of
+                        CreateRewards.NoOp ->
+                            { model | page = CreateRewards pageModel }
+
+                        CreateRewards.MakeMainFetchCampaigns ->
+                            { model
+                                | page = CreateRewards pageModel
+                                , yourCampaigns = NotAsked
+                                , allCampaigns = NotAsked
+                                , campaignOfInterest = NotAsked
+                                , repoOfInterest = NotAsked
+                                , rewardsOfInterest = NotAsked
+                            }
             in
-            { model | page = CreateRewards pageModel } => Cmd.map CreateRewardsMsg cmd
+            newModel => Cmd.map CreateRewardsMsg cmd
 
         ( CreateUserRoleMsg subMsg, CreateUserRole subModel ) ->
             let
