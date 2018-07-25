@@ -227,6 +227,7 @@ type Msg
 
 type ExternalMsg
     = NoOp
+    | MakeMainFetchCampaigns
 
 
 validate : Model -> List Error
@@ -336,7 +337,7 @@ update msg model =
                         , isAddingReward = False
                     }
                         => Cmd.none
-                        => NoOp
+                        => MakeMainFetchCampaigns
 
                 error ->
                     let
@@ -469,7 +470,7 @@ update msg model =
                     in
                     updatedModel
                         => Cmd.none
-                        => NoOp
+                        => MakeMainFetchCampaigns
 
                 _ ->
                     ( model, Cmd.none )
@@ -975,7 +976,7 @@ update msg model =
                     in
                     { model | yourCampaigns = updatedCampaigns, longDescription = "", fundingGoal = 0.0 }
                         => Cmd.none
-                        => NoOp
+                        => MakeMainFetchCampaigns
 
                 _ ->
                     ( model, Cmd.none )
@@ -1164,7 +1165,7 @@ update msg model =
                         , isEditingYourCampaigns = False
                     }
                         => Cmd.none
-                        => NoOp
+                        => MakeMainFetchCampaigns
 
                 _ ->
                     ( model, Cmd.none )

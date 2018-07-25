@@ -923,8 +923,23 @@ updatePage page msg model =
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Dash.update subMsg subModel
+
+                newModel =
+                    case msgFromPage of
+                        Dash.NoOp ->
+                            { model | page = Dash pageModel }
+
+                        Dash.MakeMainFetchCampaigns ->
+                            { model
+                                | page = Dash pageModel
+                                , yourCampaigns = NotAsked
+                                , allCampaigns = NotAsked
+                                , campaignOfInterest = NotAsked
+                                , repoOfInterest = NotAsked
+                                , rewardsOfInterest = NotAsked
+                            }
             in
-            { model | page = Dash pageModel } => Cmd.map DashMsg cmd
+            newModel => Cmd.map DashMsg cmd
 
         ( CreateRewardsMsg subMsg, CreateRewards subModel ) ->
             let
