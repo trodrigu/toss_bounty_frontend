@@ -115,7 +115,6 @@ maintainerHero model =
                 ]
             ]
         , createCampaignForm model
-        , bioAndPic model
         ]
 
 
@@ -145,76 +144,6 @@ issueView issue =
                         [ text issue.title ]
                     , h2 [ class "subtitle" ]
                         [ text issue.body ]
-                    ]
-                ]
-            ]
-        ]
-
-
-bioAndPic : Model -> Html Msg
-bioAndPic model =
-    let
-        innerMedia =
-            case model.bountifulRepos of
-                NotAsked ->
-                    [ div [ class "pageloader is-active" ] [] ]
-
-                Failure err ->
-                    [ div [ class "pageloader is-active" ] [] ]
-
-                Loading ->
-                    [ div [ class "pageloader is-active" ] [] ]
-
-                Success bountifulRepos ->
-                    let
-                        imageSrc =
-                            bountifulRepos
-                                |> .selectListRepos
-                                |> SelectList.selected
-                                |> .image
-
-                        name =
-                            bountifulRepos
-                                |> .selectListRepos
-                                |> SelectList.selected
-                                |> .owner
-                    in
-                    [ figure [ class "media-left" ]
-                        [ p [ class "image is-128x128" ]
-                            [ img [ src imageSrc ]
-                                []
-                            ]
-                        ]
-                    , div [ class "media-content" ]
-                        [ div [ class "content" ]
-                            [ p []
-                                [ strong []
-                                    [ text name ]
-                                , br []
-                                    []
-                                , text "Does code push you?"
-                                ]
-                            ]
-                        , nav [ class "level is-mobile" ]
-                            [ div [ class "level-left" ]
-                                [ a [ class "level-item" ]
-                                    [ span [ class "icon is-medium" ]
-                                        [ i [ class "fa fa-github-alt" ]
-                                            []
-                                        ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-    in
-    section [ class "section" ]
-        [ div
-            [ class "container" ]
-            [ div [ class "columns" ]
-                [ div [ class "column is-half is-offset-one-quarter" ]
-                    [ article [ class "media" ]
-                        innerMedia
                     ]
                 ]
             ]
