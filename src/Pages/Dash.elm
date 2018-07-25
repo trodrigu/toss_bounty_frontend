@@ -49,6 +49,7 @@ subscriptionWrapperDefault =
 type alias CampaignWrapper =
     { campaign : Campaign
     , campaignConfirmation : Bool
+    , showButtonCode : Bool
     }
 
 
@@ -62,6 +63,7 @@ campaignWrapperDefault : CampaignWrapper
 campaignWrapperDefault =
     { campaign = Campaign.default
     , campaignConfirmation = False
+    , showButtonCode = False
     }
 
 
@@ -104,7 +106,10 @@ wrapSubscriptions subscriptions =
 
 wrapCampaign : Campaign -> CampaignWrapper
 wrapCampaign campaign =
-    { campaign = campaign, campaignConfirmation = False }
+    { campaign = campaign
+    , campaignConfirmation = False
+    , showButtonCode = False
+    }
 
 
 wrapReward : Reward -> RewardWrapper
@@ -127,7 +132,11 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
             List.map (\campaign -> wrapCampaign campaign) yourCampaigns
 
         defaultYourCampaign =
-            SelectList.singleton { campaign = Campaign.default, campaignConfirmation = False }
+            SelectList.singleton
+                { campaign = Campaign.default
+                , campaignConfirmation = False
+                , showButtonCode = True
+                }
 
         updatedYourCampaigns =
             defaultYourCampaign
@@ -213,6 +222,7 @@ type Msg
     | HideRewardConfirmation
     | Cancel
     | UpdateNewDescriptionField String
+    | ToggleButtonCode Int
 
 
 type ExternalMsg
@@ -230,6 +240,33 @@ validate =
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        ToggleButtonCode campaignId ->
+            let
+                withCampaignWrapperSelected =
+                    SelectList.select (\c -> c.campaign.id == campaignId) model.yourCampaigns
+
+                selectedCampaignWrapper =
+                    SelectList.selected withCampaignWrapperSelected
+
+                updatedCampaignWrapper =
+                    { selectedCampaignWrapper | showButtonCode = not selectedCampaignWrapper.showButtonCode }
+
+                _ =
+                    Debug.log "model" model
+
+                befores =
+                    SelectList.before withCampaignWrapperSelected
+
+                afters =
+                    SelectList.after withCampaignWrapperSelected
+
+                updatedCampaignWrappers =
+                    SelectList.singleton updatedCampaignWrapper
+                        |> SelectList.prepend befores
+                        |> SelectList.append afters
+            in
+            ( { model | yourCampaigns = updatedCampaignWrappers }, Cmd.none ) => NoOp
+
         HandleGetPlansForDeletion data ->
             let
                 plansList =
@@ -1634,10 +1671,59 @@ showYourCampaign campaignWrapper included =
                 |> List.head
                 |> Maybe.withDefault Campaigns.includedRepoDefault
     in
-    div [ class "card" ]
-        [ displayCampaignFormHeader campaignWrapper repoForCampaign
-        , displayCampaignFormContent campaignWrapper
-        , showCampaignFooter campaignWrapper
+    case campaignWrapper.showButtonCode of
+        False ->
+            div [ class "card" ]
+                [ displayCampaignFormHeader campaignWrapper repoForCampaign
+                , displayCampaignFormContent campaignWrapper
+                , showCampaignFooter campaignWrapper
+                ]
+
+        True ->
+            div [ class "card" ]
+                [ displayCampaignFormHeader campaignWrapper repoForCampaign
+                , displayCampaignFormContent campaignWrapper
+                , renderButtonCode campaignWrapper repoForCampaign
+                , showCampaignFooter campaignWrapper
+                ]
+
+
+renderButtonCode : CampaignWrapper -> IncludedStuff -> Html Msg
+renderButtonCode campaignWrapper included =
+    let
+        campaign =
+            campaignWrapper.campaign
+
+        href =
+            "https://tossbounty.com/#/contribute/" ++ toString campaign.id
+
+        repo =
+            case included of
+                IncludedGithub includedRepo ->
+                    includedRepo
+
+                IncludedStripe _ ->
+                    { id = ""
+                    , name = ""
+                    , image = ""
+                    , bountifulScore = 0
+                    , owner = ""
+                    }
+
+        name =
+            repo.name
+    in
+    div [ class "card-content" ]
+        [ code [ class "code" ]
+            [ text
+                ("<a style=\"\nbackground-color: #00c4a7;\nborder-color: transparent;\ncolor: #fff;\ncursor: pointer;\n\njustify-content: center;\n\npadding-bottom: calc(0.375em - 1px);\n\npadding-left: 0.75em;\n\npadding-right: 0.75em;\n\npadding-top: calc(0.375em - 1px);\n\ntext-align: center;\n\nwhite-space: nowrap;\nborder-width: 1px;\nalign-items: center;\n\nborder: 1px solid transparent;\nborder-radius: 4px;\n\nbox-shadow: none;\n\ndisplay: inline-flex;\n\nfont-size: 1rem;\n\nheight: 2.25em;\nline-height: 1.5;\nposition: relative;\n\nvertical-align: top;\nfont-family: BlinkMacSystemFont, -apple-system, \"Segoe UI\", \"Roboto\", \"Oxygen\", \"Ubuntu\", \"Cantarell\", \"Fira Sans\", \"Droid Sans\", \"Helvetica Neue\", \"Helvetica\", \"Arial\", sans-serif;\nmargin: 0;\ntext-decoration: none; font: menu;\ndisplay: inline-block; padding: 2px 8px;\nbackground: ButtonFace;color: ButtonText;\nborder-style: solid;border-width: 2px;\n    border-color: ButtonHighlight ButtonShadow ButtonShadow ButtonHighlight;\" href=\""
+                    ++ href
+                    ++ "\">"
+                    ++ "TossBounty at "
+                    ++ name
+                    ++ "</a>"
+                )
+            ]
         ]
 
 
@@ -1646,6 +1732,14 @@ showCampaignFooter campaignWrapper =
     let
         campaign =
             campaignWrapper.campaign
+
+        showButtonCodeButton =
+            case campaignWrapper.showButtonCode of
+                True ->
+                    "hide button code"
+
+                False ->
+                    "show button code"
     in
     case campaignWrapper.campaignConfirmation of
         True ->
@@ -1667,6 +1761,8 @@ showCampaignFooter campaignWrapper =
                         [ span [] [ text "delete campaign" ] ]
                     , a [ class "card-footer-item", onClick (SelectYourCampaign campaign.id) ]
                         [ span [] [ text "edit campaign" ] ]
+                    , a [ class "card-footer-item", onClick (ToggleButtonCode campaign.id) ]
+                        [ span [] [ text showButtonCodeButton ] ]
                     ]
                 ]
 
