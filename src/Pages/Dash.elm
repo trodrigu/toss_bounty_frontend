@@ -1614,15 +1614,6 @@ hasSubscriptionId subscriptionWrapper =
     not (subscriptionWrapper.subscription.id == "0")
 
 
-campaignsYouContributedTo : List Campaign -> List (Html Msg)
-campaignsYouContributedTo campaigns =
-    List.map
-        (\campaign ->
-            showCampaignYouContributedTo campaign
-        )
-        campaigns
-
-
 showYourCampaign : CampaignWrapper -> List IncludedStuff -> Html Msg
 showYourCampaign campaignWrapper included =
     let
@@ -1842,7 +1833,7 @@ displayCampaignFormContent campaignWrapper =
             [ label [ class "label" ]
                 [ text "Summary" ]
             , p [ class "control" ]
-                [ text (toString campaign.longDescription) ]
+                [ text campaign.longDescription ]
             ]
         , div [ class "field" ]
             [ label [ class "label" ]
@@ -1853,62 +1844,6 @@ displayCampaignFormContent campaignWrapper =
         , div [ class "field" ]
             [ label [ class "label" ] [ text "Funding Progress" ]
             , progress [ class "progress", value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
-            ]
-        ]
-
-
-showCampaignYouContributedTo : Campaign -> Html Msg
-showCampaignYouContributedTo campaign =
-    div
-        [ class "box" ]
-        [ article
-            [ class "media" ]
-            [ div
-                [ class "media-left" ]
-                [ figure
-                    [ class "image" ]
-                    [ img
-                        [ src "http://placekitten.com.s3.amazonaws.com/homepage-samples/96/139.jpg" ]
-                        []
-                    ]
-                ]
-            , div
-                [ class "media-content" ]
-                [ div
-                    [ class "content" ]
-                    [ p
-                        []
-                        [ h1
-                            []
-                            [ text "Elixir Lang" ]
-                        , strong
-                            []
-                            [ text "Infinite loop when compiling eex template" ]
-                        , small
-                            []
-                            [ text " #6607" ]
-                        , br [] []
-                        , strong
-                            []
-                            [ text "$225" ]
-                        ]
-                    ]
-                , nav
-                    [ class "level is-mobile" ]
-                    [ div
-                        [ class "level-left" ]
-                        [ a
-                            [ class "level-item" ]
-                            [ span
-                                [ class "icon is-medium" ]
-                                [ i
-                                    [ class "fa fa-gift" ]
-                                    []
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
             ]
         ]
 
