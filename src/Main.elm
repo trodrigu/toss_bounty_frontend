@@ -368,22 +368,27 @@ setRoute maybeRoute model =
                 Just user ->
                     let
                         cmd =
-                            case model.stripeConnectUrl of
-                                Success stripeConnectUrl ->
-                                    Cmd.none
+                            case user.stripeExternalId of
+                                "" ->
+                                    case model.stripeConnectUrl of
+                                        Success stripeConnectUrl ->
+                                            Cmd.none
 
-                                Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
-                                    Cmd.none
+                                        Failure error ->
+                                            let
+                                                _ =
+                                                    Debug.log "error" error
+                                            in
+                                            Cmd.none
 
-                                Loading ->
-                                    Cmd.none
+                                        Loading ->
+                                            Cmd.none
 
-                                NotAsked ->
-                                    Cmd.map HandleMsg (getStripeConnectUrl model.apiUrl)
+                                        NotAsked ->
+                                            Cmd.map HandleMsg (getStripeConnectUrl model.apiUrl)
+
+                                externalId ->
+                                    Cmd.map HandleMsg (fetchYourCampaignsForRewards model.apiUrl user.token user.userId)
 
                         updatedPage =
                             StripeConnectSignUp (StripeConnectSignUp.init model.stripeConnectUrl)
@@ -403,8 +408,14 @@ setRoute maybeRoute model =
                         token =
                             user.token
 
+                        updatedUser =
+                            { user | stripeExternalId = stripeId }
+
                         updatedModel =
-                            { model | page = CreateRewards (CreateRewards.init Nothing Data.AuthToken.fallback 0) }
+                            { model
+                                | page = CreateRewards (CreateRewards.init Nothing Data.AuthToken.fallback 0)
+                                , session = { session | user = Just updatedUser }
+                            }
                     in
                     updatedModel => Cmd.map HandleMsg (updateUserWithStripeInfo model.apiUrl token stripeId user.userId)
 
@@ -596,7 +607,6 @@ setRoute maybeRoute model =
 
                         userId =
                             user.userId
-
 
                         cmd =
                             case model.yourCampaigns of
@@ -1047,25 +1057,27 @@ updatePage page msg model =
 
         ( HandleMsg (HandleStripeIdUpdate data), _ ) ->
             let
+                _ =
+                    Debug.log "data" data
+
                 session =
                     model.session
 
                 user =
                     session.user
 
-                updatedUser =
-                    case user of
-                        Just user ->
-                            user
-
-                        Nothing ->
-                            User.default
+                _ =
+                    Debug.log "session.user" session.user
 
                 token =
-                    updatedUser.token
+                    user
+                        |> Maybe.withDefault User.default
+                        |> .token
 
                 userId =
-                    updatedUser.userId
+                    user
+                        |> Maybe.withDefault User.default
+                        |> .userId
             in
             ( model
             , Cmd.map HandleMsg (fetchYourCampaignsForRewards model.apiUrl token userId)
