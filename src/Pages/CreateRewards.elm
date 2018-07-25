@@ -199,7 +199,7 @@ renderDashButton rewards =
                         [ div [ class "container" ]
                             [ div [ class "level" ]
                                 [ div [ class "level-item" ]
-                                    [ button [ class "button is-success is-large", onClick DiscoverPage ] [ text "Go To Dash" ]
+                                    [ button [ class "button is-success is-large", onClick DiscoverPage ] [ text "Finish And Go To Dash" ]
                                     ]
                                 ]
                             ]
