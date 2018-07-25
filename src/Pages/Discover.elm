@@ -311,7 +311,7 @@ displayFormContent campaign =
             [ label [ class "label" ]
                 [ text "Summary" ]
             , p [ class "control" ]
-                [ text (toString campaign.longDescription) ]
+                [ text campaign.longDescription ]
             ]
         , div [ class "field" ]
             [ label [ class "label" ]
