@@ -212,6 +212,7 @@ type Msg
     | ShowRewardConfirmation Int
     | HideRewardConfirmation
     | Cancel
+    | UpdateNewDescriptionField String
 
 
 type ExternalMsg
@@ -698,6 +699,9 @@ update msg model =
             , Cmd.none
             )
                 => NoOp
+
+        UpdateNewDescriptionField str ->
+            ( { model | description = str }, Cmd.none ) => NoOp
 
         UpdateDescriptionField str ->
             let
@@ -1379,9 +1383,9 @@ updateCampaignForm model campaignWrapper included =
                  , h1 [ class "title" ] [ text "Rewards" ]
                  ]
                     ++ displayRewards
-                    ++ [ a [ class "link", onClick ShowRewardForm ] [ text "Add Reward" ] ]
                     ++ [ createRewardForm model ]
-                    ++ [ displayUpdateButton ]
+                    ++ [ displayUpdateButton (p [ class "control" ] [ button [ class "button is-primary", onClick SaveRewardForm ] [ text "Save Reward" ] ])
+                       ]
                 )
             ]
     else
@@ -1395,7 +1399,7 @@ updateCampaignForm model campaignWrapper included =
                  , p [ class "card-header-title" ] [ text "Rewards" ]
                  ]
                     ++ displayRewards
-                    ++ [ displayUpdateButton ]
+                    ++ [ displayUpdateButton (p [ class "control" ] [ button [ class "button is-primary", onClick ShowRewardForm ] [ text "Add New Reward" ] ]) ]
                 )
             ]
 
@@ -1444,7 +1448,7 @@ renderUpdateOrShow position rewardWrapper =
                     , div [ class "field is-grouped" ]
                         [ p [ class "control" ]
                             [ button [ class "button is-primary", onClick SaveUpdateForm ]
-                                [ text "Update Reward" ]
+                                [ text "Save Reward" ]
                             ]
                         ]
                     ]
@@ -1697,15 +1701,14 @@ showYourSubscription subscriptionWrapper model =
         ]
 
 
-displayUpdateButton : Html Msg
-displayUpdateButton =
+displayUpdateButton : Html Msg -> Html Msg
+displayUpdateButton updateButton =
     div [ class "field is-grouped" ]
         [ p [ class "control" ]
             [ button [ class "button is-primary", onClick SaveUpdateCampaignForm ]
                 [ text "Save Campaign" ]
             ]
-        , p [ class "control" ]
-            [ button [ class "button is-primary", onClick ShowRewardForm ] [ text "Add New Reward" ] ]
+        , updateButton
         , p [ class "control" ]
             [ button [ class "button is-danger", onClick Cancel ] [ text "Cancel" ]
             ]
@@ -1936,18 +1939,13 @@ createRewardForm model =
             , p [ class "control" ]
                 [ input
                     [ class "input"
-                    , onInput UpdateDescriptionField
+                    , onInput UpdateNewDescriptionField
                     , value model.description
                     ]
                     []
                 ]
             ]
-        , div [ class "field is-grouped" ]
-            [ p [ class "control" ]
-                [ button [ class "button is-primary", onClick SaveRewardForm ]
-                    [ text "Create Reward" ]
-                ]
-            ]
+        , hr [] []
         ]
 
 
@@ -2147,15 +2145,9 @@ postReward model =
         rewardUrl =
             model.apiUrl ++ "/rewards"
 
-        selectedRewardWrapper =
-            SelectList.selected model.rewardsAsSelectList
-
-        selectedReward =
-            selectedRewardWrapper.reward
-
         data =
-            { description = selectedReward.description
-            , donationLevel = selectedReward.donationLevel
+            { description = model.description
+            , donationLevel = model.donationLevel
             , campaignId = selectedCampaign.campaign.id
             }
     in
