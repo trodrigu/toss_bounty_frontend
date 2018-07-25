@@ -99,9 +99,7 @@ view model =
                         [ div [ class "column is-6" ]
                             [ div [ class "section-header" ]
                                 [ h1 [ class "title" ]
-                                    [ text "TossBounty is free to use." ]
-                                , h2 [ class "subtitle is-3" ]
-                                    [ text "Contribute to the front end or back end campaigns." ]
+                                    [ text "TossBounty costs just 10% of the money you make." ]
                                 , viewButton model
                                 ]
                             ]
