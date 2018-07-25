@@ -127,11 +127,7 @@ aboutForm model =
                                     , p []
                                         [ text "Start your campaign in minutes for your open source project and get funded." ]
                                     , p []
-                                        [ text "TossBounty will parse your Github data and present you a marketable page to help you." ]
-                                    , p []
-                                        [ text "You are free to tweak this page and add rewards for your awesome donors." ]
-                                    , p []
-                                        [ text "TossBounty only takes a small fee of 10% from your subscriptions."
+                                        [ text "TossBounty only takes a small fee of 4% from your subscriptions."
                                         ]
                                     , button [ class "button is-primary is-large", style [ ( "margin-top", "1rem" ) ], onClick ShowAbout ]
                                         [ text "Subscribe" ]

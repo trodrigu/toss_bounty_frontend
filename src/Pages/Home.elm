@@ -3,8 +3,6 @@ module Pages.Home exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import RemoteData exposing (RemoteData(..), WebData)
-import Svg exposing (Svg, circle, rect, svg)
-import Svg.Attributes exposing (color, cx, cy, fill, height, r, rx, ry, viewBox, width, x, y)
 import Util exposing ((=>))
 
 
@@ -99,7 +97,7 @@ view model =
                         [ div [ class "column is-6" ]
                             [ div [ class "section-header" ]
                                 [ h1 [ class "title" ]
-                                    [ text "TossBounty costs just 10% of the money you make." ]
+                                    [ text "TossBounty costs just 4% of the funds you make." ]
                                 , viewButton model
                                 ]
                             ]
