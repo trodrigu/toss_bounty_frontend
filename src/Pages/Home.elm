@@ -99,7 +99,7 @@ view model =
                         [ div [ class "column is-6" ]
                             [ div [ class "section-header" ]
                                 [ h1 [ class "title" ]
-                                    [ text "TossBounty costs just 10% of the money you make." ]
+                                    [ text "TossBounty costs just 4% of the money you make." ]
                                 , viewButton model
                                 ]
                             ]
