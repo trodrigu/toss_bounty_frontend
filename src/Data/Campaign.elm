@@ -1,9 +1,8 @@
 module Data.Campaign exposing (Campaign, default, encode, indexDecoder, showDecoder)
 
-import Json.Decode as Decode exposing (Decoder, map)
-import Json.Decode.Pipeline as Pipeline exposing (custom, decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, map, succeed)
 import Json.Encode as Encode exposing (Value)
-import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
+import Json.Decode.Pipeline as Pipeline exposing (custom, optionalAt, requiredAt)
 
 
 type alias Campaign =
@@ -18,7 +17,7 @@ type alias Campaign =
 
 decoder : Decoder Campaign
 decoder =
-    decode Campaign
+    succeed Campaign
         |> requiredAt [ "data", "id" ] campaignIdDecoder
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string
@@ -30,22 +29,7 @@ decoder =
 campaignIdDecoder : Decoder Int
 campaignIdDecoder =
     Decode.string
-        |> map (\campaignId -> String.toInt campaignId |> Result.withDefault 0)
-
-
-dateDecoder : Decoder DateTime
-dateDecoder =
-    let
-        convert : String -> Decoder DateTime
-        convert raw =
-            case DateTime.fromISO8601 raw of
-                Ok date ->
-                    Decode.succeed date
-
-                Err error ->
-                    Decode.fail error
-    in
-    Decode.string |> Decode.andThen convert
+        |> map (\campaignId -> String.toInt campaignId |> Maybe.withDefault 0)
 
 
 encode : { r | longDescription : String, fundingGoal : Float, userId : String, githubRepoId : String } -> Encode.Value
@@ -93,7 +77,7 @@ encode campaign =
 
 indexDecoder : Decoder Campaign
 indexDecoder =
-    decode Campaign
+    succeed Campaign
         |> requiredAt [ "id" ] campaignIdDecoder
         |> optionalAt [ "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "attributes", "long-description" ] Decode.string
@@ -104,7 +88,7 @@ indexDecoder =
 
 showDecoder : Decoder Campaign
 showDecoder =
-    decode Campaign
+    succeed Campaign
         |> requiredAt [ "data", "id" ] campaignIdDecoder
         |> optionalAt [ "data", "attributes", "current-funding" ] Decode.float 0
         |> requiredAt [ "data", "attributes", "long-description" ] Decode.string

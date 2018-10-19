@@ -1,7 +1,7 @@
 module Data.Plan exposing (Plan, default, encode, indexDecoder, showDecoder, updateEncode)
 
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 
 
@@ -85,7 +85,7 @@ type alias Plan =
 
 showDecoder : Decoder Plan
 showDecoder =
-    decode Plan
+    succeed Plan
         |> requiredAt [ "data", "id" ] Decode.string
         |> requiredAt [ "data", "attributes", "uuid" ] Decode.string
         |> requiredAt [ "data", "attributes", "amount" ] Decode.float
@@ -97,7 +97,7 @@ showDecoder =
 
 indexDecoder : Decoder Plan
 indexDecoder =
-    decode Plan
+    succeed Plan
         |> requiredAt [ "id" ] Decode.string
         |> requiredAt [ "attributes", "uuid" ] Decode.string
         |> requiredAt [ "attributes", "amount" ] Decode.float

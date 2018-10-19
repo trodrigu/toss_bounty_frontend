@@ -1,4 +1,4 @@
-module Pages.Home exposing (..)
+module Pages.Home exposing (ExternalMsg(..), GitHubUrl, Model, Msg(..), init, update, view, viewButton)
 
 import Html exposing (..)
 import Html.Attributes exposing (class, style)

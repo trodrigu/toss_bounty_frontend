@@ -1,8 +1,8 @@
 module Data.Plans exposing (Plans, decoder, default)
 
 import Data.Plan as Plan exposing (Plan, default, indexDecoder, showDecoder)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 
 
 type alias Plans =
@@ -11,7 +11,7 @@ type alias Plans =
 
 decoder : Decoder Plans
 decoder =
-    decode Plans
+    succeed Plans
         |> optionalAt [ "data" ] (Decode.list Plan.indexDecoder) []
 
 

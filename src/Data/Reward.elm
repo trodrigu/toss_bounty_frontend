@@ -1,7 +1,7 @@
 module Data.Reward exposing (Reward, default, encode, indexDecoder, showDecoder, updateEncode)
 
-import Json.Decode as Decode exposing (Decoder, map)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, map, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 
 
@@ -79,12 +79,12 @@ encode reward =
 rewardIdDecoder : Decoder Int
 rewardIdDecoder =
     Decode.string
-        |> map (\rewardId -> String.toInt rewardId |> Result.withDefault 0)
+        |> map (\rewardId -> String.toInt rewardId |> Maybe.withDefault 0)
 
 
 showDecoder : Decoder Reward
 showDecoder =
-    decode Reward
+    succeed Reward
         |> requiredAt [ "data", "id" ] rewardIdDecoder
         |> requiredAt [ "data", "attributes", "description" ] Decode.string
         |> requiredAt [ "data", "attributes", "donation-level" ] Decode.float
@@ -93,7 +93,7 @@ showDecoder =
 
 indexDecoder : Decoder Reward
 indexDecoder =
-    decode Reward
+    succeed Reward
         |> requiredAt [ "id" ] rewardIdDecoder
         |> requiredAt [ "attributes", "description" ] Decode.string
         |> requiredAt [ "attributes", "donation-level" ] Decode.float
@@ -103,7 +103,7 @@ indexDecoder =
 planIdDecoder : Decoder Int
 planIdDecoder =
     Decode.string
-        |> map (\planId -> String.toInt planId |> Result.withDefault 0)
+        |> map (\planId -> String.toInt planId |> Maybe.withDefault 0)
 
 
 default : Reward

@@ -1,4 +1,4 @@
-module Pages.Contribute exposing (..)
+module Pages.Contribute exposing (ExternalMsg(..), Model, Msg(..), displayStripePayment, filterPersistedRewards, getPlan, getReward, hasRewardId, init, makeOption, onChange, paymentForm, postCustomer, postSubscription, postToken, renderFundingGoal, renderPay, renderPaySetup, renderRedirect, update, view)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default)
@@ -13,7 +13,6 @@ import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (action, class, id, method, src, style)
 import Html.Events exposing (on, onClick, onInput)
-import Html.Events.Extra exposing (targetSelectedIndex)
 import Json.Decode
 import List.Extra exposing (getAt)
 import Ports exposing (createStripeElement)
@@ -22,7 +21,6 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route, modifyUrl)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 
 
@@ -349,6 +347,7 @@ makeOption reward =
         amountAndDescription =
             if reward.id == 0 then
                 reward.description
+
             else
                 let
                     description =
@@ -362,10 +361,23 @@ makeOption reward =
     in
     option [] [ text amountAndDescription ]
 
+targetSelectedIndex : Json.Decoder (Maybe Int)
+targetSelectedIndex =
+    Json.Decode.at [ "target", "selectedIndex" ]
+        (Json.map
+            (\int ->
+                if int == -1 then
+                    Nothing
+                else
+                    Just int
+            )
+            Json.int
+        )
+
 
 onChange : Attribute Msg
 onChange =
-    on "change" (Json.Decode.map SelectReward Html.Events.Extra.targetSelectedIndex)
+    on "change" (Json.Decode.map SelectReward targetSelectedIndex)
 
 
 renderPay : Model -> Html Msg

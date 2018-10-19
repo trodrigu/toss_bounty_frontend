@@ -1,4 +1,4 @@
-module Pages.CreateUserRole exposing (..)
+module Pages.CreateUserRole exposing (Choice(..), ExternalMsg(..), Model, Msg(..), choiceToInt, init, putUser, radio, update, view)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.User as User exposing (User, encodeUserRoleUpdate)

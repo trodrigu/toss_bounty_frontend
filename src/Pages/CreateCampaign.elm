@@ -1,15 +1,13 @@
-module Pages.CreateCampaign exposing (..)
+module Pages.CreateCampaign exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), createCampaignForm, defaultRepo, init, issueView, issuesView, maintainerHero, makeOption, onChange, postCampaign, update, validate, view, viewErrors)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback, toString)
 import Data.Campaign as Campaign exposing (..)
 import Data.Issue as Issue exposing (Issue)
 import Data.Repo as Repo exposing (Repo)
 import Data.Repos as Repos exposing (Repos, SelectListRepos, mostBountifulRepo)
-import Date exposing (Date, now)
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, datetime, href, src, style)
 import Html.Events exposing (on, onClick, onInput)
-import Html.Events.Extra exposing (targetSelectedIndex)
 import Json.Decode
 import List.Extra exposing (getAt)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -19,6 +17,18 @@ import SelectList as SelectList exposing (SelectList, append, select, selected, 
 import Util exposing ((=>))
 import Validate exposing (ifBlank)
 
+targetSelectedIndex : Json.Decoder (Maybe Int)
+targetSelectedIndex =
+    Json.Decode.at [ "target", "selectedIndex" ]
+        (Json.map
+            (\int ->
+                if int == -1 then
+                    Nothing
+                else
+                    Just int
+            )
+            Json.int
+        )
 
 init : AuthToken -> String -> WebData SelectListRepos -> Maybe String -> Model
 init token userId repos apiUrl =
@@ -110,7 +120,7 @@ maintainerHero model =
 
 onChange : Attribute Msg
 onChange =
-    on "change" (Json.Decode.map SelectRepo Html.Events.Extra.targetSelectedIndex)
+    on "change" (Json.Decode.map SelectRepo targetSelectedIndex)
 
 
 makeOption : String -> Html Msg
@@ -143,7 +153,7 @@ issueView issue =
 createCampaignForm : Model -> List (Html Msg) -> Html Msg
 createCampaignForm model repoList =
     section [ class "hero" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+        [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
             [ div [ class "columns" ]
                 [ div [ class "column is-half is-offset-one-quarter" ]
                     repoList
@@ -351,42 +361,3 @@ viewErrors errors =
         |> List.map (\( _, error ) -> li [] [ text error ])
         |> ul [ class "help is-danger" ]
 
-
-monthToInt : Date.Month -> Int
-monthToInt month =
-    case month of
-        Date.Jan ->
-            1
-
-        Date.Feb ->
-            2
-
-        Date.Mar ->
-            3
-
-        Date.Apr ->
-            4
-
-        Date.May ->
-            5
-
-        Date.Jun ->
-            6
-
-        Date.Jul ->
-            7
-
-        Date.Aug ->
-            8
-
-        Date.Sep ->
-            9
-
-        Date.Oct ->
-            10
-
-        Date.Nov ->
-            11
-
-        Date.Dec ->
-            12

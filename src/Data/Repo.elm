@@ -1,7 +1,7 @@
 module Data.Repo exposing (Repo, decoder, default)
 
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 
 
 type alias Repo =
@@ -15,7 +15,7 @@ type alias Repo =
 
 decoder : Decoder Repo
 decoder =
-    decode Repo
+    succeed Repo
         |> requiredAt [ "id" ] Decode.string
         |> requiredAt [ "attributes", "name" ] Decode.string
         |> optionalAt [ "attributes", "image" ] Decode.string ""

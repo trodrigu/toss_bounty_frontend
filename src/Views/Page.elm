@@ -108,7 +108,7 @@ footerArea page =
                         ]
                     ]
     in
-    footer [ class "footer", style [ ( "padding", "8rem 1.5rem 6rem" ), ( "background-color", "whitesmoke" ) ] ]
+    footer [ class "footer", style "padding" "8rem 1.5rem 6rem", style "background-color" "whitesmoke" ]
         [ div [ class "container" ]
             [ div [ class "content has-text-centered" ]
                 innerFooter

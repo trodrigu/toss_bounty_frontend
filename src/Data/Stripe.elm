@@ -1,7 +1,7 @@
 module Data.Stripe exposing (Stripe, decoder, default, encode, showDecoder)
 
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt)
+import Json.Decode as Decode exposing (Decoder, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optional, optionalAt)
 import Json.Encode as Encode exposing (Value)
 
 
@@ -13,14 +13,14 @@ type alias Stripe =
 
 decoder : Decoder Stripe
 decoder =
-    decode Stripe
+    succeed Stripe
         |> optional "id" Decode.string ""
         |> optional "uuid" Decode.string ""
 
 
 showDecoder : Decoder Stripe
 showDecoder =
-    decode Stripe
+    succeed Stripe
         |> optionalAt [ "data", "id" ] Decode.string ""
         |> optionalAt [ "data", "attributes", "uuid" ] Decode.string ""
 

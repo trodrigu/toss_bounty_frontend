@@ -1,8 +1,8 @@
 module Data.Repos exposing (Repos, SelectListRepos, decoder, defaultSelectListRepos, mostBountifulRepo, selectListDecoder)
 
 import Data.Repo as Repo exposing (Repo, decoder)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 import List exposing (head, reverse)
 import List.Extra exposing (splitAt)
 import SelectList as SelectList exposing (SelectList, singleton)
@@ -52,7 +52,7 @@ selectList list =
 
 selectListDecoder : Decoder SelectListRepos
 selectListDecoder =
-    decode SelectListRepos
+    succeed SelectListRepos
         |> optionalAt [ "data" ] (Decode.list Repo.decoder |> Decode.map selectList) (SelectList.singleton Repo.default)
 
 
@@ -62,13 +62,11 @@ defaultSelectListRepos =
 
 
 
---{ selectListRepos = SelectList.singleton Repo.default }
--- decode SelectListRepos
 
 
 decoder : Decoder Repos
 decoder =
-    decode Repos
+    succeed Repos
         |> optionalAt [ "data" ] (Decode.list Repo.decoder) []
 
 
@@ -81,8 +79,8 @@ mostBountifulRepo repos =
                 |> head
     in
     case repo of
-        Just repo ->
-            repo
+        Just innerRepo ->
+            innerRepo
 
         Nothing ->
             Repo "0" "" "" 0 ""

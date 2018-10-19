@@ -1,4 +1,4 @@
-module Pages.TosserSignUp exposing (..)
+module Pages.TosserSignUp exposing (ExternalMsg(..), Model, Msg(..), emptyTosserSignUpForm, encodeTosserSignUpFormAsValues, init, postTosserSignUpForm, tosserSignUpForm, update, view)
 
 import Data.User as User exposing (User)
 import Html exposing (..)
@@ -6,9 +6,8 @@ import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick, onInput)
 import Http exposing (Header)
 import Json.Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
+import Json.Decode.Pipeline exposing (succeed, hardcoded, optional, required)
 import Json.Encode exposing (Value, encode, object, string)
-import Navigation
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Request.User as User exposing (storeSession)
@@ -99,7 +98,7 @@ view model =
 tosserSignUpForm : Html Msg
 tosserSignUpForm =
     section [ class "hero" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+        [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
             [ div [ class "columns" ]
                 [ Html.form [ Html.Events.onSubmit SaveTosserForm, class "column is-one-third is-offset-one-third" ]
                     [ h1 [ class "title" ] [ text "Start Writing Stories" ]

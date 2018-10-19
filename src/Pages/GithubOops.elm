@@ -1,4 +1,4 @@
-module Pages.GithubOops exposing (..)
+module Pages.GithubOops exposing (ExternalMsg(..), Model, Msg(..), init, update, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (class, href, style)

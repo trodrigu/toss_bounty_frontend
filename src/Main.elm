@@ -1,4 +1,4 @@
-module Main exposing (..)
+module Main exposing (HandleMsg(..), Model, Msg(..), Page(..), burgerMenu, burgerMenuNavItems, consumeToken, decodeUrlFromJson, decodeUserFromJson, developerHeroArea, fetchYourCampaigns, fetchYourCampaignsForRewards, fetchYourSubscribedPlans, fetchYourSubscriptions, getCampaign, getCampaigns, getGitHubSignInUrl, getIssues, getRepo, getRepos, getRewards, getStripeConnectUrl, getUser, githubUrlDecoder, init, main, modifyUrl, pageView, routeToString, sessionChange, setRoute, stripeConnectUrlUrlDecoder, subscriptions, update, updatePage, updateUserWithStripeInfo, view)
 
 import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
@@ -18,7 +18,6 @@ import Html.Attributes exposing (class, classList, style)
 import Html.Events exposing (onClick)
 import Json.Decode as Decode exposing (Decoder, Value)
 import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, requiredAt)
-import Navigation exposing (Location)
 import Pages.About as About
 import Pages.Contribute as Contribute
 import Pages.CreateCampaign as CreateCampaign
@@ -39,7 +38,6 @@ import Request.Auth as Auth exposing (config)
 import Request.User exposing (storeSession)
 import Routing.Router as Router exposing (Route(..), fromLocation)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
 
@@ -317,6 +315,7 @@ setRoute maybeRoute model =
                                         Contribute (Contribute.init token apiUrl campaign repo rewards user)
                                 in
                                 { model | page = updatedPage } => Cmd.none
+
                             else
                                 let
                                     token =
@@ -888,6 +887,7 @@ updatePage page msg model =
                     -- If we just signed out, then redirect to Home.
                     if session.user /= Nothing && user == Nothing then
                         Router.modifyUrl Router.HomeRoute
+
                     else
                         Cmd.none
             in
@@ -1200,6 +1200,7 @@ updatePage page msg model =
                     -- If we just signed out, then redirect to Home.
                     if session.user /= Nothing && user == Nothing then
                         Router.modifyUrl Router.HomeRoute
+
                     else
                         Router.modifyUrl Router.CreateCampaignRoute
 
@@ -1258,6 +1259,7 @@ burgerMenu model =
         burgerMenuClass =
             if model.showMenu then
                 "button navbar-burger is-active"
+
             else
                 "button navbar-burger"
     in
@@ -1287,6 +1289,7 @@ burgerMenuNavItems model =
                     ]
                 ]
             ]
+
     else
         div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
             [ div [ class "navbar-end" ]
@@ -1328,7 +1331,7 @@ subscriptions model =
 developerHeroArea : Html Msg
 developerHeroArea =
     section [ class "hero" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+        [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
             [ div [ class "container" ]
                 [ div [ class "columns is-vcentered" ]
                     [ div [ class "column has-text-centered" ]

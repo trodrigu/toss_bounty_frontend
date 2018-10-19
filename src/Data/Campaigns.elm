@@ -1,12 +1,11 @@
-module Data.Campaigns exposing (Campaigns, IncludedRepo, IncludedStuff(..), decoder, includedRepoDefault, default)
+module Data.Campaigns exposing (Campaigns, IncludedRepo, IncludedStuff(..), decoder, default, includedRepoDefault)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, decoder, fallback, init)
 import Data.Campaign as Campaign exposing (Campaign, indexDecoder)
 import Data.Repo as Repo exposing (Repo)
 import Data.User as User exposing (User)
 import Json.Decode as Decode exposing (Decoder, map, oneOf)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
-import Time.DateTime as DateTime exposing (DateTime, fromISO8601, toISO8601)
+import Json.Decode.Pipeline as Pipeline exposing (succeed, optionalAt, requiredAt)
 
 
 type alias Campaigns =
@@ -19,7 +18,7 @@ type alias Campaigns =
 
 decoder : Decoder Campaigns
 decoder =
-    decode Campaigns
+    succeed Campaigns
         |> optionalAt [ "included" ] (Decode.list includedDecoder) []
         |> optionalAt [ "data" ] (Decode.list Campaign.indexDecoder) []
         |> optionalAt [ "meta", "total_pages" ] Decode.int 0
@@ -68,7 +67,7 @@ includedDecoder =
 
 repoIncludedDecoder : Decoder IncludedRepo
 repoIncludedDecoder =
-    decode IncludedRepo
+    succeed IncludedRepo
         |> requiredAt [ "id" ] Decode.string
         |> requiredAt [ "attributes", "name" ] Decode.string
         |> optionalAt [ "attributes", "image" ] Decode.string ""
@@ -78,11 +77,12 @@ repoIncludedDecoder =
 
 userIncludedDecoder : Decoder IncludedUser
 userIncludedDecoder =
-    decode IncludedUser
+    succeed IncludedUser
         |> requiredAt [ "attributes", "email" ] Decode.string
         |> optionalAt [ "attributes", "user_id" ] Decode.string ""
         |> optionalAt [ "attributes", "stripe-external-id" ] Decode.string ""
 
+
 default : Campaigns
 default =
-    { included = [], campaigns = [], totalPages = 0, pageNumber = 0   }
+    { included = [], campaigns = [], totalPages = 0, pageNumber = 0 }

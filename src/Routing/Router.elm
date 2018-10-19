@@ -1,12 +1,14 @@
-module Routing.Router exposing (..)
+module Routing.Router exposing (Msg(..), Route(..), fixLocationQuery, footerArea, fromLocation, href, modifyUrl, routeParser, routeToString, sessionChange)
 
 import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes as Attributes exposing (class, style)
 import Json.Decode as Decode exposing (Value)
-import Navigation exposing (Location)
 import Ports
-import UrlParser as UrlParser exposing (..)
+import Url.Parser as UrlParser exposing (..)
+import Url.Parser.Query as Query exposing (string)
+import Browser.Navigation as Navigation
+import Url exposing (Url)
 
 
 type Route
@@ -34,7 +36,7 @@ type Msg
 
 footerArea : Html Msg
 footerArea =
-    footer [ style [ ( "padding", "3rem 1.5rem 6rem" ), ( "background-color", "whitesmoke" ) ] ]
+    footer [ style "padding" "3rem 1.5rem 6rem", style "background-color" "whitesmoke" ]
         [ div [ class "container" ]
             [ div [ class "content has-text-centered" ]
                 [ p []
@@ -99,7 +101,7 @@ routeToString page =
                     [ "discover" ]
 
                 ContributeRoute campaignId ->
-                    [ "contribute/" ++ toString campaignId ]
+                    [ "contribute/" ++ (campaignId |> String.fromInt) ]
 
                 CreateUserRoleRoute ->
                     [ "get-user-type" ]
@@ -124,8 +126,8 @@ routeParser =
         , UrlParser.map CreateCampaignRoute (UrlParser.s "create-campaign")
         , UrlParser.map CreateRewardsRoute (UrlParser.s "create-rewards")
         , UrlParser.map StripeConnectSignUpRoute (UrlParser.s "stripe-connect-sign-up")
-        , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" <?> UrlParser.stringParam "user_id")
-        , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> UrlParser.stringParam "stripe_id")
+        , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> Query.string "token" <?> Query.string "email" <?> Query.string "user_id")
+        , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> Query.string "stripe_id")
         , UrlParser.map LoginRoute (UrlParser.s "login")
         , UrlParser.map AboutRoute (UrlParser.s "about")
         , UrlParser.map DiscoverRoute (UrlParser.s "discover")
@@ -137,16 +139,9 @@ routeParser =
         ]
 
 
-parseLocation : Location -> Route
-parseLocation location =
-    location
-        |> UrlParser.parseHash routeParser
-        |> Maybe.withDefault NotFoundRoute
-
-
 modifyUrl : Route -> Cmd msg
 modifyUrl =
-    routeToString >> Navigation.modifyUrl
+    routeToString >> Navigation.pushUrl
 
 
 href : Route -> Attribute msg
@@ -154,15 +149,16 @@ href route =
     Attributes.href (routeToString route)
 
 
-fromLocation : Location -> Maybe Route
+fromLocation : Url -> Maybe Route
 fromLocation location =
     if String.isEmpty location.hash then
         Just HomeRoute
+
     else
-        UrlParser.parseHash routeParser (fixLocationQuery location)
+        UrlParser.parse routeParser (fixLocationQuery location)
 
 
-fixLocationQuery : Location -> Location
+fixLocationQuery : Url -> Url
 fixLocationQuery location =
     let
         hash =

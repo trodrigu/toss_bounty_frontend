@@ -1,4 +1,4 @@
-module Pages.Discover exposing (..)
+module Pages.Discover exposing (ExternalMsg(..), Model, Msg(..), columnsWrapper, displayCampaignFormHeader, displayFormContent, displayFormContentWithoutButton, displayStripePayment, fetchAllCampaigns, getSearch, init, navWithPageNumbers, renderPageNumber, renderPageNumbers, renderSearchBar, showYourCampaign, update, view)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default)
@@ -16,7 +16,6 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Time.DateTime as DateTime exposing (DateTime, dateTime)
 import Util exposing ((=>))
 
 
@@ -95,6 +94,7 @@ update msg model =
                 previousPage =
                     if model.pageNumber - 1 == 0 then
                         totalPages
+
                     else
                         model.pageNumber - 1
             in
@@ -116,6 +116,7 @@ update msg model =
                 nextPage =
                     if model.pageNumber + 1 > totalPages then
                         1
+
                     else
                         model.pageNumber + 1
             in
@@ -230,6 +231,7 @@ renderPageNumber : Int -> Int -> Html Msg
 renderPageNumber pageNumber currentPageNumber =
     if pageNumber == currentPageNumber then
         li [ class "pagination-link is-current" ] [ text (toString pageNumber) ]
+
     else
         li [ class "pagination-link", onClick (UpdatePage pageNumber) ] [ text (toString pageNumber) ]
 
@@ -284,12 +286,13 @@ displayStripePayment model =
         formStyle =
             if model.showForm then
                 ( "display", "block" )
+
             else
                 ( "display", "none" )
     in
     div [ class "card-content" ]
         [ form
-            [ action "/charge", id "payment-form", method "post", style [ formStyle ] ]
+            [ action "/charge", id "payment-form", method "post", (\( a, b ) -> style a b) formStyle ]
             [ div [ class "form-row field" ]
                 [ label [ class "label" ]
                     [ text "Credit or debit card    " ]

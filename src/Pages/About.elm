@@ -1,10 +1,10 @@
-module Pages.About exposing (..)
+module Pages.About exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), Subscriber, aboutForm, encode, init, subscriberDecoder, update, validate, view, viewErrors)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (decode, optional, required)
+import Json.Decode.Pipeline exposing (succeed, optional, required)
 import Json.Encode exposing (Value, encode, object, string)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
@@ -71,7 +71,7 @@ aboutForm model =
         about =
             if model.showAbout then
                 section [ class "hero" ]
-                    [ div [ id "mc_embed_signup", class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+                    [ div [ id "mc_embed_signup", class "hero-body", style "padding" "7rem 1.5rem" ]
                         [ div [ class "columns" ]
                             [ div [ class "column is-one-third is-offset-one-third validate" ]
                                 [ Html.form [ action "https://tossbounty.us17.list-manage.com/subscribe/post?u=a8cc56dad32e45c9cd3200f83&id=15a40eefae", class "validate", id "mc-embedded-subscribe-form", method "post", name "mc-embedded-subscribe-form", Html.Attributes.novalidate True, target "_blank" ]
@@ -108,9 +108,10 @@ aboutForm model =
                             ]
                         ]
                     ]
+
             else
                 section [ class "hero" ]
-                    [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+                    [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
                         [ div [ class "container" ]
                             [ div [ class "columns" ]
                                 [ div [ class "column is-offset-one-third is-one-third" ]
@@ -129,7 +130,7 @@ aboutForm model =
                                     , p []
                                         [ text "TossBounty only takes a small fee of 4% from your subscriptions."
                                         ]
-                                    , button [ class "button is-primary is-large", style [ ( "margin-top", "1rem" ) ], onClick ShowAbout ]
+                                    , button [ class "button is-primary is-large", style "margin-top" "1rem", onClick ShowAbout ]
                                         [ text "Subscribe" ]
                                     ]
                                 ]
@@ -156,7 +157,7 @@ validate =
 
 subscriberDecoder : Decoder Subscriber
 subscriberDecoder =
-    decode Subscriber
+    succeed Subscriber
         |> Json.Decode.Pipeline.required "email" Json.Decode.string
 
 

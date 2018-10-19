@@ -1,4 +1,4 @@
-module Pages.Dash exposing (..)
+module Pages.Dash exposing (CampaignWrapper, Error, ExternalMsg(..), Field(..), Model, Msg(..), RewardWrapper, SubscriptionWrapper, campaignRows, campaignWrapperDefault, columnsWrapper, createRewardForm, deleteCampaign, deletePlan, deletePlans, deleteReward, deleteRewards, deleteSubscription, displayAllRewards, displayCampaignFormContent, displayCampaignFormHeader, displayCampaignUpdateFormHeader, displaySubscriptionFormContent, displaySubscriptionFormHeader, displayUpdateButton, displayUpdateFundingGoal, displayUpdateLongDescription, displayUpdateRewards, filterPersistedCampaigns, filterPersistedRewards, filterPersistedSubscriptions, getPlans, getPlansForDeletion, getRewards, hasCampaignId, hasRewardId, hasSubscriptionId, ifZero, init, planHasId, postPlan, postReward, putCampaign, putPlan, putReward, renderButtonCode, renderCampaigns, renderCampaignsWhenEditing, renderSubscriptions, renderUpdateOrShow, rewardHasId, rewardWrapperDefault, showCampaignFooter, showReward, showYourCampaign, showYourSubscription, subscriptionRows, subscriptionWrapperDefault, update, updateCampaignForm, updateRewardForm, updateRewardFormDescription, updateRewardFormDonationLevel, validate, view, viewErrors, wrapCampaign, wrapReward, wrapSubscriptions, yourBounties, yourRenderedSubscriptions)
 
 import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, encode, showDecoder)
@@ -1415,6 +1415,7 @@ updateCampaignForm model campaignWrapper included =
         displayRewards =
             if model.isEditingReward then
                 displayUpdateRewards model |> SelectList.toList
+
             else
                 displayAllRewards model
     in
@@ -1434,6 +1435,7 @@ updateCampaignForm model campaignWrapper included =
                        ]
                 )
             ]
+
     else
         div [ class "card" ]
             [ div [ class "card-content" ]
@@ -1503,8 +1505,10 @@ renderUpdateOrShow position rewardWrapper =
                 ]
             , hr [] []
             ]
+
     else if reward.id == 0 then
         div [] []
+
     else
         div []
             [ div [ class "card" ]
