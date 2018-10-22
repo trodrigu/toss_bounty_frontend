@@ -112,7 +112,7 @@ view model =
                                                             [ div [ class "card" ]
                                                                 [ div [ class "card-header" ]
                                                                     [ p [ class "card-header-title" ]
-                                                                        [ text ("Reward #" ++ toString (index + 1)) ]
+                                                                        [ text ("Reward #" ++ String.fromInt (index + 1)) ]
                                                                     , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
                                                                         [ span [] [ text "edit" ] ]
                                                                     , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
@@ -122,7 +122,7 @@ view model =
                                                                     [ label [ class "label" ]
                                                                         [ text "Donation Level" ]
                                                                     , p [ class "control" ]
-                                                                        [ text (toString reward.donationLevel) ]
+                                                                        [ text (String.fromInt reward.donationLevel) ]
                                                                     , label [ class "label" ]
                                                                         [ text "Description" ]
                                                                     , p []
@@ -157,7 +157,7 @@ view model =
                                                     [ div [ class "card" ]
                                                         [ div [ class "card-header" ]
                                                             [ p [ class "card-header-title" ]
-                                                                [ text ("Reward #" ++ toString (index + 1)) ]
+                                                                [ text ("Reward #" ++ String.fromInt (index + 1)) ]
                                                             , a [ class "card-header-icon", onClick (SelectReward reward.id) ]
                                                                 [ span [] [ text "edit" ] ]
                                                             , a [ class "card-header-icon", onClick (DeletePlan reward.id) ]
@@ -167,7 +167,7 @@ view model =
                                                             [ label [ class "label" ]
                                                                 [ text "Donation Level" ]
                                                             , p [ class "control" ]
-                                                                [ text (toString reward.donationLevel) ]
+                                                                [ text (String.fromInt reward.donationLevel) ]
                                                             , label [ class "label" ]
                                                                 [ text "Description" ]
                                                             , p []
@@ -244,7 +244,7 @@ updateRewardForm model =
                                         [ class "input"
                                         , Html.Attributes.type_ "number"
                                         , onInput UpdateDonateLevelField
-                                        , value (toString model.donationLevel)
+                                        , value (String.fromInt model.donationLevel)
                                         ]
                                         []
                                     ]
@@ -291,7 +291,7 @@ createRewardForm model =
                                 [ class "input"
                                 , Html.Attributes.type_ "number"
                                 , onInput UpdateDonateLevelField
-                                , value (toString model.donationLevel)
+                                , value (String.fromInt model.donationLevel)
                                 ]
                                 []
                             , span [ class "icon is-left" ]
@@ -708,7 +708,7 @@ putReward model =
             SelectList.selected model.rewards
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ String.fromInt selectedReward.id
 
         data =
             { description = model.description
@@ -726,7 +726,7 @@ deleteReward model =
             SelectList.selected model.rewards
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ String.fromInt selectedReward.id
 
         data =
             { description = model.description

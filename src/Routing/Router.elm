@@ -1,4 +1,4 @@
-module Routing.Router exposing (Msg(..), Route(..), fixLocationQuery, footerArea, fromLocation, href, modifyUrl, routeParser, routeToString, sessionChange)
+module Routing.Router exposing (Msg(..), Route(..), footerArea, fromLocation, href, modifyUrl, routeParser, routeToString, sessionChange)
 
 import Data.User as User exposing (User)
 import Html exposing (..)
@@ -9,6 +9,7 @@ import Url.Parser as UrlParser exposing (..)
 import Url.Parser.Query as Query exposing (string)
 import Browser.Navigation as Navigation
 import Url exposing (Url)
+import Browser.Navigation exposing (Key)
 
 
 type Route
@@ -139,9 +140,9 @@ routeParser =
         ]
 
 
-modifyUrl : Route -> Cmd msg
-modifyUrl =
-    routeToString >> Navigation.pushUrl
+modifyUrl : Key -> Route -> Cmd msg
+modifyUrl key route =
+    Navigation.pushUrl key (route |> routeToString)
 
 
 href : Route -> Attribute msg
@@ -151,25 +152,8 @@ href route =
 
 fromLocation : Url -> Maybe Route
 fromLocation location =
-    if String.isEmpty location.hash then
+    if String.isEmpty location.path then
         Just HomeRoute
 
     else
-        UrlParser.parse routeParser (fixLocationQuery location)
-
-
-fixLocationQuery : Url -> Url
-fixLocationQuery location =
-    let
-        hash =
-            String.split "?" location.hash
-                |> List.head
-                |> Maybe.withDefault ""
-
-        search =
-            String.split "?" location.hash
-                |> List.drop 1
-                |> String.join "?"
-                |> String.append "?"
-    in
-    { location | hash = hash, search = search }
+        UrlParser.parse routeParser (location)

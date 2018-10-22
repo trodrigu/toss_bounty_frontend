@@ -18,8 +18,7 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (href)
 import SelectList exposing (Position(..), SelectList, fromLists, select, selected, singleton)
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, Validator)
 
 
 type Field
@@ -125,8 +124,8 @@ init apiUrl token yourCampaigns yourRepos yourSubscriptions yourSubscribedPlans 
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just matchedUrl ->
+                    matchedUrl
 
         yourCampaignsWrapped =
             List.map (\campaign -> wrapCampaign campaign) yourCampaigns
@@ -230,11 +229,11 @@ type ExternalMsg
     | MakeMainFetchCampaigns
 
 
-validate : Model -> List Error
+validate : Model -> Validator (Field, String) Model
 validate =
     Validate.all
-        [ .longDescription >> ifBlank (LongDescription => "Summary can't be blank.")
-        , .fundingGoal >> ifZero (FundingGoal => "Funding Goal can't be zero.")
+        [ .longDescription >> ifBlank (LongDescription, "Summary can't be blank.")
+        , .fundingGoal >> ifZero (FundingGoal, "Funding Goal can't be zero.")
         ]
 
 
@@ -266,7 +265,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | yourCampaigns = updatedCampaignWrappers }, Cmd.none ) => NoOp
+            (( { model | yourCampaigns = updatedCampaignWrappers }, Cmd.none ), NoOp)
 
         HandleGetPlansForDeletion data ->
             let
@@ -281,8 +280,8 @@ update msg model =
 
                 ( headPlan, tail ) =
                     case ListExtra.uncons plansList of
-                        Just ( headPlan, tail ) ->
-                            ( headPlan, tail )
+                        Just ( matchedHeadPlan, matchedTail ) ->
+                            ( matchedHeadPlan, matchedTail )
 
                         Nothing ->
                             ( Plan.default, [] )
@@ -295,13 +294,13 @@ update msg model =
 
                 cmd =
                     case ListExtra.uncons plansList of
-                        Just ( headPlan, tail ) ->
+                        Just ( headPlanForCmd, tailForcmd ) ->
                             deletePlans updatedModel
 
                         Nothing ->
                             deleteCampaign model
             in
-            ( updatedModel, cmd ) => NoOp
+            (( updatedModel, cmd ), NoOp)
 
         HandlePlan data ->
             case data of
@@ -332,20 +331,20 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append aftersWithCurrentSelectedPlan
                     in
-                    { model
+                    (({ model
                         | plansAsSelectList = updatedPlans
                         , isAddingReward = False
                     }
-                        => Cmd.none
-                        => MakeMainFetchCampaigns
+                    , Cmd.none)
+                    , MakeMainFetchCampaigns)
 
                 error ->
                     let
                         _ =
                             Debug.log "error" error
                     in
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none ), NoOp)
+                        
 
         HandleReward data ->
             case data of
@@ -376,13 +375,13 @@ update msg model =
                         updatedModel =
                             { model | rewardsAsSelectList = updatedRewards, description = "", donationLevel = 0.0 }
                     in
-                    updatedModel
-                        => postPlan updatedModel
-                        => NoOp
+                    ((updatedModel
+                        , postPlan updatedModel)
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         SaveRewardForm ->
             case validate model of
@@ -391,12 +390,12 @@ update msg model =
                         newModel =
                             { model | errors = [] }
                     in
-                    ( model, postReward model ) => NoOp
+                    (( model, postReward model ), NoOp)
 
                 errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
         UpdateDonateLevelField str ->
             let
@@ -408,10 +407,10 @@ update msg model =
                         Err error ->
                             0.0
             in
-            ( { model | donationLevel = updatedDonateLevel }, Cmd.none ) => NoOp
+            (( { model | donationLevel = updatedDonateLevel }, Cmd.none ), NoOp)
 
         ShowRewardForm ->
-            ( { model | isAddingReward = True }, Cmd.none ) => NoOp
+            (( { model | isAddingReward = True }, Cmd.none ), NoOp)
 
         HandleFetchPlans data ->
             let
@@ -426,8 +425,8 @@ update msg model =
 
                 ( headPlan, tail ) =
                     case ListExtra.uncons plansList of
-                        Just ( headPlan, tail ) ->
-                            ( headPlan, tail )
+                        Just ( matchedHeadPlan, matchedTail ) ->
+                            ( matchedHeadPlan, matchedTail )
 
                         Nothing ->
                             ( Plan.default, [] )
@@ -435,7 +434,7 @@ update msg model =
                 plansAsSelectList =
                     SelectList.fromLists [] headPlan tail
             in
-            ( { model | plansAsSelectList = plansAsSelectList }, Cmd.none ) => NoOp
+            (( { model | plansAsSelectList = plansAsSelectList }, Cmd.none ), NoOp)
 
         HandleDeleteReward data ->
             case data of
@@ -452,8 +451,8 @@ update msg model =
 
                         ( headReward, tail ) =
                             case ListExtra.uncons rewards of
-                                Just ( headReward, tail ) ->
-                                    ( headReward, tail )
+                                Just ( matchedHeadReward, matchedTail ) ->
+                                    ( matchedHeadReward, matchedTail )
 
                                 Nothing ->
                                     ( { reward = Reward.default, confirmation = False }, [] )
@@ -468,13 +467,13 @@ update msg model =
                                 , isEditingReward = False
                             }
                     in
-                    updatedModel
-                        => Cmd.none
-                        => MakeMainFetchCampaigns
+                    ((updatedModel
+                        , Cmd.none)
+                        , MakeMainFetchCampaigns)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         SaveUpdateForm ->
             case validate model of
@@ -483,12 +482,12 @@ update msg model =
                         newModel =
                             { model | errors = [] }
                     in
-                    ( model, putPlan model ) => NoOp
+                    (( model, putPlan model ), NoOp)
 
                 errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
         HandlePutReward data ->
             case data of
@@ -516,12 +515,12 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    ( { model | rewardsAsSelectList = updatedRewards, description = "", isEditingReward = False }, Cmd.none )
-                        => NoOp
+                    (( { model | rewardsAsSelectList = updatedRewards, description = "", isEditingReward = False }, Cmd.none )
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandlePutPlan data ->
             case data of
@@ -550,12 +549,12 @@ update msg model =
                         updatedModel =
                             { model | plansAsSelectList = updatedPlans }
                     in
-                    ( updatedModel, putReward updatedModel )
-                        => NoOp
+                    (( updatedModel, putReward updatedModel )
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandleDeleteRewards data ->
             case data of
@@ -585,9 +584,9 @@ update msg model =
                                                 | rewardsAsSelectList = updatedRewards
                                             }
                                     in
-                                    updatedModel
-                                        => deleteRewards updatedModel
-                                        => NoOp
+                                    ((updatedModel
+                                        , deleteRewards updatedModel)
+                                        , NoOp)
 
                                 Nothing ->
                                     let
@@ -599,15 +598,15 @@ update msg model =
                                                 | rewardsAsSelectList = updatedRewards
                                             }
                                     in
-                                    updatedModel
-                                        => deleteCampaign updatedModel
-                                        => NoOp
+                                    ((updatedModel
+                                        , deleteCampaign updatedModel)
+                                        , NoOp)
                     in
                     modelAndCmd
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandleDeletePlans data ->
             case data of
@@ -637,9 +636,9 @@ update msg model =
                                                 | plansAsSelectList = updatedPlans
                                             }
                                     in
-                                    updatedModel
-                                        => deletePlans updatedModel
-                                        => NoOp
+                                    ((updatedModel
+                                        , deletePlans updatedModel)
+                                        , NoOp)
 
                                 Nothing ->
                                     let
@@ -651,15 +650,15 @@ update msg model =
                                                 | plansAsSelectList = updatedPlans
                                             }
                                     in
-                                    updatedModel
-                                        => deleteCampaign updatedModel
-                                        => NoOp
+                                    ((updatedModel
+                                        , deleteCampaign updatedModel)
+                                        , NoOp)
                     in
                     modelAndCmd
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandleDeletePlan data ->
             case data of
@@ -679,8 +678,8 @@ update msg model =
 
                         ( headPlan, tail ) =
                             case ListExtra.uncons plans of
-                                Just ( headPlan, tail ) ->
-                                    ( headPlan, tail )
+                                Just ( matchedHeadPlan, matchedTail ) ->
+                                    ( matchedHeadPlan, matchedTail )
 
                                 Nothing ->
                                     ( Plan.default, [] )
@@ -693,13 +692,12 @@ update msg model =
                                 | plansAsSelectList = updatedPlans
                             }
                     in
-                    updatedModel
-                        => deleteReward updatedModel
-                        => NoOp
+                    ((updatedModel
+                        , deleteReward updatedModel)
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none ), NoOp)
 
         DeletePlan rewardId ->
             let
@@ -715,9 +713,7 @@ update msg model =
                         , rewardsAsSelectList = updatedRewards
                     }
             in
-            updatedModel
-                => deletePlan updatedModel
-                => NoOp
+            ((updatedModel, deletePlan updatedModel), NoOp)
 
         SelectReward rewardId ->
             let
@@ -736,7 +732,7 @@ update msg model =
                 selectedPlan =
                     SelectList.selected updatedPlans
             in
-            ( { model
+            (( { model
                 | rewardsAsSelectList = updatedRewards
                 , isEditingReward = True
                 , description = selectedReward.description
@@ -744,10 +740,10 @@ update msg model =
               }
             , Cmd.none
             )
-                => NoOp
+            , NoOp)
 
         UpdateNewDescriptionField str ->
-            ( { model | description = str }, Cmd.none ) => NoOp
+            (( { model | description = str }, Cmd.none ), NoOp)
 
         UpdateDescriptionField str ->
             let
@@ -774,14 +770,14 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | rewardsAsSelectList = updatedRewardWrappers }, Cmd.none ) => NoOp
+            (( { model | rewardsAsSelectList = updatedRewardWrappers }, Cmd.none ), NoOp)
 
         HandleFetchRewards rewards ->
             let
                 rewardsList =
                     case rewards of
-                        Success rewards ->
-                            rewards.rewards
+                        Success matchedRewards ->
+                            matchedRewards.rewards
 
                         _ ->
                             Rewards.default
@@ -789,8 +785,8 @@ update msg model =
 
                 ( headReward, tail ) =
                     case ListExtra.uncons rewardsList of
-                        Just ( headReward, tail ) ->
-                            ( headReward, tail )
+                        Just ( matchedHeadReward, matchedTail ) ->
+                            ( matchedHeadReward, matchedTail )
 
                         Nothing ->
                             ( Reward.default, [] )
@@ -804,10 +800,10 @@ update msg model =
                 updatedModel =
                     { model | rewards = rewards, rewardsAsSelectList = rewardsAsSelectList }
             in
-            ( updatedModel, getPlans updatedModel ) => NoOp
+            (( updatedModel, getPlans updatedModel ), NoOp)
 
         Cancel ->
-            ( { model | isEditingYourCampaigns = False, isEditingReward = False }, Cmd.none ) => NoOp
+            (( { model | isEditingYourCampaigns = False, isEditingReward = False }, Cmd.none ), NoOp)
 
         HideRewardConfirmation ->
             let
@@ -840,7 +836,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | rewardsAsSelectList = updatedRewards }, Cmd.none ) => NoOp
+            (( { model | rewardsAsSelectList = updatedRewards }, Cmd.none ), NoOp)
 
         HideCampaignConfirmation ->
             let
@@ -873,7 +869,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | yourCampaigns = updatedCampaigns }, Cmd.none ) => NoOp
+            (( { model | yourCampaigns = updatedCampaigns }, Cmd.none ), NoOp)
 
         HideConfirmation ->
             let
@@ -906,7 +902,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | yourSubscriptions = updatedSubscriptions }, Cmd.none ) => NoOp
+            (( { model | yourSubscriptions = updatedSubscriptions }, Cmd.none ), NoOp)
 
         HandleDeleteSubscription data ->
             case data of
@@ -937,13 +933,10 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model | yourSubscriptions = updatedSubscriptions }
-                        => Cmd.none
-                        => NoOp
+                    (({ model | yourSubscriptions = updatedSubscriptions }, Cmd.none), NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none ), NoOp)
 
         HandleDeleteCampaign data ->
             case data of
@@ -974,13 +967,11 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model | yourCampaigns = updatedCampaigns, longDescription = "", fundingGoal = 0.0 }
-                        => Cmd.none
-                        => MakeMainFetchCampaigns
+                    (({ model | yourCampaigns = updatedCampaigns, longDescription = "", fundingGoal = 0.0 }, Cmd.none), MakeMainFetchCampaigns)
+                        
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none ), NoOp)
 
         SaveUpdateCampaignForm ->
             case validate model of
@@ -989,12 +980,10 @@ update msg model =
                         newModel =
                             { model | errors = [] }
                     in
-                    ( model, putCampaign model ) => NoOp
+                    (( model, putCampaign model ), NoOp)
 
                 errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                    (({ model | errors = errors }, Cmd.none), NoOp)
 
         DeleteCampaign campaignId ->
             let
@@ -1006,7 +995,7 @@ update msg model =
                         | yourCampaigns = updatedCampaigns
                     }
             in
-            ( updatedModel, getPlansForDeletion updatedModel ) => NoOp
+            (( updatedModel, getPlansForDeletion updatedModel ), NoOp)
 
         ShowRewardConfirmation rewardId ->
             let
@@ -1030,7 +1019,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | rewardsAsSelectList = updatedRewardWrappers }, Cmd.none ) => NoOp
+            (( { model | rewardsAsSelectList = updatedRewardWrappers }, Cmd.none ), NoOp)
 
         ShowCampaignConfirmation campaignId ->
             let
@@ -1054,7 +1043,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | yourCampaigns = updatedCampaignWrappers }, Cmd.none ) => NoOp
+            (( { model | yourCampaigns = updatedCampaignWrappers }, Cmd.none ), NoOp)
 
         ShowConfirmation subscriptionId ->
             let
@@ -1078,7 +1067,7 @@ update msg model =
                         |> SelectList.prepend befores
                         |> SelectList.append afters
             in
-            ( { model | yourSubscriptions = updatedSubscriptionWrappers }, Cmd.none ) => NoOp
+            (( { model | yourSubscriptions = updatedSubscriptionWrappers }, Cmd.none ), NoOp)
 
         DeleteYourSubscription subscriptionId ->
             let
@@ -1088,7 +1077,7 @@ update msg model =
                 updatedModel =
                     { model | yourSubscriptions = updatedSubscriptions }
             in
-            ( updatedModel, deleteSubscription updatedModel ) => NoOp
+            (( updatedModel, deleteSubscription updatedModel ), NoOp)
 
         SelectYourCampaign campaignId ->
             let
@@ -1106,25 +1095,25 @@ update msg model =
                         , fundingGoal = selectedCampaign.campaign.fundingGoal
                     }
             in
-            ( updatedModel
+            (( updatedModel
             , getRewards updatedModel
             )
-                => NoOp
+            , NoOp)
 
         UpdateFundingGoalField updatedFundingGoal ->
             let
                 updatedFundingGoalFloat =
                     case String.toFloat updatedFundingGoal of
-                        Ok updatedFundingGoalFloat ->
-                            updatedFundingGoalFloat
+                        Ok matchedUpdatedFundingGoalFloat ->
+                            matchedUpdatedFundingGoalFloat
 
                         Err error ->
                             0.0
             in
-            ( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ) => NoOp
+            (( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ), NoOp)
 
         UpdateLongDescriptionField updatedLongDescription ->
-            ( { model | longDescription = updatedLongDescription }, Cmd.none ) => NoOp
+            (( { model | longDescription = updatedLongDescription }, Cmd.none ), NoOp)
 
         HandlePutCampaign data ->
             case data of
@@ -1157,19 +1146,19 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    { model
+                    (({ model
                         | yourCampaigns = updatedCampaignWrappers
                         , currentFunding = 0.0
                         , fundingGoal = 0.0
                         , longDescription = ""
                         , isEditingYourCampaigns = False
                     }
-                        => Cmd.none
-                        => MakeMainFetchCampaigns
+                    , Cmd.none)
+                    , MakeMainFetchCampaigns)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                    ,   NoOp)
 
 
 putCampaign : Model -> Cmd Msg
@@ -1182,7 +1171,7 @@ putCampaign model =
             selectedCampaign
                 |> .campaign
                 |> .id
-                |> toString
+                |> String.fromInt
 
         rewardUrl =
             model.apiUrl ++ "/campaigns/" ++ selectedCampaignId
@@ -1330,11 +1319,11 @@ subscriptionRows model =
         subscriptionsAsList =
             SelectList.toList subscriptions
 
-        yourRenderedSubscriptions =
+        yourRenderedSubscriptionsHtml =
             renderSubscriptions model
 
         yourRenderedSubscriptionsAsGroups =
-            ListExtra.greedyGroupsOf 2 yourRenderedSubscriptions
+            ListExtra.greedyGroupsOf 2 yourRenderedSubscriptionsHtml
     in
     List.map (\subscription -> columnsWrapper subscription) yourRenderedSubscriptionsAsGroups
 
@@ -1400,8 +1389,8 @@ updateCampaignForm model campaignWrapper included =
 
         repoForCampaign =
             List.filter
-                (\included ->
-                    case included of
+                (\includedStuff ->
+                    case includedStuff of
                         IncludedGithub includedRepo ->
                             campaign.githubRepoId == includedRepo.id
 
@@ -1516,7 +1505,7 @@ renderUpdateOrShow position rewardWrapper =
                     [ label [ class "label" ]
                         [ text "Donation Level" ]
                     , p [ class "control" ]
-                        [ text (toString reward.donationLevel) ]
+                        [ text (String.fromFloat reward.donationLevel) ]
                     , label [ class "label" ]
                         [ text "Description" ]
                     , p []
@@ -1552,7 +1541,7 @@ showReward rewardWrapper =
                     [ label [ class "label" ]
                         [ text "Donation Level" ]
                     , p [ class "control" ]
-                        [ text (toString reward.donationLevel) ]
+                        [ text (String.fromFloat reward.donationLevel) ]
                     , label [ class "label" ]
                         [ text "Description" ]
                     , p []
@@ -1575,7 +1564,7 @@ showReward rewardWrapper =
                     [ label [ class "label" ]
                         [ text "Donation Level" ]
                     , p [ class "control" ]
-                        [ text (toString reward.donationLevel) ]
+                        [ text (String.fromFloat reward.donationLevel) ]
                     , label [ class "label" ]
                         [ text "Description" ]
                     , p []
@@ -1624,7 +1613,7 @@ updateRewardFormDonationLevel reward =
         [ label [ class "label" ]
             [ text "Donation Level" ]
         , p [ class "control" ]
-            [ text (toString reward.donationLevel) ]
+            [ text (String.fromFloat reward.donationLevel) ]
         ]
 
 
@@ -1672,8 +1661,8 @@ showYourCampaign campaignWrapper included =
 
         repoForCampaign =
             List.filter
-                (\included ->
-                    case included of
+                (\includedStuff ->
+                    case includedStuff of
                         IncludedGithub includedRepo ->
                             campaign.githubRepoId == includedRepo.id
 
@@ -1708,7 +1697,7 @@ renderButtonCode campaignWrapper included =
             campaignWrapper.campaign
 
         href =
-            "https://tossbounty.com/#/contribute/" ++ toString campaign.id
+            "https://tossbounty.com/#/contribute/" ++ String.fromInt campaign.id
 
         repo =
             case included of
@@ -1841,7 +1830,7 @@ displayUpdateFundingGoal model =
                 [ class "input"
                 , Html.Attributes.type_ "number"
                 , onInput UpdateFundingGoalField
-                , Html.Attributes.value (toString model.fundingGoal)
+                , Html.Attributes.value (String.fromFloat model.fundingGoal)
                 ]
                 []
             ]
@@ -1903,7 +1892,7 @@ displaySubscriptionFormHeader plan subscriptionWrapper =
         True ->
             div [ class "card-header" ]
                 [ p [ class "card-header-title" ]
-                    [ text ("$ " ++ toString plan.amount) ]
+                    [ text ("$ " ++ String.fromFloat plan.amount) ]
                 , label [ class "card-header-icon" ]
                     [ span [] [ text "Are you sure?" ] ]
                 , a [ class "card-header-icon", onClick (DeleteYourSubscription subscription.id) ]
@@ -1915,7 +1904,7 @@ displaySubscriptionFormHeader plan subscriptionWrapper =
         False ->
             div [ class "card-header" ]
                 [ p [ class "card-header-title" ]
-                    [ text ("$ " ++ toString plan.amount) ]
+                    [ text ("$ " ++ String.fromFloat plan.amount) ]
                 , a [ class "card-header-icon", onClick (ShowConfirmation subscription.id) ]
                     [ span [] [ text "delete" ] ]
                 ]
@@ -1927,7 +1916,7 @@ displaySubscriptionFormContent plan =
         [ label [ class "label" ]
             [ text "Name" ]
         , p [ class "control" ]
-            [ text (toString plan.name) ]
+            [ text (String.fromInt plan.name) ]
         ]
 
 
@@ -1948,11 +1937,11 @@ displayCampaignFormContent campaignWrapper =
             [ label [ class "label" ]
                 [ text "Funding Goal" ]
             , p [ class "control" ]
-                [ text (toString campaign.fundingGoal) ]
+                [ text (String.fromFloat campaign.fundingGoal) ]
             ]
         , div [ class "field" ]
             [ label [ class "label" ] [ text "Funding Progress" ]
-            , progress [ class "progress", value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
+            , progress [ class "progress", value (String.fromFloat campaign.currentFunding), Html.Attributes.max (String.fromFloat campaign.fundingGoal) ] [ text (String.fromFloat campaign.currentFunding) ]
             ]
         ]
 
@@ -1969,7 +1958,7 @@ createRewardForm model =
                     [ class "input"
                     , Html.Attributes.type_ "number"
                     , onInput UpdateDonateLevelField
-                    , value (toString model.donationLevel)
+                    , value (String.fromFloat model.donationLevel)
                     ]
                     []
                 , span [ class "icon is-left" ]
@@ -2003,7 +1992,7 @@ deleteCampaign model =
             selectedCampaign
                 |> .campaign
                 |> .id
-                |> toString
+                |> String.fromInt
 
         rewardUrl =
             model.apiUrl ++ "/campaigns/" ++ selectedCampaignId
@@ -2069,7 +2058,7 @@ getRewards model =
             selectedCampaign
                 |> .campaign
                 |> .id
-                |> toString
+                |> String.fromInt
 
         updatedUrl =
             model.apiUrl ++ "/rewards/?campaign_id=" ++ selectedCampaignId
@@ -2103,7 +2092,7 @@ deleteReward model =
             selectedRewardWrapper.reward
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ String.fromInt selectedReward.id
     in
     RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteReward (Encode.object [])
 
@@ -2121,7 +2110,7 @@ putReward model =
             selectedRewardWrapper.reward
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ String.fromInt selectedReward.id
 
         data =
             { description = selectedReward.description
@@ -2166,7 +2155,7 @@ getPlans model =
             selectedCampaign
                 |> .campaign
                 |> .id
-                |> toString
+                |> String.fromInt
 
         apiUrl =
             model.apiUrl
@@ -2246,7 +2235,7 @@ deleteRewards model =
             selectedRewardWrapper.reward
 
         rewardUrl =
-            model.apiUrl ++ "/rewards/" ++ toString selectedReward.id
+            model.apiUrl ++ "/rewards/" ++ String.fromInt selectedReward.id
     in
     RemoteData.Http.deleteWithConfig (Auth.config model.token) rewardUrl HandleDeleteRewards (Encode.object [])
 
@@ -2261,7 +2250,7 @@ getPlansForDeletion model =
             selectedCampaign
                 |> .campaign
                 |> .id
-                |> toString
+                |> String.fromInt
 
         apiUrl =
             model.apiUrl

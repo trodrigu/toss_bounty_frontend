@@ -4,8 +4,8 @@ import Data.AuthToken as AuthToken exposing (AuthToken, decoder, fallback, init)
 import Data.Campaign as Campaign exposing (Campaign, indexDecoder)
 import Data.Repo as Repo exposing (Repo)
 import Data.User as User exposing (User)
-import Json.Decode as Decode exposing (Decoder, map, oneOf)
-import Json.Decode.Pipeline as Pipeline exposing (succeed, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (succeed, Decoder, map, oneOf)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 
 
 type alias Campaigns =

@@ -13,7 +13,7 @@ import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (action, class, id, method, src, style)
 import Html.Events exposing (on, onClick, onInput)
-import Json.Decode
+import Json.Decode as Decode exposing (Decoder, map)
 import List.Extra exposing (getAt)
 import Ports exposing (createStripeElement)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -21,7 +21,6 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route, modifyUrl)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Util exposing ((=>))
 
 
 init : AuthToken -> Maybe String -> WebData Campaign -> WebData Repo -> WebData Rewards -> User -> Model
@@ -32,24 +31,24 @@ init token apiUrl campaign repo rewards user =
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just matchedUrl ->
+                    matchedUrl
 
         defaultReward =
             SelectList.singleton Reward.default
 
         updatedRepo =
             case repo of
-                Success repo ->
-                    repo
+                Success matchedRepo ->
+                    matchedRepo
 
                 _ ->
                     Repo.default
 
         updatedCampaign =
             case campaign of
-                Success campaign ->
-                    campaign
+                Success matchedCampaign ->
+                    matchedCampaign
 
                 _ ->
                     Campaign.default
@@ -116,18 +115,19 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+    -- TODO: Actually hook up redirect
         RedirectDiscover ->
-            ( model, Router.modifyUrl Router.DiscoverRoute ) => NoOp
+            (( model, Cmd.none ), NoOp)
 
         MakeSubscription ->
-            ( model, postToken model ) => NoOp
+            (( model, postToken model ), NoOp)
 
         HandleFetchPlan updatedPlan ->
             let
                 updatedModel =
                     { model | plan = updatedPlan }
             in
-            ( updatedModel, Cmd.none ) => NoOp
+            (( updatedModel, Cmd.none ), NoOp)
 
         Pay ->
             let
@@ -136,10 +136,10 @@ update msg model =
             in
             case selectedReward.id == 0 of
                 True ->
-                    ( { model | isPaying = False }, Cmd.none ) => NoOp
+                    (( { model | isPaying = False }, Cmd.none ), NoOp)
 
                 False ->
-                    ( { model | isPaying = True }, Ports.createStripeElement "placeholder" ) => NoOp
+                    (( { model | isPaying = True }, Ports.createStripeElement "placeholder" ), NoOp)
 
         HandleStripe data ->
             let
@@ -154,7 +154,7 @@ update msg model =
                 updatedModel =
                     { model | stripe = Just updatedStripe }
             in
-            ( updatedModel, postCustomer updatedModel ) => NoOp
+            (( updatedModel, postCustomer updatedModel ), NoOp)
 
         HandleCustomer data ->
             let
@@ -163,24 +163,24 @@ update msg model =
                         | customer = data
                     }
             in
-            ( updatedModel, postSubscription updatedModel ) => NoOp
+            (( updatedModel, postSubscription updatedModel ), NoOp)
 
         HandleSubscription data ->
             let
                 updatedModel =
                     { model | subscription = data }
             in
-            ( updatedModel, Cmd.none ) => Sync
+            (( updatedModel, Cmd.none ), Sync)
 
         SelectReward Nothing ->
-            ( model, Cmd.none ) => NoOp
+            (( model, Cmd.none ), NoOp)
 
         HandleFetchReward data ->
             let
                 updatedModel =
                     { model | rewardOfInterest = data }
             in
-            ( updatedModel, getPlan updatedModel ) => NoOp
+            (( updatedModel, getPlan updatedModel ), NoOp)
 
         SelectReward (Just index) ->
             let
@@ -215,7 +215,7 @@ update msg model =
                         |> SelectList.prepend beforesList
                         |> SelectList.append aftersWithoutFoundReward
             in
-            ( { model | rewards = updatedRewards }, getReward model foundReward.id ) => NoOp
+            (( { model | rewards = updatedRewards }, getReward model foundReward.id ), NoOp)
 
 
 view : Model -> Html Msg
@@ -293,7 +293,7 @@ view model =
 renderFundingGoal : Model -> Html Msg
 renderFundingGoal model =
     p [ class "control has-icons-left" ]
-        [ text ("$" ++ toString model.campaign.fundingGoal ++ "/month")
+        [ text ("$" ++ String.fromFloat model.campaign.fundingGoal ++ "/month")
         ]
 
 
@@ -355,29 +355,29 @@ makeOption reward =
 
                     amount =
                         reward.donationLevel
-                            |> toString
+                            |> String.fromFloat
                 in
                 "$ " ++ amount ++ " | " ++ description
     in
     option [] [ text amountAndDescription ]
 
-targetSelectedIndex : Json.Decoder (Maybe Int)
+targetSelectedIndex : Decoder (Maybe Int)
 targetSelectedIndex =
-    Json.Decode.at [ "target", "selectedIndex" ]
-        (Json.map
+    Decode.at [ "target", "selectedIndex" ]
+        (Decode.map
             (\int ->
                 if int == -1 then
                     Nothing
                 else
                     Just int
             )
-            Json.int
+            Decode.int
         )
 
 
 onChange : Attribute Msg
 onChange =
-    on "change" (Json.Decode.map SelectReward targetSelectedIndex)
+    on "change" (Decode.map SelectReward targetSelectedIndex)
 
 
 renderPay : Model -> Html Msg
@@ -409,10 +409,10 @@ paymentForm model =
         styles =
             case model.isPaying of
                 True ->
-                    style [ ( "display", "block" ) ]
+                    style "display" "block"
 
                 False ->
-                    style [ ( "display", "none" ) ]
+                    style "display" "none"
     in
     div [ class "container" ]
         [ div [ class "columns" ]
@@ -525,7 +525,7 @@ getPlan model =
             model.token
 
         planUrl =
-            apiUrl ++ "/plans/" ++ toString planId
+            apiUrl ++ "/plans/" ++ String.fromInt planId
 
         rewardOfInterest =
             case model.rewardOfInterest of
@@ -551,6 +551,6 @@ getReward model rewardId =
             model.token
 
         updatedUrl =
-            apiUrl ++ "/rewards/" ++ toString rewardId
+            apiUrl ++ "/rewards/" ++ String.fromInt rewardId
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchReward Reward.showDecoder

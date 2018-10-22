@@ -1,18 +1,17 @@
-module Pages.Login exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), init, loginForm, postSignIn, update, validate, view, viewErrors)
+module Pages.Login exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), init, loginForm, postSignIn, update, view, viewErrors)
 
 import Data.User as User exposing (User, encodeLogin)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick, onInput)
-import Json.Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (succeed, hardcoded, optional, required)
+import Json.Decode exposing (succeed, Decoder, string)
+import Json.Decode.Pipeline exposing (hardcoded, optional, required)
 import Json.Encode exposing (Value, encode, object, string)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Request.User as User exposing (storeSession)
 import Routing.Router as Router
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, Validator, validate)
 
 
 init : Model
@@ -93,35 +92,35 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         UpdatePasswordField str ->
-            ( { model | password = str }, Cmd.none ) => NoOp
+            (( { model | password = str }, Cmd.none ), NoOp)
 
         UpdateEmailField str ->
-            ( { model | email = str }, Cmd.none ) => NoOp
+            (( { model | email = str }, Cmd.none ), NoOp)
 
         HandleLogin data ->
             case data of
                 Success user ->
-                    model
-                        => Cmd.batch [ storeSession user, Router.modifyUrl Router.DashRoute ]
-                        => SetUser user
+                    ((model
+                        , Cmd.none)
+                        , SetUser user)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none ),NoOp)
+                        
 
         SaveLoginForm ->
-            case validate model of
-                [] ->
+            case validate modelValidator model of
+                Ok subject ->
                     let
                         newModel =
                             { model | errors = [] }
                     in
-                    ( model, postSignIn model ) => NoOp
+                    (( model, postSignIn model ), NoOp)
 
-                errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                Err errors ->
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
 
 postSignIn : Model -> Cmd Msg
@@ -135,11 +134,11 @@ postSignIn model =
     RemoteData.Http.post "http://localhost:4000/token" HandleLogin User.decoder (User.encodeLogin data)
 
 
-validate : Model -> List Error
-validate =
+modelValidator : Validator (Field, String) Model
+modelValidator =
     Validate.all
-        [ .email >> ifBlank (Email => "Email can't be blank.")
-        , .password >> ifBlank (Password => "Password can't be blank.")
+        [ ifBlank .email (Email, "Email can't be blank.")
+        , ifBlank .password (Password, "Password can't be blank.")
         ]
 
 

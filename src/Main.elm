@@ -125,7 +125,7 @@ decodeUserFromJson json =
         |> Maybe.andThen (Decode.decodeString User.returnToSessionDecoder >> Result.toMaybe)
 
 
-init : Decode.Value -> Location -> ( Model, Cmd Msg )
+init : Decode.Value ->  -> ( Model, Cmd Msg )
 init val location =
     setRoute (Router.fromLocation location)
         { session = { user = decodeUserFromJson val }
@@ -203,7 +203,7 @@ routeToString page =
                     [ "discover" ]
 
                 ContributeRoute campaignId ->
-                    [ "contribute/" ++ toString campaignId ]
+                    [ "contribute/" ++ String.fromInt campaignId ]
 
                 CreateUserRoleRoute ->
                     [ "get-user-type" ]
@@ -1713,7 +1713,7 @@ getRewards : String -> AuthToken -> Int -> Cmd HandleMsg
 getRewards apiUrl token campaignId =
     let
         updatedUrl =
-            apiUrl ++ "/rewards/?campaign_id=" ++ (campaignId |> toString)
+            apiUrl ++ "/rewards/?campaign_id=" ++ (campaignId |> String.fromInt)
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchRewards Rewards.decoder
 
@@ -1745,7 +1745,7 @@ getCampaigns apiUrl token =
             1
 
         campaignsUrl =
-            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ toString page_size ++ "&page=" ++ toString page
+            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ String.fromInt page_size ++ "&page=" ++ String.fromInt page
     in
     RemoteData.Http.getWithConfig (Auth.config token) campaignsUrl HandleFetchAllCampaigns Campaigns.decoder
 

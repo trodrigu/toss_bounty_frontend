@@ -16,7 +16,7 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Util exposing ((=>))
+import Http as Http exposing (Error(..), Response)
 
 
 init : AuthToken -> Maybe String -> WebData Campaigns -> Model
@@ -27,8 +27,8 @@ init token apiUrl campaigns =
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just matchedUrl ->
+                    matchedUrl
     in
     { campaigns = campaigns
     , token = token
@@ -76,14 +76,14 @@ update msg model =
                 updatedModel =
                     { model | search = searchString }
             in
-            ( updatedModel, getSearch updatedModel ) => NoOp
+            (( updatedModel, getSearch updatedModel ), NoOp)
 
         PreviousPage ->
             let
                 campaigns =
                     case model.campaigns of
-                        Success campaigns ->
-                            campaigns
+                        Success matchedCampaigns ->
+                            matchedCampaigns
 
                         _ ->
                             Campaigns.default
@@ -104,8 +104,8 @@ update msg model =
             let
                 campaigns =
                     case model.campaigns of
-                        Success campaigns ->
-                            campaigns
+                        Success matchedCampaigns ->
+                            matchedCampaigns
 
                         _ ->
                             Campaigns.default
@@ -127,23 +127,24 @@ update msg model =
                 updatedModel =
                     { model | pageNumber = pageNumber }
             in
-            ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
+            (( updatedModel, fetchAllCampaigns updatedModel ), NoOp)
 
         HandleFetchUser updatedUser ->
             let
                 updatedModel =
                     { model | user = updatedUser }
             in
-            ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
+            (( updatedModel, fetchAllCampaigns updatedModel ), NoOp)
 
         GetCampaigns ->
-            ( { model | campaigns = Loading }, fetchAllCampaigns model ) => NoOp
+            (( { model | campaigns = Loading }, fetchAllCampaigns model ), NoOp)
 
         HandleFetchAllCampaigns data ->
-            ( { model | campaigns = data }, Cmd.none ) => NoOp
+            (( { model | campaigns = data }, Cmd.none ), NoOp)
 
+        -- TODO: Router.modifyUrl (ContributeRoute campaignId) 
         SelectYourCampaign campaignId ->
-            ( model, Router.modifyUrl (ContributeRoute campaignId) ) => NoOp
+            (( model, Cmd.none), NoOp)
 
 
 view : Model -> Html Msg
@@ -163,12 +164,12 @@ view model =
             div [ class "pageloader is-active" ] [ span [ class "title" ] [ text "Loading..." ] ]
 
         Failure error ->
-            div [] [ text ("Failed" ++ toString error) ]
+            div [] [ text ("Failed" ++ (error |> errorToString) ) ]
 
-        Success campaigns ->
+        Success matchedCampaigns ->
             let
                 renderedCampaigns =
-                    List.map (\campaign -> showYourCampaign campaign campaigns.included) campaigns.campaigns
+                    List.map (\campaign -> showYourCampaign campaign matchedCampaigns.included) matchedCampaigns.campaigns
 
                 campaignsGrouped =
                     ListExtra.greedyGroupsOf 2 renderedCampaigns
@@ -186,6 +187,24 @@ view model =
                     )
                 ]
 
+
+errorToString : Error -> String
+errorToString err =
+    case err of
+        BadUrl urlMessage ->
+            "The url " ++ urlMessage ++ "is no bueno!"
+
+        Timeout ->
+            "Timeout"
+
+        NetworkError ->
+            "Network Error"
+
+        BadStatus _ ->
+            "It was a Bad Status."
+
+        BadPayload _ _ ->
+            "Payload is not good"
 
 renderSearchBar : Model -> Html Msg
 renderSearchBar model =
@@ -215,8 +234,8 @@ renderPageNumbers model =
     let
         campaigns =
             case model.campaigns of
-                Success campaigns ->
-                    campaigns
+                Success matchedCampaigns ->
+                    matchedCampaigns
 
                 _ ->
                     Campaigns.default
@@ -230,10 +249,10 @@ renderPageNumbers model =
 renderPageNumber : Int -> Int -> Html Msg
 renderPageNumber pageNumber currentPageNumber =
     if pageNumber == currentPageNumber then
-        li [ class "pagination-link is-current" ] [ text (toString pageNumber) ]
+        li [ class "pagination-link is-current" ] [ text (String.fromInt pageNumber) ]
 
     else
-        li [ class "pagination-link", onClick (UpdatePage pageNumber) ] [ text (toString pageNumber) ]
+        li [ class "pagination-link", onClick (UpdatePage pageNumber) ] [ text (String.fromInt pageNumber) ]
 
 
 showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
@@ -241,8 +260,8 @@ showYourCampaign campaign included =
     let
         repoForCampaign =
             List.filter
-                (\included ->
-                    case included of
+                (\includedStuff ->
+                    case includedStuff of
                         IncludedGithub includedRepo ->
                             campaign.githubRepoId == includedRepo.id
 
@@ -320,12 +339,12 @@ displayFormContent campaign =
             [ label [ class "label" ]
                 [ text "Funding Goal" ]
             , p []
-                [ text (toString campaign.fundingGoal) ]
+                [ text (String.fromFloat campaign.fundingGoal) ]
             ]
         , div [ class "field" ]
             [ label [ class "label" ]
                 [ text "Funding Progress" ]
-            , progress [ class "progress", Html.Attributes.value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
+            , progress [ class "progress", Html.Attributes.value (String.fromFloat campaign.currentFunding), Html.Attributes.max (String.fromFloat campaign.fundingGoal) ] [ text (String.fromFloat campaign.currentFunding) ]
             ]
         , a [ id "card-element", class "", onClick (SelectYourCampaign campaign.id) ]
             [ span [] [ text "Select Campaign" ] ]
@@ -338,11 +357,11 @@ displayFormContentWithoutButton campaign =
         [ label [ class "label" ]
             [ text "Summary" ]
         , p [ class "control" ]
-            [ text (toString campaign.longDescription) ]
+            [ text (campaign.longDescription) ]
         , label [ class "label" ]
             [ text "Funding Goal" ]
         , p []
-            [ text (toString campaign.fundingGoal) ]
+            [ text (String.fromFloat campaign.fundingGoal) ]
         ]
 
 
@@ -356,7 +375,7 @@ fetchAllCampaigns model =
             model.pageNumber
 
         updatedUrl =
-            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ toString model.pageSize ++ "&page=" ++ toString model.pageNumber
+            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ String.fromInt model.pageSize ++ "&page=" ++ String.fromInt model.pageNumber
 
         token =
             model.token
@@ -377,7 +396,7 @@ getSearch model =
             model.pageNumber
 
         updatedUrl =
-            model.apiUrl ++ "/search" ++ "?page_size=" ++ toString model.pageSize ++ "&page=" ++ toString model.pageNumber ++ "&search=" ++ search
+            model.apiUrl ++ "/search" ++ "?page_size=" ++ String.fromInt model.pageSize ++ "&page=" ++ String.fromInt model.pageNumber ++ "&search=" ++ search
 
         token =
             model.token
