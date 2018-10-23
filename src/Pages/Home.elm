@@ -3,10 +3,15 @@ module Pages.Home exposing (ExternalMsg(..), GitHubUrl, Model, Msg(..), init, up
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import RemoteData exposing (RemoteData(..), WebData)
+import Http exposing (Error(..), Response)
+import RemoteData.Http exposing (..)
+import Json.Decode as Decode exposing (succeed, Decoder, Value)
+import Json.Decode.Pipeline as Pipeline exposing (optional, optionalAt, requiredAt)
 
 
 type alias Model =
-    { url : WebData GitHubUrl }
+    { webDataUrl : WebData GitHubUrl
+    , apiUrl : Maybe String }
 
 
 type alias GitHubUrl =
@@ -15,32 +20,57 @@ type alias GitHubUrl =
 
 type Msg
     = NoOp
+    | HandleGithubUrl (WebData GitHubUrl)
 
 
 type ExternalMsg
     = ExternalNoOp
 
 
-init : Model
-init =
-    { url = Loading }
+init : Maybe String -> Model
+init apiUrl =
+    { apiUrl = apiUrl
+    , webDataUrl = Loading }
 
 
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
+        HandleGithubUrl data ->
+            let
+                updatedModel =
+                    { model | webDataUrl = data }
+            in
+            (( updatedModel, Cmd.none ), ExternalNoOp)
+
+
         NoOp ->
-            (( model, Cmd.none ) , ExternalNoOp)
+            (( model, Cmd.none ), ExternalNoOp)
 
 
 viewButton : Model -> Html Msg
 viewButton model =
-    case model.url of
+    case model.webDataUrl of
         Loading ->
-            text ""
+            text "Loading"
 
-        Failure _ ->
-            text ""
+        Failure err ->
+            case err of
+                BadUrl msg ->
+                    text ("There was an error with " ++ msg)
+
+                Timeout ->
+                    text "There was a timeout."
+
+                NetworkError ->
+                    text "There was a Network Error."
+
+                BadStatus response ->
+                    text ("There was a Bad Status with " ++ response.body)
+
+                BadPayload msg response ->
+                    text ("There was a bad payload with " ++ msg ++ "with a reponse of " ++ response.body)
+
 
         Success data ->
             a [ class "button is-medium", Html.Attributes.href data.url ]
@@ -51,7 +81,7 @@ viewButton model =
                     [ text "Sign In With GitHub" ]
                 ]
 
-        _ ->
+        NotAsked ->
             text ""
 
 
@@ -105,3 +135,24 @@ view model =
                 ]
             ]
         ]
+
+getGitHubSignInUrl : Maybe String -> Cmd Msg
+getGitHubSignInUrl apiUrl =
+    let
+        github_oauth_url =
+            case apiUrl of
+                Nothing ->
+                    ""
+
+                Just url ->
+                    url ++ "/github_oauth_url"
+    in
+    RemoteData.Http.get github_oauth_url HandleGithubUrl githubUrlDecoder
+
+
+githubUrlDecoder : Decoder GitHubUrl
+githubUrlDecoder =
+    succeed GitHubUrl
+        |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
+
+

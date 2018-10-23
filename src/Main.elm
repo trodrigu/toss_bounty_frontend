@@ -132,10 +132,10 @@ decodeUserFromJson json =
 
 init : Decode.Value -> Url -> Key -> ( Model, Cmd Msg )
 init val location key =
-    setRoute (Router.fromLocation location)
+    setRoute (Debug.log "fromLocation" (Router.fromLocation location))
         { session = { user = decodeUserFromJson val }
         , location = location
-        , page = Home Home.init
+        , page = Home (decodeUrlFromJson val |> Home.init)
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
         , yourCampaigns = NotAsked
@@ -235,12 +235,7 @@ setRoute maybeRoute model =
             ({ model | page = updatedPage } , Cmd.none)
 
         Just Router.HomeRoute ->
-            case model.session.user of
-                Nothing ->
-                    (model , Cmd.map HandleMsg (getGitHubSignInUrl model.apiUrl))
-
-                _ ->
-                    (model , Router.modifyUrl model.key Router.DiscoverRoute)
+            (model , Cmd.map HandleMsg (getGitHubSignInUrl model.apiUrl))
 
         Just (Router.SaveTokenRoute (Just token) (Just email) (Just userId)) ->
             let
@@ -501,7 +496,7 @@ setRoute maybeRoute model =
                     (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.DiscoverRoute ->
-            case model.session.user of
+            case Debug.log "session" model.session.user of
                 Just user ->
                     let
                         token =
@@ -900,12 +895,13 @@ updatePage page msg model =
         ( HomeMsg subMsg, Home subModel ) ->
             let
                 newSubModel =
-                    { subModel | url = model.githubUrl }
+                    { subModel | webDataUrl = model.githubUrl }
 
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Home.update subMsg newSubModel
+                    
             in
-            ({ model | page = Home pageModel } , Cmd.map HomeMsg cmd)
+                ({ model | page = Home pageModel } , Cmd.map HomeMsg cmd)
 
         ( ContributeMsg subMsg, Contribute subModel ) ->
             let
@@ -1117,7 +1113,7 @@ updatePage page msg model =
                 updatedModel =
                     { model | githubUrl = data }
             in
-            ( { updatedModel | page = Home { url = data } }, Cmd.none )
+            ( { updatedModel | page = Home { webDataUrl = data, apiUrl = model.apiUrl } }, Cmd.none )
 
         ( HandleMsg (HandleStripeConnectUrl data), _ ) ->
             let
