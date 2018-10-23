@@ -113,13 +113,13 @@ routeToString page =
                 NotFoundRoute ->
                     []
     in
-    "#/" ++ String.join "/" pieces
+    String.join "/" pieces
 
 
 routeParser : UrlParser.Parser (Route -> a) a
 routeParser =
     UrlParser.oneOf
-        -- [ UrlParser.map AboutRoute UrlParser.top
+        --[ UrlParser.map HomeRoute UrlParser.top
         -- The home route will be the base after beta
         [ UrlParser.map HomeRoute (UrlParser.s "home")
         , UrlParser.map TosserSignUpRoute (UrlParser.s "tosser-sign-up")
@@ -142,7 +142,7 @@ routeParser =
 
 modifyUrl : Key -> Route -> Cmd msg
 modifyUrl key route =
-    Navigation.pushUrl key (route |> routeToString)
+    Navigation.pushUrl key (Debug.log "route" (route |> routeToString))
 
 
 href : Route -> Attribute msg
@@ -152,8 +152,9 @@ href route =
 
 fromLocation : Url -> Maybe Route
 fromLocation location =
-    if String.isEmpty location.path then
-        Just HomeRoute
+    case UrlParser.parse routeParser (location) of
+        Nothing ->
+            Just HomeRoute
 
-    else
-        UrlParser.parse routeParser (location)
+        Just route ->
+            Just route
