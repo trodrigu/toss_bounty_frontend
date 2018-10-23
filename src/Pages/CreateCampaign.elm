@@ -1,4 +1,4 @@
-module Pages.CreateCampaign exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), createCampaignForm, defaultRepo, init, issueView, issuesView, maintainerHero, makeOption, onChange, postCampaign, update, validate, view, viewErrors)
+module Pages.CreateCampaign exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), createCampaignForm, defaultRepo, init, issueView, issuesView, maintainerHero, makeOption, onChange, postCampaign, update, view, viewErrors)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback, toString)
 import Data.Campaign as Campaign exposing (..)
@@ -8,26 +8,25 @@ import Data.Repos as Repos exposing (Repos, SelectListRepos, mostBountifulRepo)
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, datetime, href, src, style)
 import Html.Events exposing (on, onClick, onInput)
-import Json.Decode
+import Json.Decode as Decode exposing (Decoder, map, int)
 import List.Extra exposing (getAt)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, validate, fromValid, Validator)
 
-targetSelectedIndex : Json.Decoder (Maybe Int)
+targetSelectedIndex : Decoder (Maybe Int)
 targetSelectedIndex =
-    Json.Decode.at [ "target", "selectedIndex" ]
-        (Json.map
+    Decode.at [ "target", "selectedIndex" ]
+        (map
             (\int ->
                 if int == -1 then
                     Nothing
                 else
                     Just int
             )
-            Json.int
+            int
         )
 
 init : AuthToken -> String -> WebData SelectListRepos -> Maybe String -> Model
@@ -38,8 +37,8 @@ init token userId repos apiUrl =
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just innerUrl ->
+                    innerUrl
     in
     { currentFunding = 0.0
     , errors = []
@@ -120,7 +119,7 @@ maintainerHero model =
 
 onChange : Attribute Msg
 onChange =
-    on "change" (Json.Decode.map SelectRepo targetSelectedIndex)
+    on "change" (map SelectRepo targetSelectedIndex)
 
 
 makeOption : String -> Html Msg
@@ -212,44 +211,47 @@ update msg model =
             let
                 updatedFundingGoalFloat =
                     case String.toFloat updatedFundingGoal of
-                        Ok updatedFundingGoalFloat ->
-                            updatedFundingGoalFloat
+                        Just innerUpdatedFundingGoalFloat ->
+                            innerUpdatedFundingGoalFloat
 
-                        Err error ->
+                        Nothing ->
                             0.0
             in
-            ( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ) => NoOp
+            (( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ) , NoOp)
 
         UpdateLongDescriptionField updatedLongDescription ->
-            ( { model | longDescription = updatedLongDescription }, Cmd.none ) => NoOp
+            (( { model | longDescription = updatedLongDescription }, Cmd.none ) , NoOp)
 
         HandleCampaign data ->
             case data of
                 Success campaign ->
-                    model
-                        => Cmd.none
-                        => GoToStripeSignUp
+                    ((model
+                        , Cmd.none)
+                        , GoToStripeSignUp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         SaveCampaignForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
-                        newModel =
-                            { model | errors = [] }
-                    in
-                    ( model, postCampaign model ) => NoOp
+                        updatedModel =
+                            fromValid matchedSubject
 
-                errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                        newModel =
+                            { updatedModel | errors = [] }
+                    in
+                    (( newModel, postCampaign newModel ) , NoOp)
+
+                Err errors ->
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
         SelectRepo Nothing ->
-            ( model, Cmd.none ) => NoOp
+            (( model, Cmd.none ) , NoOp)
 
         SelectRepo (Just index) ->
             let
@@ -297,10 +299,10 @@ update msg model =
                                 |> SelectList.prepend beforesList
                                 |> SelectList.append aftersWithoutFoundRepo
             in
-            ( { model | bountifulRepos = Success { selectListRepos = updatedRepos } }, Cmd.none ) => NoOp
+            (( { model | bountifulRepos = Success { selectListRepos = updatedRepos } }, Cmd.none ) , NoOp)
 
         CreateCampaign ->
-            ( model, postCampaign model ) => NoOp
+            (( model, postCampaign model ) , NoOp)
 
 
 postCampaign : Model -> Cmd Msg
@@ -337,10 +339,10 @@ postCampaign model =
     RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.showDecoder (Campaign.encode data)
 
 
-validate : Model -> List Error
-validate =
+formValidator : Validator (Field, String) Model
+formValidator =
     Validate.all
-        [ .longDescription >> ifBlank (LongDescription => "Summary can't be blank.")
+        [ ifBlank .longDescription (LongDescription , "Summary can't be blank.")
         ]
 
 

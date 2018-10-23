@@ -19,12 +19,13 @@ import Ports exposing (createStripeElement)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
-import Routing.Router as Router exposing (Route, modifyUrl)
+import Routing.Router as Router exposing (Route, modifyUrl, Route(..))
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
+import Browser.Navigation as Navigation exposing (Key)
 
 
-init : AuthToken -> Maybe String -> WebData Campaign -> WebData Repo -> WebData Rewards -> User -> Model
-init token apiUrl campaign repo rewards user =
+init : Key -> AuthToken -> Maybe String -> WebData Campaign -> WebData Repo -> WebData Rewards -> User -> Model
+init key token apiUrl campaign repo rewards user =
     let
         url =
             case apiUrl of
@@ -75,6 +76,7 @@ init token apiUrl campaign repo rewards user =
     , token = token
     , user = user
     , rewardOfInterest = NotAsked
+    , key = key
     }
 
 
@@ -92,6 +94,7 @@ type alias Model =
     , token : AuthToken
     , user : User
     , rewardOfInterest : WebData Reward
+    , key : Key
     }
 
 
@@ -115,9 +118,8 @@ type ExternalMsg
 update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
-    -- TODO: Actually hook up redirect
         RedirectDiscover ->
-            (( model, Cmd.none ), NoOp)
+            (( model, Router.modifyUrl model.key DiscoverRoute ), NoOp)
 
         MakeSubscription ->
             (( model, postToken model ), NoOp)

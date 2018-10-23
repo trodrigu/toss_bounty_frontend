@@ -8,7 +8,6 @@ import Html.Events exposing (onClick)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
-import Util exposing ((=>))
 
 
 init : AuthToken -> Maybe String -> User -> Model
@@ -19,8 +18,8 @@ init token apiUrl user =
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just matchedUrl ->
+                    matchedUrl
     in
     { token = token
     , apiUrl = url
@@ -90,19 +89,19 @@ update msg model =
                         _ ->
                             User.default
             in
-            ( model, Cmd.none ) => UpdateUserWithRole updatedUser
+            (( model, Cmd.none ) , UpdateUserWithRole updatedUser)
 
         SubmitUserRole ->
-            ( model, putUser model ) => NoOp
+            (( model, putUser model ) , NoOp)
 
         SwitchTo updatedChoice ->
-            ( { model
+            (( { model
                 | choice = updatedChoice
                 , showNext = True
               }
             , Cmd.none
             )
-                => NoOp
+                , NoOp)
 
 
 view : Model -> Html Msg

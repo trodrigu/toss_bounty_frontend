@@ -1,16 +1,15 @@
-module Pages.About exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), Subscriber, aboutForm, encode, init, subscriberDecoder, update, validate, view, viewErrors)
+module Pages.About exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), Subscriber, aboutForm, encode, init, subscriberDecoder, update, view, viewErrors)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import Json.Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (succeed, optional, required)
+import Json.Decode exposing (succeed, Decoder, string)
+import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode exposing (Value, encode, object, string)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Routing.Router as Router
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, validate, Validator)
 
 
 type Msg
@@ -59,10 +58,10 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         UpdateEmailField str ->
-            ( { model | subscriber = { email = str } }, Cmd.none ) => NoOp
+            (( { model | subscriber = { email = str } }, Cmd.none ) , NoOp)
 
         ShowAbout ->
-            ( { model | showAbout = True }, Cmd.none ) => NoOp
+            (( { model | showAbout = True }, Cmd.none ) , NoOp)
 
 
 aboutForm : Model -> Html Msg
@@ -149,10 +148,10 @@ viewErrors errors =
         |> ul [ class "help is-danger" ]
 
 
-validate : Subscriber -> List Error
-validate =
+formValidator : Validator (Field, String) Subscriber  
+formValidator =
     Validate.all
-        [ .email >> ifBlank (Email => "Email can't be blank.") ]
+        [ ifBlank .email (Email , "Email can't be blank.") ]
 
 
 subscriberDecoder : Decoder Subscriber

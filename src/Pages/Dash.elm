@@ -1,4 +1,4 @@
-module Pages.Dash exposing (CampaignWrapper, Error, ExternalMsg(..), Field(..), Model, Msg(..), RewardWrapper, SubscriptionWrapper, campaignRows, campaignWrapperDefault, columnsWrapper, createRewardForm, deleteCampaign, deletePlan, deletePlans, deleteReward, deleteRewards, deleteSubscription, displayAllRewards, displayCampaignFormContent, displayCampaignFormHeader, displayCampaignUpdateFormHeader, displaySubscriptionFormContent, displaySubscriptionFormHeader, displayUpdateButton, displayUpdateFundingGoal, displayUpdateLongDescription, displayUpdateRewards, filterPersistedCampaigns, filterPersistedRewards, filterPersistedSubscriptions, getPlans, getPlansForDeletion, getRewards, hasCampaignId, hasRewardId, hasSubscriptionId, ifZero, init, planHasId, postPlan, postReward, putCampaign, putPlan, putReward, renderButtonCode, renderCampaigns, renderCampaignsWhenEditing, renderSubscriptions, renderUpdateOrShow, rewardHasId, rewardWrapperDefault, showCampaignFooter, showReward, showYourCampaign, showYourSubscription, subscriptionRows, subscriptionWrapperDefault, update, updateCampaignForm, updateRewardForm, updateRewardFormDescription, updateRewardFormDonationLevel, validate, view, viewErrors, wrapCampaign, wrapReward, wrapSubscriptions, yourBounties, yourRenderedSubscriptions)
+module Pages.Dash exposing (CampaignWrapper, Error, ExternalMsg(..), Field(..), Model, Msg(..), RewardWrapper, SubscriptionWrapper, campaignRows, campaignWrapperDefault, columnsWrapper, createRewardForm, deleteCampaign, deletePlan, deletePlans, deleteReward, deleteRewards, deleteSubscription, displayAllRewards, displayCampaignFormContent, displayCampaignFormHeader, displayCampaignUpdateFormHeader, displaySubscriptionFormContent, displaySubscriptionFormHeader, displayUpdateButton, displayUpdateFundingGoal, displayUpdateLongDescription, displayUpdateRewards, filterPersistedCampaigns, filterPersistedRewards, filterPersistedSubscriptions, getPlans, getPlansForDeletion, getRewards, hasCampaignId, hasRewardId, hasSubscriptionId, ifZero, init, planHasId, postPlan, postReward, putCampaign, putPlan, putReward, renderButtonCode, renderCampaigns, renderCampaignsWhenEditing, renderSubscriptions, renderUpdateOrShow, rewardHasId, rewardWrapperDefault, showCampaignFooter, showReward, showYourCampaign, showYourSubscription, subscriptionRows, subscriptionWrapperDefault, update, updateCampaignForm, updateRewardForm, updateRewardFormDescription, updateRewardFormDonationLevel, view, viewErrors, wrapCampaign, wrapReward, wrapSubscriptions, yourBounties, yourRenderedSubscriptions)
 
 import Data.AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default, encode, showDecoder)
@@ -18,7 +18,7 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (href)
 import SelectList exposing (Position(..), SelectList, fromLists, select, selected, singleton)
-import Validate exposing (ifBlank, Validator)
+import Validate exposing (ifBlank, Validator, fromErrors, validate, fromValid)
 
 
 type Field
@@ -229,11 +229,11 @@ type ExternalMsg
     | MakeMainFetchCampaigns
 
 
-validate : Model -> Validator (Field, String) Model
-validate =
+formValidator : Validator (Field, String) Model
+formValidator =
     Validate.all
-        [ .longDescription >> ifBlank (LongDescription, "Summary can't be blank.")
-        , .fundingGoal >> ifZero (FundingGoal, "Funding Goal can't be zero.")
+        [ ifBlank .longDescription (LongDescription, "Summary can't be blank.")
+        , ifZero
         ]
 
 
@@ -384,15 +384,18 @@ update msg model =
                         , NoOp)
 
         SaveRewardForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
-                        newModel =
-                            { model | errors = [] }
-                    in
-                    (( model, postReward model ), NoOp)
+                        updatedModel =
+                            fromValid matchedSubject
 
-                errors ->
+                        newModel =
+                            { updatedModel | errors = [] }
+                    in
+                    (( newModel, postReward newModel ), NoOp)
+
+                Err errors ->
                     (({ model | errors = errors }
                         , Cmd.none)
                         , NoOp)
@@ -401,10 +404,10 @@ update msg model =
             let
                 updatedDonateLevel =
                     case String.toFloat str of
-                        Ok donationLevel ->
+                        Just donationLevel ->
                             donationLevel
 
-                        Err error ->
+                        Nothing ->
                             0.0
             in
             (( { model | donationLevel = updatedDonateLevel }, Cmd.none ), NoOp)
@@ -476,15 +479,18 @@ update msg model =
                         , NoOp)
 
         SaveUpdateForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
-                        newModel =
-                            { model | errors = [] }
-                    in
-                    (( model, putPlan model ), NoOp)
+                        updatedModel =
+                            fromValid matchedSubject
 
-                errors ->
+                        newModel =
+                            { updatedModel | errors = [] }
+                    in
+                    (( newModel, putPlan newModel ), NoOp)
+
+                Err errors ->
                     (({ model | errors = errors }
                         , Cmd.none)
                         , NoOp)
@@ -974,15 +980,18 @@ update msg model =
                     (( model, Cmd.none ), NoOp)
 
         SaveUpdateCampaignForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
-                        newModel =
-                            { model | errors = [] }
-                    in
-                    (( model, putCampaign model ), NoOp)
+                        updatedModel =
+                            fromValid matchedSubject
 
-                errors ->
+                        newModel =
+                            { updatedModel | errors = [] }
+                    in
+                    (( newModel, putCampaign newModel ), NoOp)
+
+                Err errors ->
                     (({ model | errors = errors }, Cmd.none), NoOp)
 
         DeleteCampaign campaignId ->
@@ -1104,10 +1113,10 @@ update msg model =
             let
                 updatedFundingGoalFloat =
                     case String.toFloat updatedFundingGoal of
-                        Ok matchedUpdatedFundingGoalFloat ->
+                        Just matchedUpdatedFundingGoalFloat ->
                             matchedUpdatedFundingGoalFloat
 
-                        Err error ->
+                        Nothing ->
                             0.0
             in
             (( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ), NoOp)
@@ -1916,7 +1925,7 @@ displaySubscriptionFormContent plan =
         [ label [ class "label" ]
             [ text "Name" ]
         , p [ class "control" ]
-            [ text (String.fromInt plan.name) ]
+            [ text (plan.name) ]
         ]
 
 
@@ -2033,19 +2042,20 @@ viewErrors errors =
         |> List.map (\( _, error ) -> li [] [ text error ])
         |> ul [ class "help is-danger" ]
 
+ifZero : Validator (Field, String) Model
+ifZero =
+    fromErrors modelToIfZero
 
-ifZero : error -> Validate.Validator error Float
-ifZero error subject =
+modelToIfZero : Model -> List (Field, String)
+modelToIfZero model =
     let
-        errors =
-            case subject > 0.0 of
-                True ->
-                    []
-
-                False ->
-                    [ error ]
+        fundingGoal =
+            model.fundingGoal
     in
-    errors
+    if fundingGoal > 0.0 then
+        [(FundingGoal, "Funding goal can't be zero.")]
+    else 
+        []
 
 
 getRewards : Model -> Cmd Msg

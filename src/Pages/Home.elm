@@ -3,7 +3,6 @@ module Pages.Home exposing (ExternalMsg(..), GitHubUrl, Model, Msg(..), init, up
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import RemoteData exposing (RemoteData(..), WebData)
-import Util exposing ((=>))
 
 
 type alias Model =
@@ -31,7 +30,7 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         NoOp ->
-            ( model, Cmd.none ) => ExternalNoOp
+            (( model, Cmd.none ) , ExternalNoOp)
 
 
 viewButton : Model -> Html Msg

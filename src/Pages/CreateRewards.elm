@@ -1,4 +1,4 @@
-module Pages.CreateRewards exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), createRewardForm, deletePlan, deleteReward, filterPersistedRewards, ifZero, init, planHasId, postPlan, postReward, putPlan, putReward, renderDashButton, rewardHasId, update, updateRewardForm, validate, view, viewErrors)
+module Pages.CreateRewards exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), createRewardForm, deletePlan, deleteReward, filterPersistedRewards, ifZero, init, planHasId, postPlan, postReward, putPlan, putReward, renderDashButton, rewardHasId, update, updateRewardForm, view, viewErrors)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Plan as Plan exposing (Plan)
@@ -12,20 +12,20 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList)
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, fromErrors, validate, Validator, fromValid)
+import Browser.Navigation as Navigation exposing (Key)
 
 
-init : Maybe String -> AuthToken -> Int -> Model
-init apiUrl token campaignId =
+init : Key -> Maybe String -> AuthToken -> Int -> Model
+init key apiUrl token campaignId =
     let
         url =
             case apiUrl of
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just matchedUrl ->
+                    matchedUrl
     in
     { rewards = SelectList.singleton Reward.default
     , plans = SelectList.singleton Plan.default
@@ -37,6 +37,7 @@ init apiUrl token campaignId =
     , campaignId = campaignId
     , errors = []
     , isEditing = False
+    , key = key
     }
 
 
@@ -51,6 +52,7 @@ type alias Model =
     , campaignId : Int
     , errors : List Error
     , isEditing : Bool
+    , key : Key
     }
 
 
@@ -122,7 +124,7 @@ view model =
                                                                     [ label [ class "label" ]
                                                                         [ text "Donation Level" ]
                                                                     , p [ class "control" ]
-                                                                        [ text (String.fromInt reward.donationLevel) ]
+                                                                        [ text (String.fromFloat reward.donationLevel) ]
                                                                     , label [ class "label" ]
                                                                         [ text "Description" ]
                                                                     , p []
@@ -167,7 +169,7 @@ view model =
                                                             [ label [ class "label" ]
                                                                 [ text "Donation Level" ]
                                                             , p [ class "control" ]
-                                                                [ text (String.fromInt reward.donationLevel) ]
+                                                                [ text (String.fromFloat reward.donationLevel) ]
                                                             , label [ class "label" ]
                                                                 [ text "Description" ]
                                                             , p []
@@ -244,7 +246,7 @@ updateRewardForm model =
                                         [ class "input"
                                         , Html.Attributes.type_ "number"
                                         , onInput UpdateDonateLevelField
-                                        , value (String.fromInt model.donationLevel)
+                                        , value (String.fromFloat model.donationLevel)
                                         ]
                                         []
                                     ]
@@ -291,7 +293,7 @@ createRewardForm model =
                                 [ class "input"
                                 , Html.Attributes.type_ "number"
                                 , onInput UpdateDonateLevelField
-                                , value (String.fromInt model.donationLevel)
+                                , value (String.fromFloat model.donationLevel)
                                 ]
                                 []
                             , span [ class "icon is-left" ]
@@ -330,13 +332,13 @@ update msg model =
             let
                 updatedDonateLevel =
                     case String.toFloat str of
-                        Ok donationLevel ->
+                        Just donationLevel ->
                             donationLevel
 
-                        Err error ->
+                        Nothing ->
                             0.0
             in
-            ( { model | donationLevel = updatedDonateLevel }, Cmd.none ) => NoOp
+            (( { model | donationLevel = updatedDonateLevel }, Cmd.none ) , NoOp)
 
         SelectReward rewardId ->
             let
@@ -352,7 +354,7 @@ update msg model =
                 selectedPlan =
                     SelectList.selected updatedPlans
             in
-            ( { model
+            (( { model
                 | rewards = updatedRewards
                 , isEditing = True
                 , description = selectedReward.description
@@ -361,10 +363,10 @@ update msg model =
               }
             , Cmd.none
             )
-                => NoOp
+                , NoOp)
 
         UpdateDescriptionField str ->
-            ( { model | description = str }, Cmd.none ) => NoOp
+            (( { model | description = str }, Cmd.none ) , NoOp)
 
         HandlePutPlan data ->
             case data of
@@ -393,12 +395,12 @@ update msg model =
                         updatedModel =
                             { model | plans = updatedPlans }
                     in
-                    ( updatedModel, putReward updatedModel )
-                        => NoOp
+                    (( updatedModel, putReward updatedModel )
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandlePutReward data ->
             case data of
@@ -424,12 +426,12 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append afters
                     in
-                    ( { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }, Cmd.none )
-                        => NoOp
+                    (( { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }, Cmd.none )
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandleDeletePlan data ->
             case data of
@@ -448,13 +450,13 @@ update msg model =
                             planBefores ++ planAfters
 
                         defaultPlan =
-                            List.filter (\plan -> not (planHasId plan)) planBeforesAndAfters
+                            List.filter (\innerPlan -> not (planHasId innerPlan)) planBeforesAndAfters
                                 |> List.head
 
                         plan =
                             case defaultPlan of
-                                Just plan ->
-                                    plan
+                                Just innerPlan ->
+                                    innerPlan
 
                                 _ ->
                                     Plan.default
@@ -472,13 +474,13 @@ update msg model =
                                 | plans = updatedPlans
                             }
                     in
-                    updatedModel
-                        => deleteReward updatedModel
-                        => NoOp
+                    ((updatedModel
+                        , deleteReward updatedModel)
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandleDeleteReward data ->
             case data of
@@ -497,13 +499,13 @@ update msg model =
                             rewardBefores ++ rewardAfters
 
                         defaultReward =
-                            List.filter (\reward -> not (rewardHasId reward)) rewardBeforesAndAfters
+                            List.filter (\innerReward -> not (rewardHasId innerReward)) rewardBeforesAndAfters
                                 |> List.head
 
                         reward =
                             case defaultReward of
-                                Just reward ->
-                                    reward
+                                Just innerReward ->
+                                    innerReward
 
                                 _ ->
                                     Reward.default
@@ -524,13 +526,13 @@ update msg model =
                                 , isEditing = False
                             }
                     in
-                    updatedModel
-                        => Cmd.none
-                        => NoOp
+                    ((updatedModel
+                        , Cmd.none)
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandlePlan data ->
             case data of
@@ -561,17 +563,17 @@ update msg model =
                                 |> SelectList.prepend befores
                                 |> SelectList.append aftersWithCurrentSelectedPlan
                     in
-                    { model | plans = updatedPlans }
-                        => Cmd.none
-                        => NoOp
+                    (({ model | plans = updatedPlans }
+                        , Cmd.none)
+                        , NoOp)
 
                 error ->
                     let
                         _ =
                             Debug.log "error" error
                     in
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         HandleReward data ->
             let
@@ -609,27 +611,30 @@ update msg model =
                         updatedModel =
                             { model | rewards = updatedRewards, description = "", donationLevel = 0.0, isEditing = False }
                     in
-                    updatedModel
-                        => postPlan updatedModel
-                        => NoOp
+                    ((updatedModel
+                        , postPlan updatedModel)
+                        , NoOp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         SaveUpdateForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
-                        newModel =
-                            { model | errors = [] }
-                    in
-                    ( model, putPlan model ) => NoOp
+                        updatedModel =
+                            fromValid matchedSubject
 
-                errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                        newModel =
+                            { updatedModel | errors = [] }
+                    in
+                    (( newModel, putPlan newModel ) , NoOp)
+
+                Err errors ->
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
         DeletePlan rewardId ->
             let
@@ -641,26 +646,29 @@ update msg model =
                         | plans = updatedPlans
                     }
             in
-            updatedModel
-                => deletePlan updatedModel
-                => NoOp
+            ((updatedModel
+                , deletePlan updatedModel)
+                , NoOp)
 
         SaveRewardForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
+                        updatedModel =
+                            fromValid matchedSubject
+
                         newModel =
                             { model | errors = [] }
                     in
-                    ( model, postReward model ) => NoOp
+                    (( newModel, postReward newModel ) , NoOp)
 
-                errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                Err errors ->
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
         DiscoverPage ->
-            model => Router.modifyUrl Router.DashRoute => MakeMainFetchCampaigns
+            ((model , Router.modifyUrl model.key Router.DashRoute), MakeMainFetchCampaigns)
 
 
 postReward : Model -> Cmd Msg
@@ -799,23 +807,26 @@ viewErrors errors =
         |> ul [ class "help is-danger" ]
 
 
-validate : Model -> List Error
-validate =
+formValidator : Validator (Field, String) Model
+formValidator =
     Validate.all
-        [ .description >> ifBlank (Description => "Description can't be blank.")
-        , .donationLevel >> ifZero (DonateLevel => "Donate Level can't be zero.")
+        [ ifBlank .description (Description , "Description can't be blank.")
+        , ifZero
         ]
 
 
-ifZero : error -> Validate.Validator error Float
-ifZero error subject =
-    let
-        errors =
-            case subject > 0.0 of
-                True ->
-                    []
+ifZero : Validator (Field, String) Model
+ifZero =
+    fromErrors modelToIfZero
 
-                False ->
-                    [ error ]
+modelToIfZero : Model -> List (Field, String)
+modelToIfZero model =
+    let
+        fundingGoal =
+            model.donationLevel
     in
-    errors
+    if fundingGoal > 0.0 then
+        [(DonateLevel, "Donation level can't be zero.")]
+    else 
+        []
+

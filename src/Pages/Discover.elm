@@ -17,10 +17,11 @@ import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
 import Http as Http exposing (Error(..), Response)
+import Browser.Navigation as Navigation exposing (Key)
 
 
-init : AuthToken -> Maybe String -> WebData Campaigns -> Model
-init token apiUrl campaigns =
+init : Key -> AuthToken -> Maybe String -> WebData Campaigns -> Model
+init key token apiUrl campaigns =
     let
         url =
             case apiUrl of
@@ -38,6 +39,7 @@ init token apiUrl campaigns =
     , pageNumber = 1
     , pageSize = 4
     , search = ""
+    , key = key
     }
 
 
@@ -50,6 +52,7 @@ type alias Model =
     , pageNumber : Int
     , pageSize : Int
     , search : String
+    , key : Key
     }
 
 
@@ -142,9 +145,8 @@ update msg model =
         HandleFetchAllCampaigns data ->
             (( { model | campaigns = data }, Cmd.none ), NoOp)
 
-        -- TODO: Router.modifyUrl (ContributeRoute campaignId) 
         SelectYourCampaign campaignId ->
-            (( model, Cmd.none), NoOp)
+            (( model, Router.modifyUrl model.key (ContributeRoute campaignId)), NoOp)
 
 
 view : Model -> Html Msg
