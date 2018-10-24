@@ -9,6 +9,7 @@ import Url.Parser as UrlParser exposing (..)
 import Url.Parser.Query as Query exposing (string)
 import Browser.Navigation as Navigation
 import Url exposing (Url)
+import Url.Builder as UrlBuilder exposing (absolute)
 import Browser.Navigation exposing (Key)
 
 
@@ -56,64 +57,60 @@ sessionChange =
 
 routeToString : Route -> String
 routeToString page =
-    let
-        pieces =
-            case page of
-                HomeRoute ->
-                    [ "home" ]
+    case page of
+        HomeRoute ->
+            absolute [ "home" ] []
 
-                StripeConnectSignUpRoute ->
-                    [ "stripe-connect-sign-up" ]
+        StripeConnectSignUpRoute ->
+            absolute [ "stripe-connect-sign-up" ] []
 
-                SaveStripeRoute (Just stripeId) ->
-                    [ "save-stripe" ++ "?stripe_id" ++ stripeId ]
+        SaveStripeRoute (Just stripeId) ->
+            absolute [ "save-stripe" ++ "?stripe_id" ++ stripeId ] []
 
-                SaveStripeRoute _ ->
-                    [ "save-stripe" ]
+        SaveStripeRoute _ ->
+            absolute [ "save-stripe" ] []
 
-                AboutRoute ->
-                    [ "about" ]
+        AboutRoute ->
+            absolute [ "about" ] []
 
-                TosserSignUpRoute ->
-                    [ "tosser-sign-up" ]
+        TosserSignUpRoute ->
+            absolute [ "tosser-sign-up" ] []
 
-                DashRoute ->
-                    [ "dash" ]
+        DashRoute ->
+            absolute [ "dash" ] []
 
-                CreateCampaignRoute ->
-                    [ "create-campaign" ]
+        CreateCampaignRoute ->
+            absolute [ "create-campaign" ] []
 
-                CreateRewardsRoute ->
-                    [ "create-rewards" ]
+        CreateRewardsRoute ->
+            absolute [ "create-rewards" ] []
 
-                LoginRoute ->
-                    [ "login" ]
+        LoginRoute ->
+            absolute [ "login" ] []
 
-                LogoutRoute ->
-                    [ "logout" ]
+        LogoutRoute ->
+            absolute [ "logout" ] []
 
-                SaveTokenRoute (Just token) _ _ ->
-                    [ "save-session" ++ "?token" ++ token ]
+        SaveTokenRoute (Just token) _ _ ->
+            absolute [ "save-session" ++ "?token" ++ token ] []
 
-                SaveTokenRoute _ _ _ ->
-                    [ "save-session" ]
+        SaveTokenRoute _ _ _ ->
+            absolute [ "save-session" ] []
 
-                DiscoverRoute ->
-                    [ "discover" ]
+        DiscoverRoute ->
+            absolute [ "discover" ] []
 
-                ContributeRoute campaignId ->
-                    [ "contribute/" ++ (campaignId |> String.fromInt) ]
+        ContributeRoute campaignId ->
+            absolute [ "contribute/" ++ (campaignId |> String.fromInt) ] []
 
-                CreateUserRoleRoute ->
-                    [ "get-user-type" ]
+        CreateUserRoleRoute ->
+            absolute [ "get-user-type" ] []
 
-                GithubOopsRoute ->
-                    [ "github-oops" ]
+        GithubOopsRoute ->
+            absolute [ "github-oops" ] []
 
-                NotFoundRoute ->
-                    []
-    in
-    String.join "/" pieces
+        NotFoundRoute ->
+            absolute [] []
 
 
 routeParser : UrlParser.Parser (Route -> a) a
@@ -142,7 +139,7 @@ routeParser =
 
 modifyUrl : Key -> Route -> Cmd msg
 modifyUrl key route =
-    Navigation.pushUrl key (Debug.log "route" (route |> routeToString))
+    Navigation.pushUrl key (route |> routeToString)
 
 
 href : Route -> Attribute msg
@@ -157,4 +154,4 @@ fromLocation location =
             Just HomeRoute
 
         Just route ->
-            Just route
+                Just route
