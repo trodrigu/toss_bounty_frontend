@@ -57,8 +57,7 @@ type alias Model =
 
 
 type Msg
-    = SelectYourCampaign Int
-    | HandleFetchAllCampaigns (WebData Campaigns)
+    = HandleFetchAllCampaigns (WebData Campaigns)
     | GetCampaigns
     | HandleFetchUser (WebData User)
     | UpdatePage Int
@@ -144,9 +143,6 @@ update msg model =
 
         HandleFetchAllCampaigns data ->
             (( { model | campaigns = data }, Cmd.none ), NoOp)
-
-        SelectYourCampaign campaignId ->
-            (( model, Router.modifyUrl model.key (ContributeRoute campaignId)), NoOp)
 
 
 view : Model -> Html Msg
@@ -348,7 +344,7 @@ displayFormContent campaign =
                 [ text "Funding Progress" ]
             , progress [ class "progress", Html.Attributes.value (String.fromFloat campaign.currentFunding), Html.Attributes.max (String.fromFloat campaign.fundingGoal) ] [ text (String.fromFloat campaign.currentFunding) ]
             ]
-        , a [ id "card-element", class "", onClick (SelectYourCampaign campaign.id) ]
+        , a [ id "card-element", class "", Router.href (ContributeRoute campaign.id) ]
             [ span [] [ text "Select Campaign" ] ]
         ]
 
