@@ -1959,9 +1959,9 @@ modelToIfZero model =
             model.fundingGoal
     in
     if fundingGoal > 0.0 then
-        [(FundingGoal, "Funding goal can't be zero.")]
-    else 
         []
+    else 
+        [(FundingGoal, "Funding goal can't be zero.")]
 
 
 getRewards : Model -> Cmd Msg
