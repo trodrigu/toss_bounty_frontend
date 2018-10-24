@@ -654,15 +654,10 @@ updatePage page msg model =
         ( ClickedLink urlRequest, _) ->
             case urlRequest of
                 Browser.Internal url ->
-                    case url.fragment of
-                        Nothing ->
-                            (model, Cmd.none)
-
-                        Just _ ->
-                            ( model, Navigation.pushUrl model.key (Url.toString url))
+                    ( model, Navigation.pushUrl model.key (url.path))
 
                 Browser.External href ->
-                    ( model, Navigation.load href )
+                    (model, Navigation.load href )
 
         ( ChangedUrl url, _) ->
             setRoute (Router.fromLocation url) model
