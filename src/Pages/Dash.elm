@@ -10,7 +10,7 @@ import Data.Rewards as Rewards exposing (Rewards)
 import Data.Subscription as Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class, src, style, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onClick, onInput, on, preventDefaultOn)
 import Json.Encode as Encode exposing (Value)
 import List.Extra as ListExtra exposing (greedyGroupsOf)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -19,6 +19,7 @@ import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (href)
 import SelectList exposing (Position(..), SelectList, fromLists, select, selected, singleton)
 import Validate exposing (ifBlank, Validator, fromErrors, validate, fromValid)
+import Json.Decode as Decode exposing (succeed, map)
 
 
 type Field
@@ -1678,11 +1679,19 @@ showCampaignFooter campaignWrapper =
                 [ div [ class "card-footer-item" ]
                     [ a [ class "card-footer-item", onClick (ShowCampaignConfirmation campaign.id) ]
                         [ span [] [ text "delete campaign" ] ]
-                    , a [ class "card-footer-item", onClick (SelectYourCampaign campaign.id) ]
+                    , a [ class "card-footer-item", onClickWithPreventDefault (SelectYourCampaign campaign.id) ]
                         [ span [] [ text "edit campaign" ] ]
                     ]
                 ]
 
+
+onClickWithPreventDefault : msg -> Attribute msg
+onClickWithPreventDefault msg =
+  preventDefaultOn "click" (map alwaysPreventDefault (succeed msg))
+
+alwaysPreventDefault : msg -> ( msg, Bool )
+alwaysPreventDefault msg =
+  ( msg, True )
 
 showYourSubscription : SubscriptionWrapper -> Model -> Html Msg
 showYourSubscription subscriptionWrapper model =
