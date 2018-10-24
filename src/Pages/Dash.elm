@@ -307,10 +307,6 @@ update msg model =
                     , MakeMainFetchCampaigns)
 
                 error ->
-                    let
-                        _ =
-                            Debug.log "error" error
-                    in
                     (( model, Cmd.none ), NoOp)
                         
 

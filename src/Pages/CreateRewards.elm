@@ -568,18 +568,10 @@ update msg model =
                         , NoOp)
 
                 error ->
-                    let
-                        _ =
-                            Debug.log "error" error
-                    in
                     (( model, Cmd.none )
                         , NoOp)
 
         HandleReward data ->
-            let
-                _ =
-                    Debug.log "data" data
-            in
             case data of
                 Success reward ->
                     let

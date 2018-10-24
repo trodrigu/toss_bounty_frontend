@@ -132,8 +132,8 @@ decodeUserFromJson json =
 
 init : Decode.Value -> Url -> Key -> ( Model, Cmd Msg )
 init val location key =
-    setRoute (Debug.log "fromLocation" (Router.fromLocation location))
-        { session = { user = decodeUserFromJson val }
+    setRoute (Router.fromLocation location)
+        { session = { user = (decodeUserFromJson val) }
         , location = location
         , page = Home (decodeUrlFromJson val |> Home.init)
         , githubUrl = Loading
@@ -369,10 +369,6 @@ setRoute maybeRoute model =
                                             Cmd.none
 
                                         Failure error ->
-                                            let
-                                                _ =
-                                                    Debug.log "error" error
-                                            in
                                             Cmd.none
 
                                         Loading ->
@@ -438,10 +434,6 @@ setRoute maybeRoute model =
                                     (model , Cmd.none)
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "campaign error" error
-                                    in
                                     (model , Cmd.none)
 
                                 Success campaignsData ->
@@ -453,10 +445,6 @@ setRoute maybeRoute model =
                                             (model , Cmd.none)
 
                                         Failure error ->
-                                            let
-                                                _ =
-                                                    Debug.log "subscription error" error
-                                            in
                                             (model , Cmd.none)
 
                                         Success subscriptionsData ->
@@ -481,10 +469,6 @@ setRoute maybeRoute model =
                                                     (model , Cmd.none)
 
                                                 Failure error ->
-                                                    let
-                                                        _ =
-                                                            Debug.log "plan error" error
-                                                    in
                                                     (model , Cmd.none)
 
                                                 Success plansData ->
@@ -496,7 +480,7 @@ setRoute maybeRoute model =
                     (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.DiscoverRoute ->
-            case Debug.log "session" model.session.user of
+            case model.session.user of
                 Just user ->
                     let
                         token =
@@ -511,10 +495,6 @@ setRoute maybeRoute model =
                                     Cmd.none
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
                                     Cmd.none
 
                                 Loading ->
@@ -550,10 +530,6 @@ setRoute maybeRoute model =
                                     Cmd.none
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
                                     Cmd.none
 
                                 Loading ->
@@ -608,10 +584,6 @@ setRoute maybeRoute model =
                                     Cmd.none
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
                                     Cmd.none
 
                                 Loading ->
@@ -1082,17 +1054,11 @@ updatePage page msg model =
 
         ( HandleMsg (HandleStripeIdUpdate data), _ ) ->
             let
-                _ =
-                    Debug.log "data" data
-
                 session =
                     model.session
 
                 user =
                     session.user
-
-                _ =
-                    Debug.log "session.user" session.user
 
                 token =
                     user
