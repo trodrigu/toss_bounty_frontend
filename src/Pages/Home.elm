@@ -7,6 +7,7 @@ import Http exposing (Error(..), Response)
 import RemoteData.Http exposing (..)
 import Json.Decode as Decode exposing (succeed, Decoder, Value)
 import Json.Decode.Pipeline as Pipeline exposing (optional, optionalAt, requiredAt)
+import Html.Attributes as Attributes exposing (type_)
 
 
 type alias Model =
@@ -73,7 +74,7 @@ viewButton model =
 
 
         Success data ->
-            a [ class "button is-medium", Html.Attributes.href data.url ]
+            a [ class "button is-medium", Html.Attributes.href data.url, type_ "button" ]
                 [ span [ class "icon is-medium" ]
                     [ i [ class "fab fa-github-alt" ] []
                     ]
