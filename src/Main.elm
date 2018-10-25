@@ -594,7 +594,10 @@ updatePage page msg model =
                     ( model, Navigation.pushUrl model.key (url.path))
 
                 Browser.External href ->
-                    (model, Navigation.load href )
+                    if href == "" then
+                        (model, Cmd.none)
+                    else
+                        (model, Navigation.load href)
 
         ( ChangedUrl url, _) ->
             setRoute (Router.fromLocation url) model
