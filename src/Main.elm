@@ -1,4 +1,4 @@
-module Main exposing (HandleMsg(..), Model, Msg(..), Page(..), burgerMenu, burgerMenuNavItems, consumeToken, decodeUrlFromJson, decodeUserFromJson, developerHeroArea, fetchYourCampaigns, fetchYourCampaignsForRewards, fetchYourSubscribedPlans, fetchYourSubscriptions, getCampaign, getCampaigns, getGitHubSignInUrl, getIssues, getRepo, getRepos, getRewards, getStripeConnectUrl, getUser, githubUrlDecoder, init, main, pageView, routeToString, sessionChange, setRoute, stripeConnectUrlUrlDecoder, subscriptions, update, updatePage, updateUserWithStripeInfo, view)
+module Main exposing (HandleMsg(..), Model, Msg(..), Page(..), burgerMenu, burgerMenuNavItems, consumeToken, decodeUrlFromJson, decodeUserFromJson, developerHeroArea, fetchYourCampaigns, fetchYourCampaignsForRewards, fetchYourSubscribedPlans, fetchYourSubscriptions, getCampaign, getCampaigns, getGitHubSignInUrl, getIssues, getRepo, getRepos, getRewards, getStripeConnectUrl, getUser, githubUrlDecoder, init, main, pageView, sessionChange, setRoute, stripeConnectUrlUrlDecoder, subscriptions, update, updatePage, updateUserWithStripeInfo, view)
 
 import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
@@ -159,69 +159,6 @@ decodeUrlFromJson json =
     json
         |> Decode.decodeValue (Decode.field "apiUrl" Decode.string)
         |> Result.toMaybe
-
-
-routeToString : Route -> String
-routeToString page =
-    let
-        pieces =
-            case page of
-                HomeRoute ->
-                    [ "home" ]
-
-                StripeConnectSignUpRoute ->
-                    [ "stripe-connect-sign-up" ]
-
-                SaveStripeRoute (Just stripeId) ->
-                    [ "save-stripe" ++ "?stripe_id" ++ stripeId ]
-
-                SaveStripeRoute _ ->
-                    [ "save-stripe" ]
-
-                AboutRoute ->
-                    [ "about" ]
-
-                TosserSignUpRoute ->
-                    [ "tosser-sign-up" ]
-
-                DashRoute ->
-                    [ "dash" ]
-
-                CreateCampaignRoute ->
-                    [ "create-campaign" ]
-
-                CreateRewardsRoute ->
-                    [ "create-rewards" ]
-
-                LoginRoute ->
-                    [ "login" ]
-
-                LogoutRoute ->
-                    [ "logout" ]
-
-                SaveTokenRoute (Just token) _ _ ->
-                    [ "save-session" ++ "?token" ++ token ]
-
-                SaveTokenRoute _ _ _ ->
-                    [ "save-session" ]
-
-                DiscoverRoute ->
-                    [ "discover" ]
-
-                ContributeRoute campaignId ->
-                    [ "contribute/" ++ String.fromInt campaignId ]
-
-                CreateUserRoleRoute ->
-                    [ "get-user-type" ]
-
-                GithubOopsRoute ->
-                    [ "github-oops" ]
-
-                NotFoundRoute ->
-                    []
-    in
-    "#/" ++ String.join "/" pieces
-
 
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
