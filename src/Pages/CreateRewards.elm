@@ -818,7 +818,7 @@ modelToIfZero model =
             model.donationLevel
     in
     if fundingGoal > 0.0 then
-        [(DonateLevel, "Donation level can't be zero.")]
-    else 
         []
+    else 
+        [(DonateLevel, "Donation level can't be zero.")]
 
