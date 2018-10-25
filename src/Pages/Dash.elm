@@ -1679,19 +1679,11 @@ showCampaignFooter campaignWrapper =
                 [ div [ class "card-footer-item" ]
                     [ a [ class "card-footer-item", onClick (ShowCampaignConfirmation campaign.id) ]
                         [ span [] [ text "delete campaign" ] ]
-                    , a [ class "card-footer-item", onClickWithPreventDefault (SelectYourCampaign campaign.id) ]
+                    , a [ class "card-footer-item", onClick (SelectYourCampaign campaign.id) ]
                         [ span [] [ text "edit campaign" ] ]
                     ]
                 ]
 
-
-onClickWithPreventDefault : msg -> Attribute msg
-onClickWithPreventDefault msg =
-  preventDefaultOn "click" (map alwaysPreventDefault (succeed msg))
-
-alwaysPreventDefault : msg -> ( msg, Bool )
-alwaysPreventDefault msg =
-  ( msg, True )
 
 showYourSubscription : SubscriptionWrapper -> Model -> Html Msg
 showYourSubscription subscriptionWrapper model =
