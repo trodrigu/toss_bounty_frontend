@@ -1,24 +1,33 @@
-module Pages.CreateCampaign exposing (..)
+module Pages.CreateCampaign exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), createCampaignForm, defaultRepo, init, issueView, issuesView, maintainerHero, makeOption, onChange, postCampaign, update, view, viewErrors)
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback, toString)
 import Data.Campaign as Campaign exposing (..)
 import Data.Issue as Issue exposing (Issue)
 import Data.Repo as Repo exposing (Repo)
 import Data.Repos as Repos exposing (Repos, SelectListRepos, mostBountifulRepo)
-import Date exposing (Date, now)
 import Html exposing (..)
 import Html.Attributes exposing (alt, class, datetime, href, src, style)
 import Html.Events exposing (on, onClick, onInput)
-import Html.Events.Extra exposing (targetSelectedIndex)
-import Json.Decode
+import Json.Decode as Decode exposing (Decoder, map, int)
 import List.Extra exposing (getAt)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, validate, fromValid, Validator)
 
+targetSelectedIndex : Decoder (Maybe Int)
+targetSelectedIndex =
+    Decode.at [ "target", "selectedIndex" ]
+        (map
+            (\int ->
+                if int == -1 then
+                    Nothing
+                else
+                    Just int
+            )
+            int
+        )
 
 init : AuthToken -> String -> WebData SelectListRepos -> Maybe String -> Model
 init token userId repos apiUrl =
@@ -28,8 +37,8 @@ init token userId repos apiUrl =
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just innerUrl ->
+                    innerUrl
     in
     { currentFunding = 0.0
     , errors = []
@@ -110,7 +119,7 @@ maintainerHero model =
 
 onChange : Attribute Msg
 onChange =
-    on "change" (Json.Decode.map SelectRepo Html.Events.Extra.targetSelectedIndex)
+    on "change" (map SelectRepo targetSelectedIndex)
 
 
 makeOption : String -> Html Msg
@@ -143,7 +152,7 @@ issueView issue =
 createCampaignForm : Model -> List (Html Msg) -> Html Msg
 createCampaignForm model repoList =
     section [ class "hero" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+        [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
             [ div [ class "columns" ]
                 [ div [ class "column is-half is-offset-one-quarter" ]
                     repoList
@@ -202,44 +211,47 @@ update msg model =
             let
                 updatedFundingGoalFloat =
                     case String.toFloat updatedFundingGoal of
-                        Ok updatedFundingGoalFloat ->
-                            updatedFundingGoalFloat
+                        Just innerUpdatedFundingGoalFloat ->
+                            innerUpdatedFundingGoalFloat
 
-                        Err error ->
+                        Nothing ->
                             0.0
             in
-            ( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ) => NoOp
+            (( { model | fundingGoal = updatedFundingGoalFloat }, Cmd.none ) , NoOp)
 
         UpdateLongDescriptionField updatedLongDescription ->
-            ( { model | longDescription = updatedLongDescription }, Cmd.none ) => NoOp
+            (( { model | longDescription = updatedLongDescription }, Cmd.none ) , NoOp)
 
         HandleCampaign data ->
             case data of
                 Success campaign ->
-                    model
-                        => Cmd.none
-                        => GoToStripeSignUp
+                    ((model
+                        , Cmd.none)
+                        , GoToStripeSignUp)
 
                 _ ->
-                    ( model, Cmd.none )
-                        => NoOp
+                    (( model, Cmd.none )
+                        , NoOp)
 
         SaveCampaignForm ->
-            case validate model of
-                [] ->
+            case validate formValidator model of
+                Ok matchedSubject ->
                     let
-                        newModel =
-                            { model | errors = [] }
-                    in
-                    ( model, postCampaign model ) => NoOp
+                        updatedModel =
+                            fromValid matchedSubject
 
-                errors ->
-                    { model | errors = errors }
-                        => Cmd.none
-                        => NoOp
+                        newModel =
+                            { updatedModel | errors = [] }
+                    in
+                    (( newModel, postCampaign newModel ) , NoOp)
+
+                Err errors ->
+                    (({ model | errors = errors }
+                        , Cmd.none)
+                        , NoOp)
 
         SelectRepo Nothing ->
-            ( model, Cmd.none ) => NoOp
+            (( model, Cmd.none ) , NoOp)
 
         SelectRepo (Just index) ->
             let
@@ -287,10 +299,10 @@ update msg model =
                                 |> SelectList.prepend beforesList
                                 |> SelectList.append aftersWithoutFoundRepo
             in
-            ( { model | bountifulRepos = Success { selectListRepos = updatedRepos } }, Cmd.none ) => NoOp
+            (( { model | bountifulRepos = Success { selectListRepos = updatedRepos } }, Cmd.none ) , NoOp)
 
         CreateCampaign ->
-            ( model, postCampaign model ) => NoOp
+            (( model, postCampaign model ) , NoOp)
 
 
 postCampaign : Model -> Cmd Msg
@@ -327,10 +339,10 @@ postCampaign model =
     RemoteData.Http.postWithConfig (Auth.config model.token) campaignUrl HandleCampaign Campaign.showDecoder (Campaign.encode data)
 
 
-validate : Model -> List Error
-validate =
+formValidator : Validator (Field, String) Model
+formValidator =
     Validate.all
-        [ .longDescription >> ifBlank (LongDescription => "Summary can't be blank.")
+        [ ifBlank .longDescription (LongDescription , "Summary can't be blank.")
         ]
 
 
@@ -351,42 +363,3 @@ viewErrors errors =
         |> List.map (\( _, error ) -> li [] [ text error ])
         |> ul [ class "help is-danger" ]
 
-
-monthToInt : Date.Month -> Int
-monthToInt month =
-    case month of
-        Date.Jan ->
-            1
-
-        Date.Feb ->
-            2
-
-        Date.Mar ->
-            3
-
-        Date.Apr ->
-            4
-
-        Date.May ->
-            5
-
-        Date.Jun ->
-            6
-
-        Date.Jul ->
-            7
-
-        Date.Aug ->
-            8
-
-        Date.Sep ->
-            9
-
-        Date.Oct ->
-            10
-
-        Date.Nov ->
-            11
-
-        Date.Dec ->
-            12

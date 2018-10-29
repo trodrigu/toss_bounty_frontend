@@ -1,19 +1,26 @@
-module Pages.NotFound exposing (..)
+module Pages.NotFound exposing (Model, Msg(..), init, update, view)
 
 import Html exposing (Html, div, h1, img, main_, text)
 import Html.Attributes exposing (alt, class, id, src, tabindex)
 
+
 init : Model
-init = {}
+init =
+    {}
 
-type alias Model = {}
 
-type Msg =
-    NoOp
+type alias Model =
+    {}
+
+
+type Msg
+    = NoOp
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     ( model, Cmd.none )
+
 
 view : Html Msg
 view =

@@ -1,10 +1,9 @@
-module Pages.StripeConnectSignUp exposing (..)
+module Pages.StripeConnectSignUp exposing (ExternalMsg(..), Model, Msg(..), init, update, view, viewButton)
 
 import Data.StripeConnectUrl as StripeConnectUrl exposing (StripeConnectUrl)
 import Html exposing (..)
 import Html.Attributes exposing (class, style)
 import RemoteData exposing (RemoteData(..), WebData)
-import Util exposing ((=>))
 
 
 type alias Model =
@@ -28,7 +27,7 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         NoOp ->
-            ( model, Cmd.none ) => ExternalNoOp
+            (( model, Cmd.none ) , ExternalNoOp)
 
 
 viewButton : Model -> Html Msg
@@ -56,7 +55,7 @@ viewButton model =
 view : Model -> Html Msg
 view model =
     section [ class "hero is-primary is-fullheight" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+        [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
             [ div [ class "container" ]
                 [ div [ class "columns is-vcentered" ]
                     [ div [ class "column has-text-centered" ]

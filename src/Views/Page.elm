@@ -108,7 +108,7 @@ footerArea page =
                         ]
                     ]
     in
-    footer [ class "footer", style [ ( "padding", "8rem 1.5rem 6rem" ), ( "background-color", "whitesmoke" ) ] ]
+    footer [ class "footer", style "padding" "8rem 1.5rem 6rem", style "background-color" "whitesmoke" ]
         [ div [ class "container" ]
             [ div [ class "content has-text-centered" ]
                 innerFooter
@@ -126,8 +126,8 @@ tossBountyLogo : Html.Html msg
 tossBountyLogo =
     svg
         [ Svg.Attributes.width "40", Svg.Attributes.height "30", fill "black" ]
-        [ rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 11), Svg.Attributes.height (toString 4) ] []
-        , rect [ x (toString 10), y (toString 5), Svg.Attributes.width (toString 4), Svg.Attributes.height (toString 16) ] []
-        , circle [ r (toString 3), cx (toString 27), cy (toString 8) ] []
-        , circle [ r (toString 3), cx (toString 27), cy (toString 18) ] []
+        [ rect [ x (String.fromInt 10), y (String.fromInt 5), Svg.Attributes.width (String.fromInt 11), Svg.Attributes.height (String.fromInt 4) ] []
+        , rect [ x (String.fromInt 10), y (String.fromInt 5), Svg.Attributes.width (String.fromInt 4), Svg.Attributes.height (String.fromInt 16) ] []
+        , circle [ r (String.fromInt 3), cx (String.fromInt 27), cy (String.fromInt 8) ] []
+        , circle [ r (String.fromInt 3), cx (String.fromInt 27), cy (String.fromInt 18) ] []
         ]

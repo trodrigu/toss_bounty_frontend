@@ -1,4 +1,4 @@
-module Pages.Discover exposing (..)
+module Pages.Discover exposing (ExternalMsg(..), Model, Msg(..), columnsWrapper, displayCampaignFormHeader, displayFormContent, displayFormContentWithoutButton, displayStripePayment, fetchAllCampaigns, getSearch, init, navWithPageNumbers, renderPageNumber, renderPageNumbers, renderSearchBar, showYourCampaign, update, view)
 
 import Data.AuthToken as AuthToken exposing (AuthToken)
 import Data.Campaign as Campaign exposing (Campaign, default)
@@ -16,20 +16,20 @@ import RemoteData.Http exposing (..)
 import Request.Auth as Auth exposing (config)
 import Routing.Router as Router exposing (Route(..))
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Time.DateTime as DateTime exposing (DateTime, dateTime)
-import Util exposing ((=>))
+import Http as Http exposing (Error(..), Response)
+import Browser.Navigation as Navigation exposing (Key)
 
 
-init : AuthToken -> Maybe String -> WebData Campaigns -> Model
-init token apiUrl campaigns =
+init : Key -> AuthToken -> Maybe String -> WebData Campaigns -> Model
+init key token apiUrl campaigns =
     let
         url =
             case apiUrl of
                 Nothing ->
                     ""
 
-                Just url ->
-                    url
+                Just matchedUrl ->
+                    matchedUrl
     in
     { campaigns = campaigns
     , token = token
@@ -39,6 +39,7 @@ init token apiUrl campaigns =
     , pageNumber = 1
     , pageSize = 4
     , search = ""
+    , key = key
     }
 
 
@@ -51,12 +52,12 @@ type alias Model =
     , pageNumber : Int
     , pageSize : Int
     , search : String
+    , key : Key
     }
 
 
 type Msg
-    = SelectYourCampaign Int
-    | HandleFetchAllCampaigns (WebData Campaigns)
+    = HandleFetchAllCampaigns (WebData Campaigns)
     | GetCampaigns
     | HandleFetchUser (WebData User)
     | UpdatePage Int
@@ -77,14 +78,14 @@ update msg model =
                 updatedModel =
                     { model | search = searchString }
             in
-            ( updatedModel, getSearch updatedModel ) => NoOp
+            (( updatedModel, getSearch updatedModel ), NoOp)
 
         PreviousPage ->
             let
                 campaigns =
                     case model.campaigns of
-                        Success campaigns ->
-                            campaigns
+                        Success matchedCampaigns ->
+                            matchedCampaigns
 
                         _ ->
                             Campaigns.default
@@ -95,6 +96,7 @@ update msg model =
                 previousPage =
                     if model.pageNumber - 1 == 0 then
                         totalPages
+
                     else
                         model.pageNumber - 1
             in
@@ -104,8 +106,8 @@ update msg model =
             let
                 campaigns =
                     case model.campaigns of
-                        Success campaigns ->
-                            campaigns
+                        Success matchedCampaigns ->
+                            matchedCampaigns
 
                         _ ->
                             Campaigns.default
@@ -116,6 +118,7 @@ update msg model =
                 nextPage =
                     if model.pageNumber + 1 > totalPages then
                         1
+
                     else
                         model.pageNumber + 1
             in
@@ -126,23 +129,20 @@ update msg model =
                 updatedModel =
                     { model | pageNumber = pageNumber }
             in
-            ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
+            (( updatedModel, fetchAllCampaigns updatedModel ), NoOp)
 
         HandleFetchUser updatedUser ->
             let
                 updatedModel =
                     { model | user = updatedUser }
             in
-            ( updatedModel, fetchAllCampaigns updatedModel ) => NoOp
+            (( updatedModel, fetchAllCampaigns updatedModel ), NoOp)
 
         GetCampaigns ->
-            ( { model | campaigns = Loading }, fetchAllCampaigns model ) => NoOp
+            (( { model | campaigns = Loading }, fetchAllCampaigns model ), NoOp)
 
         HandleFetchAllCampaigns data ->
-            ( { model | campaigns = data }, Cmd.none ) => NoOp
-
-        SelectYourCampaign campaignId ->
-            ( model, Router.modifyUrl (ContributeRoute campaignId) ) => NoOp
+            (( { model | campaigns = data }, Cmd.none ), NoOp)
 
 
 view : Model -> Html Msg
@@ -162,12 +162,12 @@ view model =
             div [ class "pageloader is-active" ] [ span [ class "title" ] [ text "Loading..." ] ]
 
         Failure error ->
-            div [] [ text ("Failed" ++ toString error) ]
+            div [] [ text ("Failed" ++ (error |> errorToString) ) ]
 
-        Success campaigns ->
+        Success matchedCampaigns ->
             let
                 renderedCampaigns =
-                    List.map (\campaign -> showYourCampaign campaign campaigns.included) campaigns.campaigns
+                    List.map (\campaign -> showYourCampaign campaign matchedCampaigns.included) matchedCampaigns.campaigns
 
                 campaignsGrouped =
                     ListExtra.greedyGroupsOf 2 renderedCampaigns
@@ -185,6 +185,24 @@ view model =
                     )
                 ]
 
+
+errorToString : Error -> String
+errorToString err =
+    case err of
+        BadUrl urlMessage ->
+            "The url " ++ urlMessage ++ "is no bueno!"
+
+        Timeout ->
+            "Timeout"
+
+        NetworkError ->
+            "Network Error"
+
+        BadStatus _ ->
+            "It was a Bad Status."
+
+        BadPayload _ _ ->
+            "Payload is not good"
 
 renderSearchBar : Model -> Html Msg
 renderSearchBar model =
@@ -214,8 +232,8 @@ renderPageNumbers model =
     let
         campaigns =
             case model.campaigns of
-                Success campaigns ->
-                    campaigns
+                Success matchedCampaigns ->
+                    matchedCampaigns
 
                 _ ->
                     Campaigns.default
@@ -229,9 +247,10 @@ renderPageNumbers model =
 renderPageNumber : Int -> Int -> Html Msg
 renderPageNumber pageNumber currentPageNumber =
     if pageNumber == currentPageNumber then
-        li [ class "pagination-link is-current" ] [ text (toString pageNumber) ]
+        li [ class "pagination-link is-current" ] [ text (String.fromInt pageNumber) ]
+
     else
-        li [ class "pagination-link", onClick (UpdatePage pageNumber) ] [ text (toString pageNumber) ]
+        li [ class "pagination-link", onClick (UpdatePage pageNumber) ] [ text (String.fromInt pageNumber) ]
 
 
 showYourCampaign : Campaign -> List IncludedStuff -> Html Msg
@@ -239,8 +258,8 @@ showYourCampaign campaign included =
     let
         repoForCampaign =
             List.filter
-                (\included ->
-                    case included of
+                (\includedStuff ->
+                    case includedStuff of
                         IncludedGithub includedRepo ->
                             campaign.githubRepoId == includedRepo.id
 
@@ -284,12 +303,13 @@ displayStripePayment model =
         formStyle =
             if model.showForm then
                 ( "display", "block" )
+
             else
                 ( "display", "none" )
     in
     div [ class "card-content" ]
         [ form
-            [ action "/charge", id "payment-form", method "post", style [ formStyle ] ]
+            [ action "/charge", id "payment-form", method "post", (\( a, b ) -> style a b) formStyle ]
             [ div [ class "form-row field" ]
                 [ label [ class "label" ]
                     [ text "Credit or debit card    " ]
@@ -311,20 +331,20 @@ displayFormContent campaign =
             [ label [ class "label" ]
                 [ text "Summary" ]
             , p [ class "control" ]
-                [ text (toString campaign.longDescription) ]
+                [ text campaign.longDescription ]
             ]
         , div [ class "field" ]
             [ label [ class "label" ]
                 [ text "Funding Goal" ]
             , p []
-                [ text (toString campaign.fundingGoal) ]
+                [ text (String.fromFloat campaign.fundingGoal) ]
             ]
         , div [ class "field" ]
             [ label [ class "label" ]
                 [ text "Funding Progress" ]
-            , progress [ class "progress", Html.Attributes.value (toString campaign.currentFunding), Html.Attributes.max (toString campaign.fundingGoal) ] [ text (toString campaign.currentFunding) ]
+            , progress [ class "progress", Html.Attributes.value (String.fromFloat campaign.currentFunding), Html.Attributes.max (String.fromFloat campaign.fundingGoal) ] [ text (String.fromFloat campaign.currentFunding) ]
             ]
-        , a [ id "card-element", class "", onClick (SelectYourCampaign campaign.id) ]
+        , a [ id "card-element", class "", Router.href (ContributeRoute campaign.id) ]
             [ span [] [ text "Select Campaign" ] ]
         ]
 
@@ -335,11 +355,11 @@ displayFormContentWithoutButton campaign =
         [ label [ class "label" ]
             [ text "Summary" ]
         , p [ class "control" ]
-            [ text (toString campaign.longDescription) ]
+            [ text (campaign.longDescription) ]
         , label [ class "label" ]
             [ text "Funding Goal" ]
         , p []
-            [ text (toString campaign.fundingGoal) ]
+            [ text (String.fromFloat campaign.fundingGoal) ]
         ]
 
 
@@ -353,7 +373,7 @@ fetchAllCampaigns model =
             model.pageNumber
 
         updatedUrl =
-            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ toString model.pageSize ++ "&page=" ++ toString model.pageNumber
+            model.apiUrl ++ "/campaigns" ++ "?page_size=" ++ String.fromInt model.pageSize ++ "&page=" ++ String.fromInt model.pageNumber
 
         token =
             model.token
@@ -374,7 +394,7 @@ getSearch model =
             model.pageNumber
 
         updatedUrl =
-            model.apiUrl ++ "/search" ++ "?page_size=" ++ toString model.pageSize ++ "&page=" ++ toString model.pageNumber ++ "&search=" ++ search
+            model.apiUrl ++ "/search" ++ "?page_size=" ++ String.fromInt model.pageSize ++ "&page=" ++ String.fromInt model.pageNumber ++ "&search=" ++ search
 
         token =
             model.token

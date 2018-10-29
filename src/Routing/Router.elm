@@ -1,12 +1,16 @@
-module Routing.Router exposing (..)
+module Routing.Router exposing (Msg(..), Route(..), footerArea, fromLocation, href, modifyUrl, routeParser, routeToString, sessionChange)
 
 import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes as Attributes exposing (class, style)
 import Json.Decode as Decode exposing (Value)
-import Navigation exposing (Location)
 import Ports
-import UrlParser as UrlParser exposing (..)
+import Url.Parser as UrlParser exposing (..)
+import Url.Parser.Query as Query exposing (string)
+import Browser.Navigation as Navigation
+import Url exposing (Url)
+import Url.Builder as UrlBuilder exposing (absolute)
+import Browser.Navigation exposing (Key)
 
 
 type Route
@@ -34,7 +38,7 @@ type Msg
 
 footerArea : Html Msg
 footerArea =
-    footer [ style [ ( "padding", "3rem 1.5rem 6rem" ), ( "background-color", "whitesmoke" ) ] ]
+    footer [ style "padding" "3rem 1.5rem 6rem", style "background-color" "whitesmoke" ]
         [ div [ class "container" ]
             [ div [ class "content has-text-centered" ]
                 [ p []
@@ -53,70 +57,66 @@ sessionChange =
 
 routeToString : Route -> String
 routeToString page =
-    let
-        pieces =
-            case page of
-                HomeRoute ->
-                    [ "home" ]
+    case page of
+        HomeRoute ->
+            absolute [ "home" ] []
 
-                StripeConnectSignUpRoute ->
-                    [ "stripe-connect-sign-up" ]
+        StripeConnectSignUpRoute ->
+            absolute [ "stripe-connect-sign-up" ] []
 
-                SaveStripeRoute (Just stripeId) ->
-                    [ "save-stripe" ++ "?stripe_id" ++ stripeId ]
+        SaveStripeRoute (Just stripeId) ->
+            absolute [ "save-stripe" ++ "?stripe_id" ++ stripeId ] []
 
-                SaveStripeRoute _ ->
-                    [ "save-stripe" ]
+        SaveStripeRoute _ ->
+            absolute [ "save-stripe" ] []
 
-                AboutRoute ->
-                    [ "about" ]
+        AboutRoute ->
+            absolute [ "about" ] []
 
-                TosserSignUpRoute ->
-                    [ "tosser-sign-up" ]
+        TosserSignUpRoute ->
+            absolute [ "tosser-sign-up" ] []
 
-                DashRoute ->
-                    [ "dash" ]
+        DashRoute ->
+            absolute [ "dash" ] []
 
-                CreateCampaignRoute ->
-                    [ "create-campaign" ]
+        CreateCampaignRoute ->
+            absolute [ "create-campaign" ] []
 
-                CreateRewardsRoute ->
-                    [ "create-rewards" ]
+        CreateRewardsRoute ->
+            absolute [ "create-rewards" ] []
 
-                LoginRoute ->
-                    [ "login" ]
+        LoginRoute ->
+            absolute [ "login" ] []
 
-                LogoutRoute ->
-                    [ "logout" ]
+        LogoutRoute ->
+            absolute [ "logout" ] []
 
-                SaveTokenRoute (Just token) _ _ ->
-                    [ "save-session" ++ "?token" ++ token ]
+        SaveTokenRoute (Just token) _ _ ->
+            absolute [ "save-session" ++ "?token" ++ token ] []
 
-                SaveTokenRoute _ _ _ ->
-                    [ "save-session" ]
+        SaveTokenRoute _ _ _ ->
+            absolute [ "save-session" ] []
 
-                DiscoverRoute ->
-                    [ "discover" ]
+        DiscoverRoute ->
+            absolute [ "discover" ] []
 
-                ContributeRoute campaignId ->
-                    [ "contribute/" ++ toString campaignId ]
+        ContributeRoute campaignId ->
+            absolute [ "contribute/" ++ (campaignId |> String.fromInt) ] []
 
-                CreateUserRoleRoute ->
-                    [ "get-user-type" ]
+        CreateUserRoleRoute ->
+            absolute [ "get-user-type" ] []
 
-                GithubOopsRoute ->
-                    [ "github-oops" ]
+        GithubOopsRoute ->
+            absolute [ "github-oops" ] []
 
-                NotFoundRoute ->
-                    []
-    in
-    "#/" ++ String.join "/" pieces
+        NotFoundRoute ->
+            absolute [] []
 
 
 routeParser : UrlParser.Parser (Route -> a) a
 routeParser =
     UrlParser.oneOf
-        -- [ UrlParser.map AboutRoute UrlParser.top
+        --[ UrlParser.map HomeRoute UrlParser.top
         -- The home route will be the base after beta
         [ UrlParser.map HomeRoute (UrlParser.s "home")
         , UrlParser.map TosserSignUpRoute (UrlParser.s "tosser-sign-up")
@@ -124,8 +124,8 @@ routeParser =
         , UrlParser.map CreateCampaignRoute (UrlParser.s "create-campaign")
         , UrlParser.map CreateRewardsRoute (UrlParser.s "create-rewards")
         , UrlParser.map StripeConnectSignUpRoute (UrlParser.s "stripe-connect-sign-up")
-        , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> UrlParser.stringParam "token" <?> UrlParser.stringParam "email" <?> UrlParser.stringParam "user_id")
-        , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> UrlParser.stringParam "stripe_id")
+        , UrlParser.map SaveTokenRoute (UrlParser.s "save-session" <?> Query.string "token" <?> Query.string "email" <?> Query.string "user_id")
+        , UrlParser.map SaveStripeRoute (UrlParser.s "save-stripe" <?> Query.string "stripe_id")
         , UrlParser.map LoginRoute (UrlParser.s "login")
         , UrlParser.map AboutRoute (UrlParser.s "about")
         , UrlParser.map DiscoverRoute (UrlParser.s "discover")
@@ -137,16 +137,9 @@ routeParser =
         ]
 
 
-parseLocation : Location -> Route
-parseLocation location =
-    location
-        |> UrlParser.parseHash routeParser
-        |> Maybe.withDefault NotFoundRoute
-
-
-modifyUrl : Route -> Cmd msg
-modifyUrl =
-    routeToString >> Navigation.modifyUrl
+modifyUrl : Key -> Route -> Cmd msg
+modifyUrl key route =
+    Navigation.pushUrl key (route |> routeToString)
 
 
 href : Route -> Attribute msg
@@ -154,26 +147,11 @@ href route =
     Attributes.href (routeToString route)
 
 
-fromLocation : Location -> Maybe Route
+fromLocation : Url -> Maybe Route
 fromLocation location =
-    if String.isEmpty location.hash then
-        Just HomeRoute
-    else
-        UrlParser.parseHash routeParser (fixLocationQuery location)
+    case UrlParser.parse routeParser (location) of
+        Nothing ->
+            Just HomeRoute
 
-
-fixLocationQuery : Location -> Location
-fixLocationQuery location =
-    let
-        hash =
-            String.split "?" location.hash
-                |> List.head
-                |> Maybe.withDefault ""
-
-        search =
-            String.split "?" location.hash
-                |> List.drop 1
-                |> String.join "?"
-                |> String.append "?"
-    in
-    { location | hash = hash, search = search }
+        Just route ->
+                Just route

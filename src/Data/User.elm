@@ -2,12 +2,11 @@ module Data.User exposing (User, decoder, default, encode, encodeLogin, encodeSt
 
 import Data.AuthToken as AuthToken exposing (AuthToken, fallback)
 import Html exposing (Html)
-import Json.Decode as Decode exposing (Decoder, dict)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, required, requiredAt)
+import Json.Decode as Decode exposing (Decoder, dict, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optional, optionalAt, required, requiredAt)
 import Json.Encode as Encode exposing (Value)
 import Json.Encode.Extra as EncodeExtra
-import UrlParser
-import Util exposing ((=>))
+import Url.Parser
 
 
 type alias User =
@@ -26,7 +25,7 @@ type alias User =
 
 returnToSessionDecoder : Decoder User
 returnToSessionDecoder =
-    decode User
+    succeed User
         |> required "email" Decode.string
         |> optional "authToken" AuthToken.decoder AuthToken.fallback
         |> optional "userId" Decode.string ""
@@ -37,7 +36,7 @@ returnToSessionDecoder =
 
 decoder : Decoder User
 decoder =
-    decode User
+    succeed User
         |> requiredAt [ "data", "attributes", "email" ] Decode.string
         |> optionalAt [ "data", "attributes", "token" ] AuthToken.decoder AuthToken.fallback
         |> optionalAt [ "data", "attributes", "user_id" ] Decode.string ""

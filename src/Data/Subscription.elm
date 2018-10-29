@@ -1,7 +1,7 @@
 module Data.Subscription exposing (Subscription, default, deleteEncode, encode, indexDecoder, showDecoder)
 
-import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optionalAt, requiredAt)
+import Json.Decode as Decode exposing (Decoder, succeed)
+import Json.Decode.Pipeline as Pipeline exposing (optionalAt, requiredAt)
 import Json.Encode as Encode exposing (Value)
 
 
@@ -22,7 +22,7 @@ default =
 
 showDecoder : Decoder Subscription
 showDecoder =
-    decode Subscription
+    succeed Subscription
         |> requiredAt [ "data", "id" ] Decode.string
         |> requiredAt [ "data", "attributes", "uuid" ] Decode.string
         |> optionalAt [ "relationships", "plan", "data", "id" ] Decode.string ""
@@ -30,7 +30,7 @@ showDecoder =
 
 indexDecoder : Decoder Subscription
 indexDecoder =
-    decode Subscription
+    succeed Subscription
         |> requiredAt [ "id" ] Decode.string
         |> requiredAt [ "attributes", "uuid" ] Decode.string
         |> optionalAt [ "relationships", "plan", "data", "id" ] Decode.string ""

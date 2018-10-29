@@ -1,4 +1,4 @@
-module Main exposing (..)
+module Main exposing (HandleMsg(..), Model, Msg(..), Page(..), burgerMenu, burgerMenuNavItems, consumeToken, decodeUrlFromJson, decodeUserFromJson, developerHeroArea, fetchYourCampaigns, fetchYourCampaignsForRewards, fetchYourSubscribedPlans, fetchYourSubscriptions, getCampaign, getCampaigns, getGitHubSignInUrl, getIssues, getRepo, getRepos, getRewards, getStripeConnectUrl, getUser, githubUrlDecoder, init, main, pageView, sessionChange, setRoute, stripeConnectUrlUrlDecoder, subscriptions, update, updatePage, updateUserWithStripeInfo, view)
 
 import Data.AuthToken exposing (AuthToken, fallback, init)
 import Data.Campaign as Campaign exposing (..)
@@ -16,9 +16,8 @@ import Data.User as User exposing (User)
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, style)
 import Html.Events exposing (onClick)
-import Json.Decode as Decode exposing (Decoder, Value)
-import Json.Decode.Pipeline as Pipeline exposing (decode, optional, optionalAt, requiredAt)
-import Navigation exposing (Location)
+import Json.Decode as Decode exposing (succeed, Decoder, Value)
+import Json.Decode.Pipeline as Pipeline exposing (optional, optionalAt, requiredAt)
 import Pages.About as About
 import Pages.Contribute as Contribute
 import Pages.CreateCampaign as CreateCampaign
@@ -39,9 +38,10 @@ import Request.Auth as Auth exposing (config)
 import Request.User exposing (storeSession)
 import Routing.Router as Router exposing (Route(..), fromLocation)
 import SelectList as SelectList exposing (SelectList, append, select, selected, singleton)
-import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>))
 import Views.Page as Page exposing (frame)
+import Browser exposing (UrlRequest, Document)
+import Browser.Navigation as Navigation exposing (Key)
+import Url exposing (Url)
 
 
 type Page
@@ -62,7 +62,7 @@ type Page
 
 type alias Model =
     { session : Session
-    , location : Location
+    , location : Url
     , page : Page
     , githubUrl : WebData GitHubUrl
     , apiUrl : Maybe String
@@ -78,6 +78,7 @@ type alias Model =
     , rewardsOfInterest : WebData Rewards
     , allCampaigns : WebData Campaigns
     , showMenu : Bool
+    , key : Key
     }
 
 
@@ -100,6 +101,8 @@ type Msg
     | SetRoute (Maybe Route)
     | HandleMsg HandleMsg
     | ToggleMenu
+    | ClickedLink UrlRequest
+    | ChangedUrl Url
 
 
 type HandleMsg
@@ -127,12 +130,12 @@ decodeUserFromJson json =
         |> Maybe.andThen (Decode.decodeString User.returnToSessionDecoder >> Result.toMaybe)
 
 
-init : Decode.Value -> Location -> ( Model, Cmd Msg )
-init val location =
+init : Decode.Value -> Url -> Key -> ( Model, Cmd Msg )
+init val location key =
     setRoute (Router.fromLocation location)
-        { session = { user = decodeUserFromJson val }
+        { session = { user = (decodeUserFromJson val) }
         , location = location
-        , page = Home Home.init
+        , page = Home (decodeUrlFromJson val |> Home.init)
         , githubUrl = Loading
         , apiUrl = decodeUrlFromJson val
         , yourCampaigns = NotAsked
@@ -147,6 +150,7 @@ init val location =
         , rewardsOfInterest = NotAsked
         , allCampaigns = NotAsked
         , showMenu = False
+        , key = key
         }
 
 
@@ -157,75 +161,6 @@ decodeUrlFromJson json =
         |> Result.toMaybe
 
 
-routeToString : Route -> String
-routeToString page =
-    let
-        pieces =
-            case page of
-                HomeRoute ->
-                    [ "home" ]
-
-                StripeConnectSignUpRoute ->
-                    [ "stripe-connect-sign-up" ]
-
-                SaveStripeRoute (Just stripeId) ->
-                    [ "save-stripe" ++ "?stripe_id" ++ stripeId ]
-
-                SaveStripeRoute _ ->
-                    [ "save-stripe" ]
-
-                AboutRoute ->
-                    [ "about" ]
-
-                TosserSignUpRoute ->
-                    [ "tosser-sign-up" ]
-
-                DashRoute ->
-                    [ "dash" ]
-
-                CreateCampaignRoute ->
-                    [ "create-campaign" ]
-
-                CreateRewardsRoute ->
-                    [ "create-rewards" ]
-
-                LoginRoute ->
-                    [ "login" ]
-
-                LogoutRoute ->
-                    [ "logout" ]
-
-                SaveTokenRoute (Just token) _ _ ->
-                    [ "save-session" ++ "?token" ++ token ]
-
-                SaveTokenRoute _ _ _ ->
-                    [ "save-session" ]
-
-                DiscoverRoute ->
-                    [ "discover" ]
-
-                ContributeRoute campaignId ->
-                    [ "contribute/" ++ toString campaignId ]
-
-                CreateUserRoleRoute ->
-                    [ "get-user-type" ]
-
-                GithubOopsRoute ->
-                    [ "github-oops" ]
-
-                NotFoundRoute ->
-                    []
-    in
-    "#/" ++ String.join "/" pieces
-
-
-modifyUrl : Route -> Cmd Msg
-modifyUrl page =
-    routeToString page
-        |> Navigation.modifyUrl
-        |> Cmd.map HandleMsg
-
-
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     case maybeRoute of
@@ -234,15 +169,10 @@ setRoute maybeRoute model =
                 updatedPage =
                     About About.init
             in
-            { model | page = updatedPage } => Cmd.none
+            ({ model | page = updatedPage } , Cmd.none)
 
         Just Router.HomeRoute ->
-            case model.session.user of
-                Nothing ->
-                    model => Cmd.map HandleMsg (getGitHubSignInUrl model.apiUrl)
-
-                _ ->
-                    model => Router.modifyUrl Router.DiscoverRoute
+            (model , Cmd.map HandleMsg (getGitHubSignInUrl model.apiUrl))
 
         Just (Router.SaveTokenRoute (Just token) (Just email) (Just userId)) ->
             let
@@ -264,39 +194,39 @@ setRoute maybeRoute model =
                 updatedModel =
                     { model | session = { session | user = Just user } }
             in
-            updatedModel
-                => Cmd.map HandleMsg (getUser model.apiUrl updatedToken userId)
+            (updatedModel
+                , Cmd.map HandleMsg (getUser model.apiUrl updatedToken userId))
 
         Just (Router.SaveTokenRoute _ _ _) ->
-            model
-                => Cmd.batch
-                    [ Router.modifyUrl Router.DashRoute
-                    ]
+            (model
+                , Cmd.batch
+                    [ Router.modifyUrl model.key Router.DashRoute
+                    ])
 
         Just Router.LoginRoute ->
             let
                 updatedPage =
                     Login Login.init
             in
-            { model | page = updatedPage } => Cmd.none
+            ({ model | page = updatedPage } , Cmd.none)
 
         Just Router.LogoutRoute ->
             let
                 session =
                     model.session
             in
-            { model | session = { session | user = Nothing } }
-                => Cmd.batch
+            ({ model | session = { session | user = Nothing } }
+                , Cmd.batch
                     [ Ports.storeSession Nothing
-                    , Router.modifyUrl Router.HomeRoute
-                    ]
+                    , Router.modifyUrl model.key Router.HomeRoute
+                    ])
 
         Just (Router.ContributeRoute campaignId) ->
             case model.session.user of
                 Just user ->
                     case model.campaignOfInterest of
-                        Success campaign ->
-                            if campaignId == campaign.id then
+                        Success matchedCampaign ->
+                            if campaignId == matchedCampaign.id then
                                 let
                                     token =
                                         user.token
@@ -314,9 +244,10 @@ setRoute maybeRoute model =
                                         model.rewardsOfInterest
 
                                     updatedPage =
-                                        Contribute (Contribute.init token apiUrl campaign repo rewards user)
+                                        Contribute (Contribute.init model.key token apiUrl campaign repo rewards user)
                                 in
-                                { model | page = updatedPage } => Cmd.none
+                                ({ model | page = updatedPage } , Cmd.none)
+
                             else
                                 let
                                     token =
@@ -330,13 +261,13 @@ setRoute maybeRoute model =
                                             Just url ->
                                                 url
                                 in
-                                model => Cmd.map HandleMsg (getCampaign apiUrl token (toString campaignId))
+                                (model , Cmd.map HandleMsg (getCampaign apiUrl token (String.fromInt campaignId)))
 
                         Loading ->
-                            model => Cmd.none
+                            (model , Cmd.none)
 
                         Failure _ ->
-                            model => Cmd.none
+                            (model , Cmd.none)
 
                         NotAsked ->
                             let
@@ -351,17 +282,17 @@ setRoute maybeRoute model =
                                         Just url ->
                                             url
                             in
-                            model => Cmd.map HandleMsg (getCampaign apiUrl token (toString campaignId))
+                            (model , Cmd.map HandleMsg (getCampaign apiUrl token (String.fromInt campaignId)))
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.TosserSignUpRoute ->
             let
                 updatedPage =
                     TosserSignUp TosserSignUp.init
             in
-            { model | page = updatedPage } => Cmd.none
+            ({ model | page = updatedPage } , Cmd.none)
 
         Just Router.StripeConnectSignUpRoute ->
             case model.session.user of
@@ -375,10 +306,6 @@ setRoute maybeRoute model =
                                             Cmd.none
 
                                         Failure error ->
-                                            let
-                                                _ =
-                                                    Debug.log "error" error
-                                            in
                                             Cmd.none
 
                                         Loading ->
@@ -393,10 +320,10 @@ setRoute maybeRoute model =
                         updatedPage =
                             StripeConnectSignUp (StripeConnectSignUp.init model.stripeConnectUrl)
                     in
-                    { model | page = updatedPage } => cmd
+                    ({ model | page = updatedPage } , cmd)
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just (Router.SaveStripeRoute (Just stripeId)) ->
             case model.session.user of
@@ -413,20 +340,20 @@ setRoute maybeRoute model =
 
                         updatedModel =
                             { model
-                                | page = CreateRewards (CreateRewards.init Nothing Data.AuthToken.fallback 0)
+                                | page = CreateRewards (CreateRewards.init model.key Nothing Data.AuthToken.fallback 0)
                                 , session = { session | user = Just updatedUser }
                             }
                     in
-                    updatedModel => Cmd.map HandleMsg (updateUserWithStripeInfo model.apiUrl token stripeId user.userId)
+                    (updatedModel , Cmd.map HandleMsg (updateUserWithStripeInfo model.apiUrl token stripeId user.userId))
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just (Router.SaveStripeRoute Nothing) ->
-            model
-                => Cmd.batch
-                    [ Router.modifyUrl Router.HomeRoute
-                    ]
+            (model
+                , Cmd.batch
+                    [ Router.modifyUrl model.key Router.HomeRoute
+                    ])
 
         Just Router.DashRoute ->
             case model.session.user of
@@ -438,32 +365,24 @@ setRoute maybeRoute model =
                         updatedModelAndCmd =
                             case model.yourCampaigns of
                                 NotAsked ->
-                                    model => Cmd.map HandleMsg (fetchYourCampaigns model.apiUrl user.token user.userId)
+                                    (model , Cmd.map HandleMsg (fetchYourCampaigns model.apiUrl user.token user.userId))
 
                                 Loading ->
-                                    model => Cmd.none
+                                    (model , Cmd.none)
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "campaign error" error
-                                    in
-                                    model => Cmd.none
+                                    (model , Cmd.none)
 
                                 Success campaignsData ->
                                     case model.yourSubscriptions of
                                         NotAsked ->
-                                            model => Cmd.map HandleMsg (fetchYourSubscriptions model.apiUrl user.token user.userId)
+                                            (model , Cmd.map HandleMsg (fetchYourSubscriptions model.apiUrl user.token user.userId))
 
                                         Loading ->
-                                            model => Cmd.none
+                                            (model , Cmd.none)
 
                                         Failure error ->
-                                            let
-                                                _ =
-                                                    Debug.log "subscription error" error
-                                            in
-                                            model => Cmd.none
+                                            (model , Cmd.none)
 
                                         Success subscriptionsData ->
                                             let
@@ -481,25 +400,21 @@ setRoute maybeRoute model =
                                             in
                                             case model.yourSubscribedPlans of
                                                 NotAsked ->
-                                                    model => Cmd.map HandleMsg (fetchYourSubscribedPlans model.apiUrl user.token user.userId)
+                                                    (model , Cmd.map HandleMsg (fetchYourSubscribedPlans model.apiUrl user.token user.userId))
 
                                                 Loading ->
-                                                    model => Cmd.none
+                                                    (model , Cmd.none)
 
                                                 Failure error ->
-                                                    let
-                                                        _ =
-                                                            Debug.log "plan error" error
-                                                    in
-                                                    model => Cmd.none
+                                                    (model , Cmd.none)
 
                                                 Success plansData ->
-                                                    { model | page = Dash (Dash.init model.apiUrl token campaignsData.campaigns repos subscriptionsData.subscriptions plansData.plans) } => Cmd.none
+                                                    ({ model | page = Dash (Dash.init model.apiUrl token campaignsData.campaigns repos subscriptionsData.subscriptions plansData.plans) } , Cmd.none)
                     in
                     updatedModelAndCmd
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.DiscoverRoute ->
             case model.session.user of
@@ -517,10 +432,6 @@ setRoute maybeRoute model =
                                     Cmd.none
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
                                     Cmd.none
 
                                 Loading ->
@@ -530,12 +441,12 @@ setRoute maybeRoute model =
                                     Cmd.map HandleMsg (getCampaigns apiUrl token)
 
                         updatedPage =
-                            Discover (Discover.init token apiUrl model.allCampaigns)
+                            Discover (Discover.init model.key token apiUrl model.allCampaigns)
                     in
-                    { model | page = updatedPage } => cmd
+                    ({ model | page = updatedPage } , cmd)
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.CreateCampaignRoute ->
             case model.session.user of
@@ -556,10 +467,6 @@ setRoute maybeRoute model =
                                     Cmd.none
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
                                     Cmd.none
 
                                 Loading ->
@@ -571,10 +478,10 @@ setRoute maybeRoute model =
                         updatedPage =
                             CreateCampaign (CreateCampaign.init token userId model.repos model.apiUrl)
                     in
-                    { model | page = updatedPage } => cmd
+                    ({ model | page = updatedPage } , cmd)
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.CreateRewardsRoute ->
             case model.session.user of
@@ -614,10 +521,6 @@ setRoute maybeRoute model =
                                     Cmd.none
 
                                 Failure error ->
-                                    let
-                                        _ =
-                                            Debug.log "error" error
-                                    in
                                     Cmd.none
 
                                 Loading ->
@@ -627,12 +530,12 @@ setRoute maybeRoute model =
                                     Cmd.map HandleMsg (fetchYourCampaignsForRewards model.apiUrl token userId)
 
                         updatedPage =
-                            CreateRewards (CreateRewards.init apiUrl token campaign.id)
+                            CreateRewards (CreateRewards.init model.key apiUrl token campaign.id)
                     in
-                    { model | page = updatedPage } => cmd
+                    ({ model | page = updatedPage } , cmd)
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.CreateUserRoleRoute ->
             case model.session.user of
@@ -647,23 +550,23 @@ setRoute maybeRoute model =
                         updatedPage =
                             CreateUserRole (CreateUserRole.init token apiUrl user)
                     in
-                    { model | page = updatedPage } => Cmd.none
+                    ({ model | page = updatedPage } , Cmd.none)
 
                 Nothing ->
-                    model => Router.modifyUrl Router.HomeRoute
+                    (model , Router.modifyUrl model.key Router.HomeRoute)
 
         Just Router.NotFoundRoute ->
-            model => Cmd.none
+            (model , Cmd.none)
 
         Just Router.GithubOopsRoute ->
             let
                 updatedPage =
                     GithubOops GithubOops.init
             in
-            { model | page = updatedPage } => Cmd.none
+            ({ model | page = updatedPage } , Cmd.none)
 
         Nothing ->
-            model => Cmd.none
+            (model , Cmd.none)
 
 
 sessionChange : Sub (Maybe User)
@@ -674,7 +577,7 @@ sessionChange =
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
 updatePage page msg model =
     let
-        session =
+        pageSession =
             model.session
 
         toPage toModel toMsg subUpdate subMsg subModel =
@@ -685,42 +588,55 @@ updatePage page msg model =
             ( { model | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
     case ( msg, page ) of
+        ( ClickedLink urlRequest, _) ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Navigation.pushUrl model.key (url.path))
+
+                Browser.External href ->
+                    if href == "" then
+                        (model, Cmd.none)
+                    else
+                        (model, Navigation.load href)
+
+        ( ChangedUrl url, _) ->
+            setRoute (Router.fromLocation url) model
+
+
         ( HandleMsg (HandleFetchUser data), _ ) ->
             case data of
                 Success user ->
                     let
                         currentUser =
-                            model.session.user
+                            pageSession.user
                                 |> Maybe.withDefault User.default
 
                         updatedUser =
                             { currentUser | role = user.role }
 
                         updatedModel =
-                            { model | session = { session | user = Just updatedUser } }
+                            { model | session = { pageSession | user = Just updatedUser } }
                     in
                     case user.role of
                         0 ->
-                            updatedModel => Cmd.batch [ Request.User.storeSession updatedUser, Router.modifyUrl CreateUserRoleRoute ]
+                            (updatedModel , Cmd.batch [ Request.User.storeSession updatedUser, Router.modifyUrl model.key CreateUserRoleRoute ])
 
                         _ ->
-                            updatedModel => Cmd.batch [ Request.User.storeSession updatedUser, Router.modifyUrl DiscoverRoute ]
+                            (updatedModel , Cmd.batch [ Request.User.storeSession updatedUser, Router.modifyUrl model.key DiscoverRoute ])
 
                 _ ->
-                    model => Cmd.batch [ Router.modifyUrl HomeRoute ]
+                    (model , Cmd.batch [ Router.modifyUrl model.key HomeRoute ])
 
         ( HandleMsg (HandleFetchRepo data), _ ) ->
             let
-                session =
-                    model.session
 
                 user =
-                    session.user
+                    pageSession.user
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -750,16 +666,13 @@ updatePage page msg model =
 
         ( HandleMsg (HandleFetchYourSubscribedPlans data), _ ) ->
             let
-                session =
-                    model.session
-
                 user =
-                    session.user
+                    pageSession.user
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -776,21 +689,18 @@ updatePage page msg model =
                             url
             in
             ( { model | yourSubscribedPlans = data }
-            , modifyUrl DashRoute
+            , Router.modifyUrl model.key DashRoute
             )
 
         ( HandleMsg (HandleFetchYourSubscriptions data), _ ) ->
             let
-                session =
-                    model.session
-
                 user =
-                    session.user
+                    pageSession.user
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -807,21 +717,18 @@ updatePage page msg model =
                             url
             in
             ( { model | yourSubscriptions = data }
-            , modifyUrl DashRoute
+            , Router.modifyUrl model.key DashRoute
             )
 
         ( HandleMsg (HandleFetchCampaign data), _ ) ->
             let
-                session =
-                    model.session
-
                 user =
-                    session.user
+                    pageSession.user
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -859,7 +766,7 @@ updatePage page msg model =
                         _ ->
                             0
             in
-            ( { model | rewardsOfInterest = updatedRewards }, modifyUrl (ContributeRoute campaignId) )
+            ( { model | rewardsOfInterest = updatedRewards }, Router.modifyUrl model.key (ContributeRoute campaignId) )
 
         ( ConsumeToken stripe, Contribute subModel ) ->
             let
@@ -874,35 +781,34 @@ updatePage page msg model =
                 ( ( pageModel, cmdFromPage ), msgFromPage ) =
                     Contribute.update Contribute.MakeSubscription newSubModel
             in
-            { model | stripe = stripe, page = Contribute newSubModel } => Cmd.map ContributeMsg cmdFromPage
+            ({ model | stripe = stripe, page = Contribute newSubModel } , Cmd.map ContributeMsg cmdFromPage)
 
         ( SetRoute route, _ ) ->
             setRoute route model
 
         ( SetUser user, _ ) ->
             let
-                session =
-                    model.session
-
                 cmd =
                     -- If we just signed out, then redirect to Home.
-                    if session.user /= Nothing && user == Nothing then
-                        Router.modifyUrl Router.HomeRoute
+                    if pageSession.user /= Nothing && user == Nothing then
+                        Router.modifyUrl model.key Router.HomeRoute
+
                     else
                         Cmd.none
             in
-            { model | session = { session | user = user } }
-                => cmd
+            ({ model | session = { pageSession | user = user } }
+                , cmd)
 
         ( HomeMsg subMsg, Home subModel ) ->
             let
                 newSubModel =
-                    { subModel | url = model.githubUrl }
+                    { subModel | webDataUrl = model.githubUrl }
 
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Home.update subMsg newSubModel
+                    
             in
-            { model | page = Home pageModel } => Cmd.map HomeMsg cmd
+                ({ model | page = Home pageModel } , Cmd.map HomeMsg cmd)
 
         ( ContributeMsg subMsg, Contribute subModel ) ->
             let
@@ -917,21 +823,51 @@ updatePage page msg model =
                         Contribute.Sync ->
                             { model | page = Contribute pageModel, yourSubscriptions = NotAsked, yourSubscribedPlans = NotAsked, allCampaigns = NotAsked }
             in
-            newModel => Cmd.map ContributeMsg cmd
+            (newModel , Cmd.map ContributeMsg cmd)
 
         ( DashMsg subMsg, Dash subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Dash.update subMsg subModel
+
+                newModel =
+                    case msgFromPage of
+                        Dash.NoOp ->
+                            { model | page = Dash pageModel }
+
+                        Dash.MakeMainFetchCampaigns ->
+                            { model
+                                | page = Dash pageModel
+                                , yourCampaigns = NotAsked
+                                , allCampaigns = NotAsked
+                                , campaignOfInterest = NotAsked
+                                , repoOfInterest = NotAsked
+                                , rewardsOfInterest = NotAsked
+                            }
             in
-            { model | page = Dash pageModel } => Cmd.map DashMsg cmd
+            (newModel , Cmd.map DashMsg cmd)
 
         ( CreateRewardsMsg subMsg, CreateRewards subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     CreateRewards.update subMsg subModel
+
+                newModel =
+                    case msgFromPage of
+                        CreateRewards.NoOp ->
+                            { model | page = CreateRewards pageModel }
+
+                        CreateRewards.MakeMainFetchCampaigns ->
+                            { model
+                                | page = CreateRewards pageModel
+                                , yourCampaigns = NotAsked
+                                , allCampaigns = NotAsked
+                                , campaignOfInterest = NotAsked
+                                , repoOfInterest = NotAsked
+                                , rewardsOfInterest = NotAsked
+                            }
             in
-            { model | page = CreateRewards pageModel } => Cmd.map CreateRewardsMsg cmd
+            (newModel , Cmd.map CreateRewardsMsg cmd)
 
         ( CreateUserRoleMsg subMsg, CreateUserRole subModel ) ->
             let
@@ -946,14 +882,14 @@ updatePage page msg model =
                         CreateUserRole.UpdateUserWithRole user ->
                             let
                                 currentUser =
-                                    model.session.user
+                                    pageSession.user
                                         |> Maybe.withDefault User.default
 
                                 updatedUser =
                                     { currentUser | role = user.role }
 
                                 updatedModel =
-                                    { model | session = { session | user = Just updatedUser } }
+                                    { model | session = { pageSession | user = Just updatedUser } }
                             in
                             updatedModel
 
@@ -965,25 +901,25 @@ updatePage page msg model =
                         CreateUserRole.UpdateUserWithRole user ->
                             case user.role of
                                 1 ->
-                                    modifyUrl DiscoverRoute
+                                    Router.modifyUrl model.key DiscoverRoute
 
                                 2 ->
-                                    modifyUrl CreateCampaignRoute
+                                    Router.modifyUrl model.key CreateCampaignRoute
 
                                 3 ->
-                                    modifyUrl CreateCampaignRoute
+                                    Router.modifyUrl model.key CreateCampaignRoute
 
                                 _ ->
-                                    modifyUrl DiscoverRoute
+                                    Router.modifyUrl model.key DiscoverRoute
             in
-            { newModel | page = CreateUserRole pageModel } => updatedCmdAndMsg
+            ({ newModel | page = CreateUserRole pageModel } , updatedCmdAndMsg)
 
         ( DiscoverMsg subMsg, Discover subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     Discover.update subMsg subModel
             in
-            { model | page = Discover pageModel } => Cmd.map DiscoverMsg cmd
+            ({ model | page = Discover pageModel } , Cmd.map DiscoverMsg cmd)
 
         ( CreateCampaignMsg subMsg, CreateCampaign subModel ) ->
             let
@@ -991,19 +927,19 @@ updatePage page msg model =
                     CreateCampaign.update subMsg subModel
 
                 updatedCmd =
-                    case model.session.user of
+                    case pageSession.user of
                         Just user ->
                             case msgFromPage of
                                 CreateCampaign.NoOp ->
                                     Cmd.map CreateCampaignMsg cmd
 
                                 CreateCampaign.GoToStripeSignUp ->
-                                    Router.modifyUrl Router.StripeConnectSignUpRoute
+                                    Router.modifyUrl model.key Router.StripeConnectSignUpRoute
 
                         Nothing ->
-                            Router.modifyUrl HomeRoute
+                            Router.modifyUrl model.key HomeRoute
             in
-            { model | page = CreateCampaign pageModel } => updatedCmd
+            ({ model | page = CreateCampaign pageModel } , updatedCmd)
 
         ( TosserSignUpMsg subMsg, TosserSignUp subModel ) ->
             let
@@ -1016,13 +952,9 @@ updatePage page msg model =
                             model
 
                         TosserSignUp.SetUser user ->
-                            let
-                                session =
-                                    model.session
-                            in
                             { model | session = { user = Just user } }
             in
-            { newModel | page = TosserSignUp pageModel } => Cmd.map TosserSignUpMsg cmd
+            ({ newModel | page = TosserSignUp pageModel } , Cmd.map TosserSignUpMsg cmd)
 
         ( AboutMsg subMsg, About subModel ) ->
             let
@@ -1034,7 +966,7 @@ updatePage page msg model =
                         About.NoOp ->
                             model
             in
-            { model | page = About pageModel } => Cmd.map AboutMsg cmd
+            ({ model | page = About pageModel } , Cmd.map AboutMsg cmd)
 
         ( LoginMsg subMsg, Login subModel ) ->
             let
@@ -1053,21 +985,15 @@ updatePage page msg model =
                             in
                             { model | session = { user = Just user } }
             in
-            { model | page = Login pageModel } => Cmd.map LoginMsg cmd
+            ({ model | page = Login pageModel } , Cmd.map LoginMsg cmd)
 
         ( HandleMsg (HandleStripeIdUpdate data), _ ) ->
             let
-                _ =
-                    Debug.log "data" data
-
                 session =
                     model.session
 
                 user =
                     session.user
-
-                _ =
-                    Debug.log "session.user" session.user
 
                 token =
                     user
@@ -1088,7 +1014,7 @@ updatePage page msg model =
                 updatedModel =
                     { model | githubUrl = data }
             in
-            ( { updatedModel | page = Home { url = data } }, Cmd.none )
+            ( { updatedModel | page = Home { webDataUrl = data, apiUrl = model.apiUrl } }, Cmd.none )
 
         ( HandleMsg (HandleStripeConnectUrl data), _ ) ->
             let
@@ -1100,8 +1026,8 @@ updatePage page msg model =
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -1110,7 +1036,7 @@ updatePage page msg model =
                     updatedUser.token
             in
             ( { model | stripeConnectUrl = data }
-            , Router.modifyUrl StripeConnectSignUpRoute
+            , Router.modifyUrl model.key StripeConnectSignUpRoute
             )
 
         ( HandleMsg (HandleFetchRepos data), _ ) ->
@@ -1123,8 +1049,8 @@ updatePage page msg model =
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -1140,8 +1066,8 @@ updatePage page msg model =
 
                 repos =
                     case data of
-                        Success repos ->
-                            repos
+                        Success matchedRepos ->
+                            matchedRepos
 
                         _ ->
                             Repos.defaultSelectListRepos
@@ -1169,14 +1095,15 @@ updatePage page msg model =
                 cmd =
                     -- If we just signed out, then redirect to Home.
                     if session.user /= Nothing && user == Nothing then
-                        Router.modifyUrl Router.HomeRoute
+                        Router.modifyUrl model.key Router.HomeRoute
+
                     else
-                        Router.modifyUrl Router.CreateCampaignRoute
+                        Router.modifyUrl model.key Router.CreateCampaignRoute
 
                 updatedUser =
                     case user of
-                        Just user ->
-                            user
+                        Just matchedUser ->
+                            matchedUser
 
                         Nothing ->
                             User.default
@@ -1191,24 +1118,24 @@ updatePage page msg model =
                     CreateCampaign (CreateCampaign.init token userId model.repos model.apiUrl)
             in
             ( { model | page = updatedPage, mostBountifulIssues = data }
-            , Cmd.batch [ cmd, Router.modifyUrl Router.CreateCampaignRoute ]
+            , Cmd.batch [ cmd, Router.modifyUrl model.key Router.CreateCampaignRoute ]
             )
 
         ( HandleMsg (HandleFetchAllCampaigns data), _ ) ->
-            ( { model | allCampaigns = data }, Router.modifyUrl Router.DiscoverRoute )
+            ( { model | allCampaigns = data }, Router.modifyUrl model.key Router.DiscoverRoute )
 
         ( HandleMsg (HandleFetchCampaignsForRewards data), _ ) ->
-            ( { model | yourCampaigns = data }, Router.modifyUrl Router.CreateRewardsRoute )
+            ( { model | yourCampaigns = data }, Router.modifyUrl model.key Router.CreateRewardsRoute )
 
         ( HandleMsg (HandleFetchYourCampaigns data), _ ) ->
-            ( { model | yourCampaigns = data }, Router.modifyUrl Router.DashRoute )
+            ( { model | yourCampaigns = data }, Router.modifyUrl model.key Router.DashRoute )
 
         ( GithubOopsMsg subMsg, GithubOops subModel ) ->
             let
                 ( ( pageModel, cmd ), msgFromPage ) =
                     GithubOops.update subMsg subModel
             in
-            { model | page = GithubOops pageModel } => Cmd.map GithubOopsMsg cmd
+            ({ model | page = GithubOops pageModel } , Cmd.map GithubOopsMsg cmd)
 
         ( ToggleMenu, _ ) ->
             let
@@ -1219,7 +1146,7 @@ updatePage page msg model =
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
-            model => Cmd.none
+            (model , Cmd.none)
 
 
 burgerMenu : Model -> Html Msg
@@ -1228,6 +1155,7 @@ burgerMenu model =
         burgerMenuClass =
             if model.showMenu then
                 "button navbar-burger is-active"
+
             else
                 "button navbar-burger"
     in
@@ -1241,14 +1169,14 @@ burgerMenu model =
 burgerMenuNavItems : Model -> Html Msg
 burgerMenuNavItems model =
     let
-        session =
+        pageSession =
             model.session
 
         user =
-            session.user
+            pageSession.user
                 |> Maybe.withDefault User.default
     in
-    if session.user == Nothing then
+    if pageSession.user == Nothing then
         div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
             [ div [ class "navbar-end" ]
                 [ a [ class "navbar-item", Router.href AboutRoute ]
@@ -1257,6 +1185,7 @@ burgerMenuNavItems model =
                     ]
                 ]
             ]
+
     else
         div [ classList [ ( "navbar-menu", True ), ( "is-active", model.showMenu ) ] ]
             [ div [ class "navbar-end" ]
@@ -1298,7 +1227,7 @@ subscriptions model =
 developerHeroArea : Html Msg
 developerHeroArea =
     section [ class "hero" ]
-        [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+        [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
             [ div [ class "container" ]
                 [ div [ class "columns is-vcentered" ]
                     [ div [ class "column has-text-centered" ]
@@ -1317,10 +1246,10 @@ developerHeroArea =
         ]
 
 
-pageView : Model -> Html Msg
+pageView : Model -> Document Msg
 pageView model =
     let
-        session =
+        pageSession =
             model.session
 
         page =
@@ -1329,8 +1258,7 @@ pageView model =
         updatedBurgerMenuNavItems =
             burgerMenuNavItems model
     in
-    div []
-        [ case page of
+        case page of
             Home subModel ->
                 let
                     updatedView =
@@ -1341,9 +1269,9 @@ pageView model =
                         burgerMenu model
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.Home updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.Home updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Home", body = [updatedFrame] }
 
             StripeConnectSignUp subModel ->
                 let
@@ -1355,9 +1283,9 @@ pageView model =
                             |> Html.map StripeConnectSignUpMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.StripeConnectSignUp updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.StripeConnectSignUp updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Stripe Connect Sign Up", body = [updatedFrame] }
 
             TosserSignUp subModel ->
                 let
@@ -1369,9 +1297,9 @@ pageView model =
                             |> Html.map TosserSignUpMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.TosserSignUp updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.TosserSignUp updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Tosser Sign Up", body = [updatedFrame] }
 
             Discover subModel ->
                 let
@@ -1383,9 +1311,9 @@ pageView model =
                             |> Html.map DiscoverMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.Discover updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.Discover updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Discover", body = [updatedFrame] }
 
             Contribute subModel ->
                 let
@@ -1397,9 +1325,9 @@ pageView model =
                             |> Html.map ContributeMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.Contribute updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.Contribute updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Contribute", body = [updatedFrame] }
 
             Dash subModel ->
                 let
@@ -1411,9 +1339,9 @@ pageView model =
                             |> Html.map DashMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.Dash updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.Dash updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Dashboard", body = [updatedFrame] }
 
             About subModel ->
                 let
@@ -1425,9 +1353,9 @@ pageView model =
                             |> Html.map AboutMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.About updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.About updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "About", body = [updatedFrame] }
 
             Login subModel ->
                 let
@@ -1439,9 +1367,9 @@ pageView model =
                             |> Html.map LoginMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.Login updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.Login updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Login", body = [updatedFrame] }
 
             CreateCampaign subModel ->
                 let
@@ -1453,9 +1381,9 @@ pageView model =
                             |> Html.map CreateCampaignMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.CreateCampaign updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.CreateCampaign updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Create Campaign", body = [updatedFrame] }
 
             CreateRewards subModel ->
                 let
@@ -1467,9 +1395,9 @@ pageView model =
                             |> Html.map CreateRewardsMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.CreateRewards updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.CreateRewards updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Create Rewards", body = [updatedFrame] }
 
             CreateUserRole subModel ->
                 let
@@ -1481,9 +1409,9 @@ pageView model =
                             |> Html.map CreateUserRoleMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.CreateUserRole updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.CreateUserRole updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Create user role", body = [updatedFrame] }
 
             GithubOops subModel ->
                 let
@@ -1495,9 +1423,9 @@ pageView model =
                             |> Html.map GithubOopsMsg
 
                     updatedFrame =
-                        Page.frame updatedBurgerMenuNavItems session.user Page.GithubOops updatedView updatedBurgerMenu
+                        Page.frame updatedBurgerMenuNavItems pageSession.user Page.GithubOops updatedView updatedBurgerMenu
                 in
-                updatedFrame
+                { title = "Github Oops", body = [updatedFrame] }
 
             NotFound subModel ->
                 let
@@ -1505,20 +1433,20 @@ pageView model =
                         NotFound.view
                             |> Html.map NotFoundMsg
                 in
-                updatedView
-        ]
+                { title = "Not Found", body = [updatedView]}
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view model =
-    div []
-        [ pageView model ]
+    pageView model
 
 
 main : Program Decode.Value Model Msg
 main =
-    Navigation.programWithFlags (Router.fromLocation >> SetRoute)
+    Browser.application
         { init = init
+        , onUrlChange = ChangedUrl
+        , onUrlRequest = ClickedLink
         , update = update
         , view = view
         , subscriptions = subscriptions
@@ -1628,7 +1556,7 @@ getGitHubSignInUrl apiUrl =
 
 githubUrlDecoder : Decoder GitHubUrl
 githubUrlDecoder =
-    decode GitHubUrl
+    succeed GitHubUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
 
 
@@ -1667,7 +1595,7 @@ getStripeConnectUrl apiUrl =
 
 stripeConnectUrlUrlDecoder : Decoder StripeConnectUrl
 stripeConnectUrlUrlDecoder =
-    decode StripeConnectUrl
+    succeed StripeConnectUrl
         |> optionalAt [ "data", "attributes", "url" ] Decode.string ""
 
 
@@ -1680,7 +1608,7 @@ getRewards : String -> AuthToken -> Int -> Cmd HandleMsg
 getRewards apiUrl token campaignId =
     let
         updatedUrl =
-            apiUrl ++ "/rewards/?campaign_id=" ++ (campaignId |> toString)
+            apiUrl ++ "/rewards/?campaign_id=" ++ (campaignId |> String.fromInt)
     in
     RemoteData.Http.getWithConfig (Auth.config token) updatedUrl HandleFetchRewards Rewards.decoder
 
@@ -1712,7 +1640,7 @@ getCampaigns apiUrl token =
             1
 
         campaignsUrl =
-            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ toString page_size ++ "&page=" ++ toString page
+            updatedApiUrl ++ "/campaigns" ++ "?page_size=" ++ String.fromInt page_size ++ "&page=" ++ String.fromInt page
     in
     RemoteData.Http.getWithConfig (Auth.config token) campaignsUrl HandleFetchAllCampaigns Campaigns.decoder
 

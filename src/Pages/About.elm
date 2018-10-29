@@ -1,16 +1,15 @@
-module Pages.About exposing (..)
+module Pages.About exposing (Error, ExternalMsg(..), Field(..), Model, Msg(..), Subscriber, aboutForm, encode, init, subscriberDecoder, update, view, viewErrors)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import Json.Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (decode, optional, required)
+import Json.Decode exposing (succeed, Decoder, string)
+import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode exposing (Value, encode, object, string)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Routing.Router as Router
-import Util exposing ((=>))
-import Validate exposing (ifBlank)
+import Validate exposing (ifBlank, validate, Validator)
 
 
 type Msg
@@ -59,10 +58,10 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         UpdateEmailField str ->
-            ( { model | subscriber = { email = str } }, Cmd.none ) => NoOp
+            (( { model | subscriber = { email = str } }, Cmd.none ) , NoOp)
 
         ShowAbout ->
-            ( { model | showAbout = True }, Cmd.none ) => NoOp
+            (( { model | showAbout = True }, Cmd.none ) , NoOp)
 
 
 aboutForm : Model -> Html Msg
@@ -71,7 +70,7 @@ aboutForm model =
         about =
             if model.showAbout then
                 section [ class "hero" ]
-                    [ div [ id "mc_embed_signup", class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+                    [ div [ id "mc_embed_signup", class "hero-body", style "padding" "7rem 1.5rem" ]
                         [ div [ class "columns" ]
                             [ div [ class "column is-one-third is-offset-one-third validate" ]
                                 [ Html.form [ action "https://tossbounty.us17.list-manage.com/subscribe/post?u=a8cc56dad32e45c9cd3200f83&id=15a40eefae", class "validate", id "mc-embedded-subscribe-form", method "post", name "mc-embedded-subscribe-form", Html.Attributes.novalidate True, target "_blank" ]
@@ -108,9 +107,10 @@ aboutForm model =
                             ]
                         ]
                     ]
+
             else
                 section [ class "hero" ]
-                    [ div [ class "hero-body", style [ ( "padding", "7rem 1.5rem" ) ] ]
+                    [ div [ class "hero-body", style "padding" "7rem 1.5rem" ]
                         [ div [ class "container" ]
                             [ div [ class "columns" ]
                                 [ div [ class "column is-offset-one-third is-one-third" ]
@@ -129,7 +129,7 @@ aboutForm model =
                                     , p []
                                         [ text "TossBounty only takes a small fee of 4% from your subscriptions."
                                         ]
-                                    , button [ class "button is-primary is-large", style [ ( "margin-top", "1rem" ) ], onClick ShowAbout ]
+                                    , button [ class "button is-primary is-large", style "margin-top" "1rem", onClick ShowAbout ]
                                         [ text "Subscribe" ]
                                     ]
                                 ]
@@ -148,15 +148,15 @@ viewErrors errors =
         |> ul [ class "help is-danger" ]
 
 
-validate : Subscriber -> List Error
-validate =
+formValidator : Validator (Field, String) Subscriber  
+formValidator =
     Validate.all
-        [ .email >> ifBlank (Email => "Email can't be blank.") ]
+        [ ifBlank .email (Email , "Email can't be blank.") ]
 
 
 subscriberDecoder : Decoder Subscriber
 subscriberDecoder =
-    decode Subscriber
+    succeed Subscriber
         |> Json.Decode.Pipeline.required "email" Json.Decode.string
 
 

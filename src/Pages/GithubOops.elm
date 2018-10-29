@@ -1,9 +1,8 @@
-module Pages.GithubOops exposing (..)
+module Pages.GithubOops exposing (ExternalMsg(..), Model, Msg(..), init, update, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (class, href, style)
 import RemoteData exposing (RemoteData(..), WebData)
-import Util exposing ((=>))
 
 
 init : Model
@@ -27,7 +26,7 @@ update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         NoOp ->
-            ( model, Cmd.none ) => ExternalNoOp
+            (( model, Cmd.none ) , ExternalNoOp)
 
 
 view : Model -> Html Msg

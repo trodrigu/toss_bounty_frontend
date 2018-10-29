@@ -18,13 +18,16 @@ decoder =
     Decode.string
         |> Decode.map AuthToken
 
+
 fallback : AuthToken
 fallback =
     AuthToken ""
 
+
 init : String -> AuthToken
 init token =
     AuthToken token
+
 
 toString : AuthToken -> String
 toString authToken =
@@ -33,6 +36,5 @@ toString authToken =
             case authToken of
                 AuthToken token ->
                     token
-
     in
-        tokenString
+    tokenString
